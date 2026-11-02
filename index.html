@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CamScanner Web Studio Pro - অফিশিয়াল ডকুমেন্ট স্ক্যানার ও পাসপোর্ট ফটো ল্যাব</title>
+    <link rel="icon" type="image/png" href="assets/cs_icon.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/styles.css">
+    <!-- PDF & OCR Client Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+</head>
+<body data-theme="dark">
+
+    <!-- Top App Header -->
+    <header class="cs-header">
+        <div class="cs-brand">
+            <img src="assets/cs_icon.png" alt="CamScanner" class="cs-logo-img">
+            <h1>CamScanner <span class="cs-vip-badge">VIP PRO</span></h1>
+        </div>
+
+        <div class="cs-search-box">
+            <span class="cs-search-icon">🔍</span>
+            <input type="text" id="cs-doc-search" class="cs-search-input" placeholder="ডকুমেন্ট, ট্যাগ বা OCR টেক্সট খুঁজুন (Search)...">
+        </div>
+
+        <div class="cs-header-actions">
+            <button id="cs-btn-lang" class="cs-icon-btn">🌐 English</button>
+            <button id="cs-btn-theme" class="cs-icon-btn">🌙 ডার্ক</button>
+        </div>
+    </header>
+
+    <!-- Category Filter Pills Ribbon -->
+    <div class="cs-pills-bar">
+        <button class="cs-pill active" data-category="All Docs">📁 সকল ফাইল (All Docs)</button>
+        <button class="cs-pill" data-category="ID Photo">📸 পাসপোর্ট ছবি (ID Photo)</button>
+        <button class="cs-pill" data-category="ID Card">🪪 আইডি কার্ড ২-সাইড</button>
+        <button class="cs-pill" data-category="PDF Tools">📑 পিডিএফ টুলস</button>
+        <button class="cs-pill" data-category="Watermark">✍️ ওয়াটারমার্ক ও সিগনেচার</button>
+        <button class="cs-pill" data-category="OCR">🔍 ওসিআর টেক্সট</button>
+    </div>
+
+    <!-- Main Screens Container -->
+    <main class="cs-main">
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 1: HOME (DOCUMENT GALLERY / LIBRARY) -->
+        <!-- ============================================================= -->
+        <section id="screen-home" class="cs-screen active">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h2 style="font-size:1.1rem; font-weight:700; color:var(--cs-text-white);">আমার সংরক্ষিত ফাইলসমূহ (My Documents)</h2>
+                <span style="font-size:0.8rem; color:var(--cs-text-dim);">সর্বশেষ স্ক্যান অনুযায়ী সাজানো</span>
+            </div>
+
+            <!-- Documents List & Grid Container -->
+            <div id="cs-docs-container" class="cs-docs-grid"></div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 2: DOCUMENT DETAIL & MULTI-PAGE PDF STUDIO (CAMSCANNER) -->
+        <!-- ============================================================= -->
+        <section id="screen-doc-detail" class="cs-screen">
+            <div class="cs-docdetail-header">
+                <div class="cs-docdetail-title-box">
+                    <button id="btn-back-to-home" class="cs-icon-btn" style="border:none; font-size:1.2rem;">←</button>
+                    <input type="text" id="docdetail-title" class="cs-docdetail-title-input" value="CamScanner Document">
+                </div>
+
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <!-- Big Iconic CamScanner PDF Button -->
+                    <button id="btn-open-pdf-dialog" class="cs-pdf-prominent-btn">
+                        <img src="assets/icon_type_pdf.webp" alt="PDF">
+                        <span>PDF এক্সপোর্ট</span>
+                    </button>
+                    <button id="btn-share-current-doc" class="cs-icon-btn" style="border:none;" title="Share">
+                        <img src="assets/home_toolbar_share.webp" alt="Share" style="width:20px; height:20px;">
+                    </button>
+                </div>
+            </div>
+
+            <!-- Multi-page grid -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+                <span id="docdetail-page-counter" style="font-size:0.85rem; color:var(--cs-teal); font-weight:700;">মোট পেজ: 1</span>
+                <span style="font-size:0.75rem; color:var(--cs-text-dim);">যেকোনো পেজে ক্লিক করে এডিট বা রোটেশন করুন</span>
+            </div>
+            <div id="docdetail-pages-container" class="cs-docdetail-pages-grid"></div>
+
+            <!-- Document Bottom Action Toolbar -->
+            <div class="cs-docdetail-bottombar">
+                <button class="cs-doc-bottom-action" id="btn-doc-add-page">
+                    <span class="icon">➕</span>
+                    <span>নতুন পেজ</span>
+                </button>
+                <button class="cs-doc-bottom-action" id="btn-doc-pdf-trigger">
+                    <span class="icon">📑</span>
+                    <span>পিডিএফ</span>
+                </button>
+                <button class="cs-doc-bottom-action" id="btn-doc-ocr-trigger">
+                    <span class="icon">🔤</span>
+                    <span>ওসিআর</span>
+                </button>
+                <button class="cs-doc-bottom-action" id="btn-doc-watermark-trigger">
+                    <span class="icon">🛡️</span>
+                    <span>জলছাপ</span>
+                </button>
+                <button class="cs-doc-bottom-action" id="btn-doc-sign-trigger">
+                    <span class="icon">✍️</span>
+                    <span>স্বাক্ষর</span>
+                </button>
+                <button class="cs-doc-bottom-action" id="btn-doc-compress-trigger">
+                    <span class="icon">🗜️</span>
+                    <span>কম্প্রেস</span>
+                </button>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 3: AUTHENTIC ID CARD 2-SIDED SCANNER STUDIO -->
+        <!-- ============================================================= -->
+        <section id="screen-idcard" class="cs-screen">
+            <!-- 3-Step CamScanner Progress Bar -->
+            <div class="cs-idcard-stepper">
+                <div class="cs-step-item active" id="idstep-1-indicator">
+                    <div class="cs-step-circle">1</div>
+                    <span>সামনের পাতা (Front)</span>
+                </div>
+                <div style="flex:1; height:2px; background:var(--cs-border-dark); margin:0 10px;"></div>
+                <div class="cs-step-item" id="idstep-2-indicator">
+                    <div class="cs-step-circle">2</div>
+                    <span>পেছনের পাতা (Back)</span>
+                </div>
+                <div style="flex:1; height:2px; background:var(--cs-border-dark); margin:0 10px;"></div>
+                <div class="cs-step-item" id="idstep-3-indicator">
+                    <div class="cs-step-circle">3</div>
+                    <span>A4 প্রিন্ট কপি (Sheet)</span>
+                </div>
+            </div>
+
+            <!-- Card Template Selector -->
+            <div class="cs-card-template-grid">
+                <div class="cs-template-btn active" data-tmpl="nid">
+                    <img src="assets/ic_idcard_idcard_en_60px.webp" alt="NID">
+                    <span>জাতীয় পরিচয়পত্র / NID</span>
+                </div>
+                <div class="cs-template-btn" data-tmpl="driver_license">
+                    <img src="assets/ic_idcard_drive_license_60px.webp" alt="License">
+                    <span>ড্রাইভিং লাইসেন্স</span>
+                </div>
+                <div class="cs-template-btn" data-tmpl="passport">
+                    <img src="assets/ic_idcard_passport_60px.webp" alt="Passport">
+                    <span>পাসপোর্ট বায়োপেজ</span>
+                </div>
+            </div>
+
+            <!-- Step 1 & 2: Interactive Card Scanner Viewport -->
+            <div id="idcard-capture-view" style="display:block;">
+                <div class="cs-card-scanner-frame" id="idcard-frame">
+                    <img src="assets/ic_idcard_head.webp" class="cs-card-silhouette" alt="Card Silhouette">
+                    <h3 id="idcard-capture-title" style="font-size:1rem; font-weight:700; color:#fff;">কার্ডের সামনের পাতা ফ্রেমের মাঝে রাখুন</h3>
+                    <p style="font-size:0.8rem; color:var(--cs-text-dim);">চারপাশের কোণগুলো স্বয়ংক্রিয়ভাবে ডিটেক্ট হয়ে সোজা হবে</p>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <button id="btn-idcard-open-cam" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); padding:8px 18px;">📷 ক্যামেরা দিয়ে তুলুন</button>
+                        <label class="cs-icon-btn" style="cursor:pointer; padding:8px 18px;">
+                            📁 অ্যালবাম থেকে আপলোড
+                            <input type="file" id="idcard-step-upload" accept="image/*" style="display:none;">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Thumbs of taken sides -->
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:480px; margin:0 auto;">
+                    <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:8px; padding:8px; text-align:center;">
+                        <span style="font-size:0.75rem; color:var(--cs-text-dim); display:block; margin-bottom:4px;">সামনের পাতা (Front)</span>
+                        <div id="idcard-front-preview-box" style="height:100px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <span style="font-size:0.75rem; color:#64748b;">খালি</span>
+                        </div>
+                    </div>
+                    <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:8px; padding:8px; text-align:center;">
+                        <span style="font-size:0.75rem; color:var(--cs-text-dim); display:block; margin-bottom:4px;">পেছনের পাতা (Back)</span>
+                        <div id="idcard-back-preview-box" style="height:100px; background:#000; border-radius:6px; display:flex; align-items:center; justify-content:center; overflow:hidden;">
+                            <span style="font-size:0.75rem; color:#64748b;">খালি</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: A4 Combine & Anti-Theft Watermark Screen -->
+            <div id="idcard-a4-view" style="display:none; grid-template-columns: 1fr 340px; gap: 20px;">
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:16px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <span class="cs-vip-badge">A4 1:1 Scale Print Certified</span>
+                        <div style="display:flex; gap:8px;">
+                            <button id="btn-idcard-print" class="cs-icon-btn">🖨️ প্রিন্ট করুন</button>
+                            <button id="btn-idcard-pdf-download" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">📄 A4 PDF ডাউনলোড</button>
+                        </div>
+                    </div>
+                    <div id="idcard-a4-canvas-container" style="background:#0B0D0F; border-radius:8px; min-height:520px; display:flex; align-items:center; justify-content:center; padding:16px; overflow:hidden;"></div>
+                </div>
+
+                <!-- A4 Settings Sidebar -->
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:16px; display:flex; flex-direction:column; gap:14px;">
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">🛡️ অ্যান্টি-থেফট ওয়াটারমার্ক (জলছাপ)</div>
+                        <input type="text" id="idcard-watermark-text" value="FOR VERIFICATION ONLY" style="width:100%; background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:8px; border-radius:6px; font-size:0.85rem;">
+                        <div style="display:flex; gap:6px; flex-wrap:wrap; margin-top:6px;">
+                            <button class="cs-pill" style="font-size:0.7rem; padding:2px 8px;" onclick="document.getElementById('idcard-watermark-text').value = 'শুধুমাত্র সিম রেজিস্ট্রেশন'; updateIDCardA4Preview();">সিম রেজিস্ট্রেশন</button>
+                            <button class="cs-pill" style="font-size:0.7rem; padding:2px 8px;" onclick="document.getElementById('idcard-watermark-text').value = 'শুধুমাত্র ব্যাংক ভেরিফিকেশন'; updateIDCardA4Preview();">ব্যাংক একাউন্ট</button>
+                            <button class="cs-pill" style="font-size:0.7rem; padding:2px 8px;" onclick="document.getElementById('idcard-watermark-text').value = 'FOR VERIFICATION ONLY'; updateIDCardA4Preview();">OFFICIAL</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">📐 পেজ লেআউট ফরম্যাট</div>
+                        <select id="idcard-layout-mode" style="width:100%; background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:8px; border-radius:6px; font-size:0.85rem;">
+                            <option value="vertical">একটি নিচে আরেকটি (Vertical Center)</option>
+                            <option value="horizontal">পাশাপাশি (Horizontal Side-by-Side)</option>
+                            <option value="front_only">শুধুমাত্র সামনের পাতা</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">✨ ক্যামস্ক্যানার ফিল্টার</div>
+                        <select id="idcard-filter-mode" style="width:100%; background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:8px; border-radius:6px; font-size:0.85rem;">
+                            <option value="magic">🪄 ম্যাজিক কালার (Magic Color)</option>
+                            <option value="bw">⬛ কালো ও সাদা (B&W)</option>
+                            <option value="original">🖼️ আসল ছবি (Original)</option>
+                        </select>
+                    </div>
+
+                    <button id="btn-idcard-retake" class="cs-icon-btn" style="justify-content:center; margin-top:10px;">🔄 কার্ড পুনরায় স্ক্যান করুন</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 4: PASSPORT & ID PHOTO STUDIO -->
+        <!-- ============================================================= -->
+        <section id="screen-passport" class="cs-screen">
+            <div style="display:grid; grid-template-columns: 1fr 380px; gap: 20px; align-items: start;">
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:16px; display:flex; flex-direction:column; min-height:560px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                        <span id="passport-dimensions-badge" class="cs-vip-badge" style="font-size:0.8rem; padding:4px 10px;">
+                            ৪০ × ৫০ মিমি | 300 DPI
+                        </span>
+                        <div style="display:flex; gap:8px;">
+                            <label class="cs-icon-btn" style="cursor:pointer;">
+                                📁 ছবি আপলোড
+                                <input type="file" id="passport-upload" accept="image/*" style="display:none;">
+                            </label>
+                            <button id="btn-passport-camera" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal);">📷 লাইভ সেলফি</button>
+                        </div>
+                    </div>
+
+                    <div style="flex:1; background:#0B0D0F; border-radius:8px; border:1px dashed var(--cs-border-dark); display:flex; align-items:center; justify-content:center; overflow:hidden; position:relative; min-height:460px;">
+                        <div id="passport-empty-state" style="text-align:center; padding:40px 20px;">
+                            <div style="font-size:48px; margin-bottom:12px;">👤</div>
+                            <h3 style="font-size:1.1rem; color:#fff;">পাসপোর্ট সাইজ ছবি তৈরি করুন</h3>
+                            <p style="color:var(--cs-text-dim); max-width:380px; font-size:0.85rem; margin-top:6px;">
+                                ছবি আপলোড করুন অথবা ক্যামেরা দিয়ে লাইভ তুলুন। অটোমেটিক সাইজিং, স্যুট চেঞ্জার, ব্যাকগ্রাউন্ড কালার এবং প্রিন্ট শিট তৈরি হবে।
+                            </p>
+                        </div>
+                        <canvas id="passport-canvas" style="display:none; max-width:90%; max-height:90%; box-shadow:0 10px 30px rgba(0,0,0,0.6); cursor:grab;"></canvas>
+                    </div>
+
+                    <div style="margin-top:10px; display:flex; justify-content:space-between; font-size:0.8rem; color:var(--cs-text-dim);">
+                        <span>💡 মাউস ড্র্যাগ করে ছবি পজিশন করুন।</span>
+                        <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                            <input type="checkbox" id="toggle-guidelines" checked>
+                            <span>বায়োমেট্রিক ফেস গাইড দেখান</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:16px; max-height:calc(100vh - 160px); overflow-y:auto;">
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">📐 দেশের সাইজ ও ফরম্যাট (Presets)</div>
+                        <select id="passport-preset-select" style="width:100%; background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:8px 12px; border-radius:8px; outline:none; font-size:0.85rem;"></select>
+
+                        <div id="custom-size-inputs" style="display:none; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                            <input type="number" id="custom-width" placeholder="প্রস্থ (মিমি)" value="35" style="background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:6px; border-radius:6px;">
+                            <input type="number" id="custom-height" placeholder="উচ্চতা (মিমি)" value="45" style="background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:6px; border-radius:6px;">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">🔄 জুম ও অ্যাঙ্গেল</div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--cs-text-dim); margin-bottom:4px;">
+                            <span>জুম:</span> <span id="passport-zoom-val">1.1</span>
+                        </div>
+                        <input type="range" id="passport-zoom" min="0.3" max="3" step="0.05" value="1.1" style="width:100%; accent-color:var(--cs-teal);">
+
+                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--cs-text-dim); margin-top:8px; margin-bottom:4px;">
+                            <span>ঘোরান:</span> <span id="passport-rotate-val">0°</span>
+                        </div>
+                        <input type="range" id="passport-rotate" min="-45" max="45" step="1" value="0" style="width:100%; accent-color:var(--cs-teal);">
+                    </div>
+
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">🎨 ব্যাকগ্রাউন্ড কালার</div>
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                            <div class="color-dot passport-color-dot active" style="width:30px; height:30px; border-radius:50%; background:#ffffff; border:1px solid #ccc; cursor:pointer;" data-color="#FFFFFF" title="সাদা"></div>
+                            <div class="color-dot passport-color-dot" style="width:30px; height:30px; border-radius:50%; background:#f5f5f0; cursor:pointer;" data-color="#F5F5F0" title="অফ-হোয়াইট"></div>
+                            <div class="color-dot passport-color-dot" style="width:30px; height:30px; border-radius:50%; background:#38bdf8; cursor:pointer;" data-color="#38BDF8" title="আকাশি নীল"></div>
+                            <div class="color-dot passport-color-dot" style="width:30px; height:30px; border-radius:50%; background:#1d4ed8; cursor:pointer;" data-color="#1D4ED8" title="অফিসিয়াল নেভি ব্লু"></div>
+                            <div class="color-dot passport-color-dot" style="width:30px; height:30px; border-radius:50%; background:#dc2626; cursor:pointer;" data-color="#DC2626" title="লাল"></div>
+                            <div class="color-dot passport-color-dot" style="width:30px; height:30px; border-radius:50%; background:#e2e8f0; cursor:pointer;" data-color="#E2E8F0" title="ধূসর"></div>
+                            <input type="color" id="passport-custom-color" value="#ffffff" style="width:30px; height:30px; border-radius:50%; border:none; cursor:pointer;" title="কাস্টম কালার">
+                        </div>
+
+                        <div style="margin-top:8px; background:var(--cs-bg-dark); padding:8px; border-radius:6px;">
+                            <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px; color:var(--cs-text-dim);">
+                                <span>ম্যাজিক ব্যাকগ্রাউন্ড রিমুভার</span>
+                                <span>টলারেন্স: <span id="bg-tolerance-val">35</span></span>
+                            </div>
+                            <input type="range" id="bg-tolerance" min="10" max="90" value="35" style="width:100%; accent-color:var(--cs-teal);" oninput="document.getElementById('bg-tolerance-val').textContent = this.value;">
+                            <button id="btn-magic-bg" class="cs-icon-btn" style="width:100%; justify-content:center; margin-top:6px; font-size:0.8rem;">🪄 ব্যাকগ্রাউন্ড পরিবর্তন করুন</button>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">👔 ফরমাল স্যুট চেঞ্জার (Suit Overlay)</div>
+                        <div id="suits-container" style="display:grid; grid-template-columns:1fr 1fr; gap:8px;"></div>
+                        <div id="suit-adjust-controls" style="display:none; flex-direction:column; gap:6px; margin-top:8px; background:var(--cs-bg-dark); padding:8px; border-radius:6px;">
+                            <label style="font-size:0.75rem; color:var(--cs-text-dim);">স্যুটের সাইজ:</label>
+                            <input type="range" id="suit-scale" min="0.5" max="2" step="0.05" value="1" style="accent-color:var(--cs-teal);">
+                            <label style="font-size:0.75rem; color:var(--cs-text-dim);">স্যুটের অবস্থান (Vertical Y):</label>
+                            <input type="range" id="suit-y-pos" min="40" max="95" step="1" value="72" style="accent-color:var(--cs-teal);">
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-size:0.85rem; font-weight:700; color:var(--cs-teal); margin-bottom:6px;">✨ বিউটিফাই ও টিউনিং</div>
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--cs-text-dim);">
+                            <span>উজ্জ্বলতা:</span> <span id="passport-brightness-val">0</span>
+                        </div>
+                        <input type="range" id="passport-brightness" min="-50" max="50" value="0" style="width:100%; accent-color:var(--cs-teal);">
+
+                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:var(--cs-text-dim); margin-top:6px;">
+                            <span>স্কিন স্মুথিং:</span> <span id="passport-smooth-val">0</span>
+                        </div>
+                        <input type="range" id="passport-smooth" min="0" max="80" value="0" style="width:100%; accent-color:var(--cs-teal);">
+                    </div>
+
+                    <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
+                        <button id="btn-download-single" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); justify-content:center; font-weight:700; padding:10px;">💾 সিঙ্গেল পাসপোর্ট ছবি (PNG 300 DPI)</button>
+                        <button id="btn-preview-sheet" class="cs-icon-btn" style="background:#2563eb; color:#fff; border-color:#2563eb; justify-content:center; font-weight:700; padding:10px;">🖨️ প্রিন্ট শিট তৈরি করুন (৪×৬" বা A4)</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 5: WATERMARK & SIGNATURE STUDIO -->
+        <!-- ============================================================= -->
+        <section id="screen-watermark" class="cs-screen">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:20px;">
+                    <h3 style="font-size:1rem; font-weight:700; color:var(--cs-teal); margin-bottom:10px;">🛡️ অ্যান্টি-কাউন্টারফিট ওয়াটারমার্ক</h3>
+                    <label style="font-size:0.8rem; color:var(--cs-text-dim);">জলছাপের টেক্সট:</label>
+                    <input type="text" id="watermark-text" value="FOR VERIFICATION ONLY" style="width:100%; background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:8px 12px; border-radius:8px; margin-top:4px; margin-bottom:12px;">
+
+                    <label style="font-size:0.8rem; color:var(--cs-text-dim);">স্বচ্ছতা (Opacity):</label>
+                    <input type="range" id="watermark-opacity" min="0.05" max="0.6" step="0.05" value="0.2" style="width:100%; accent-color:var(--cs-teal); margin-bottom:12px;">
+
+                    <label style="font-size:0.8rem; color:var(--cs-text-dim);">রঙ (Color):</label>
+                    <input type="color" id="watermark-color" value="#dc2626" style="width:100%; height:36px; border:none; border-radius:6px; cursor:pointer; margin-bottom:12px;">
+
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.85rem; cursor:pointer; margin-bottom:16px;">
+                        <input type="checkbox" id="watermark-repeat" checked>
+                        <span>সম্পূর্ণ পেজ জুড়ে ডায়াগনাল প্যাটার্ন দিন</span>
+                    </label>
+
+                    <button id="btn-apply-watermark" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); width:100%; justify-content:center; padding:10px; font-weight:700;">🛡️ ডকুমেন্টে ওয়াটারমার্ক যুক্ত করুন</button>
+                </div>
+
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:20px;">
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                        <h3 style="font-size:1rem; font-weight:700; color:var(--cs-teal);">✍️ ডিজিটাল সিগনেচার প্যাড</h3>
+                        <button id="btn-clear-sig" class="cs-icon-btn" style="padding:4px 8px; font-size:0.75rem;">মুছে ফেলুন</button>
+                    </div>
+
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+                        <div style="display:flex; gap:6px;">
+                            <div class="color-dot pen-color-dot active" style="width:24px; height:24px; border-radius:50%; background:#000; cursor:pointer;" data-color="#000000"></div>
+                            <div class="color-dot pen-color-dot" style="width:24px; height:24px; border-radius:50%; background:#1e3a8a; cursor:pointer;" data-color="#1E3A8A"></div>
+                            <div class="color-dot pen-color-dot" style="width:24px; height:24px; border-radius:50%; background:#b91c1c; cursor:pointer;" data-color="#B91C1C"></div>
+                        </div>
+                        <input type="range" id="sig-pen-size" min="1" max="8" value="3" style="width:70px; accent-color:var(--cs-teal);">
+                    </div>
+
+                    <canvas id="signature-pad" width="450" height="200" style="background:#fff; width:100%; height:200px; border-radius:8px; cursor:crosshair;"></canvas>
+
+                    <button id="btn-stamp-signature" class="cs-icon-btn" style="background:#2563eb; color:#fff; border-color:#2563eb; width:100%; justify-content:center; padding:10px; font-weight:700; margin-top:14px;">🖋️ ডকুমেন্টের নিচে স্বাক্ষরটি স্ট্যাম্প করুন</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 6: OCR TEXT EXTRACTOR -->
+        <!-- ============================================================= -->
+        <section id="screen-ocr" class="cs-screen">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:20px;">
+                    <h3 style="font-size:1rem; font-weight:700; color:var(--cs-teal); margin-bottom:10px;">📄 স্ক্যান করা ডকুমেন্ট</h3>
+                    <p style="font-size:0.85rem; color:var(--cs-text-dim); margin-bottom:12px;">লাইব্রেরির সাম্প্রতিক স্ক্যান থেকে স্বয়ংক্রিয়ভাবে টেক্সট রিকগনিশন করা হবে।</p>
+                    <div style="height:6px; background:var(--cs-bg-dark); border-radius:3px; overflow:hidden; margin-bottom:12px;">
+                        <div id="ocr-progress-bar" style="height:100%; width:0%; background:var(--cs-teal); transition:width 0.3s; display:none;"></div>
+                    </div>
+                    <button id="btn-run-ocr" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); width:100%; justify-content:center; padding:10px; font-weight:700;">🔍 টেক্সট এক্সট্রাক্ট করুন (Run OCR)</button>
+                </div>
+
+                <div style="background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:20px;">
+                    <h3 style="font-size:1rem; font-weight:700; color:var(--cs-teal); margin-bottom:10px;">📋 এক্সট্রাক্ট করা টেক্সট</h3>
+                    <textarea id="ocr-output" style="width:100%; height:220px; background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); color:#fff; border-radius:8px; padding:12px; font-family:monospace; font-size:0.85rem; resize:vertical; outline:none;"></textarea>
+                    <div style="display:flex; gap:10px; margin-top:10px;">
+                        <button id="btn-copy-ocr" class="cs-icon-btn" style="flex:1; justify-content:center;">📋 টেক্সট কপি করুন</button>
+                        <button id="btn-download-ocr-txt" class="cs-icon-btn" style="flex:1; justify-content:center; background:var(--cs-teal); color:#fff; border-color:var(--cs-teal);">💾 .TXT ডাউনলোড</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 7: TOOLS HUB -->
+        <!-- ============================================================= -->
+        <section id="screen-tools" class="cs-screen">
+            <div class="cs-tools-hub">
+                <div>
+                    <div class="cs-tool-section-title">
+                        <span>📸</span> স্ক্যানিং ও ক্যাপচার টুলস
+                    </div>
+                    <div class="cs-tools-grid">
+                        <div class="cs-tool-item" data-action="tool-idphoto">
+                            <div class="cs-tool-icon">👤</div>
+                            <span class="cs-tool-name">পাসপোর্ট ফটো মেকার</span>
+                            <span class="cs-tool-badge">NEW</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-idcard">
+                            <div class="cs-tool-icon">🪪</div>
+                            <span class="cs-tool-name">আইডি কার্ড ২-সাইড</span>
+                            <span class="cs-tool-badge">HOT</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-camera-doc">
+                            <div class="cs-tool-icon">📄</div>
+                            <span class="cs-tool-name">ডকুমেন্ট স্ক্যান</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-book">
+                            <div class="cs-tool-icon">📖</div>
+                            <span class="cs-tool-name">বুক স্ক্যান (২ পেজ স্প্লিট)</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-ocr">
+                            <div class="cs-tool-icon">🔤</div>
+                            <span class="cs-tool-name">ওসিআর (স্ক্যান টু ওয়ার্ড)</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cs-tool-section-title">
+                        <span>📑</span> পিডিএফ প্রসেসিং ও কনভার্ট
+                    </div>
+                    <div class="cs-tools-grid">
+                        <div class="cs-tool-item" data-action="tool-pdfmerge">
+                            <div class="cs-tool-icon">🧩</div>
+                            <span class="cs-tool-name">পিডিএফ মার্জ করুন</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-compress">
+                            <div class="cs-tool-icon">🗜️</div>
+                            <span class="cs-tool-name">পিডিএফ কম্প্রেস (সাইজ কমান)</span>
+                            <span class="cs-tool-badge">PRO</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-watermark">
+                            <div class="cs-tool-icon">🛡️</div>
+                            <span class="cs-tool-name">অ্যান্টি-থেফট ওয়াটারমার্ক</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-watermark">
+                            <div class="cs-tool-icon">✍️</div>
+                            <span class="cs-tool-name">ই-সিগনেচার ও সীল</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ============================================================= -->
+        <!-- SCREEN 8: ME / PROFILE -->
+        <!-- ============================================================= -->
+        <section id="screen-me" class="cs-screen">
+            <div style="max-width:600px; margin:0 auto; background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); border-radius:12px; padding:24px; display:flex; flex-direction:column; gap:16px;">
+                <div style="background:linear-gradient(135deg, #FF8F00, #FF6F00); border-radius:12px; padding:16px; color:#fff; display:flex; justify-content:space-between; align-items:center;">
+                    <div>
+                        <div style="font-size:1.1rem; font-weight:800;">👑 CamScanner VIP Unlocked</div>
+                        <div style="font-size:0.8rem; opacity:0.9;">সকল প্রো ফিচার, এইচডি এক্সপোর্ট ও নো ওয়াটারমার্ক আনলকড</div>
+                    </div>
+                    <span style="background:rgba(255,255,255,0.25); padding:4px 8px; border-radius:6px; font-size:0.75rem; font-weight:700;">LIFETIME</span>
+                </div>
+
+                <div style="background:var(--cs-bg-dark); border-radius:8px; padding:14px; border:1px solid var(--cs-border-dark);">
+                    <div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:6px;">
+                        <span>লোকাল স্টোরেজ (Local Vault):</span>
+                        <span id="me-doc-count" style="color:var(--cs-teal); font-weight:700;">1 টি ডকুমেন্ট</span>
+                    </div>
+                    <div style="height:6px; background:#334155; border-radius:3px; overflow:hidden;">
+                        <div style="width:12%; height:100%; background:var(--cs-teal);"></div>
+                    </div>
+                </div>
+
+                <div style="font-size:0.85rem; color:var(--cs-text-dim);">
+                    <p>• ভার্সন: CamScanner Studio Pro v6.81.0 Web Edition</p>
+                    <p style="margin-top:4px;">• ১০০% ক্লায়েন্ট-সাইড অফলাইন প্রাইভেসি এনক্রিপ্টেড।</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="cs-tabbar">
+        <button class="cs-tab-item active" data-screen="screen-home">
+            <img src="assets/cs_ic_tabbar_home_normal.webp" alt="Home">
+            <span>ডকুমেন্টস</span>
+        </button>
+        <button class="cs-tab-item" data-screen="screen-home">
+            <img src="assets/cs_ic_tabbar_files_normal.webp" alt="Files">
+            <span>ফাইলস</span>
+        </button>
+
+        <button class="cs-fab-shutter" id="cs-fab-camera" title="স্ক্যান করুন">
+            <img src="assets/cs_ic_tabbar_cs_logo.webp" alt="Camera">
+        </button>
+
+        <button class="cs-tab-item" data-screen="screen-tools">
+            <img src="assets/cs_ic_tabbar_tools_normal.webp" alt="Tools">
+            <span>টুলস</span>
+        </button>
+        <button class="cs-tab-item" data-screen="screen-me">
+            <img src="assets/cs_ic_tabbar_me_normal.webp" alt="Me">
+            <span>প্রোফাইল</span>
+        </button>
+    </nav>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 1: FULL-SCREEN CAMERA VIEWFINDER -->
+    <!-- ============================================================= -->
+    <div id="cs-camera-overlay" class="cs-camera-overlay">
+        <div class="cs-camera-topbar">
+            <button id="cs-btn-close-camera" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer;">✕</button>
+            <div style="display:flex; align-items:center; gap:16px;">
+                <span class="cs-vip-badge">HD AUTO</span>
+                <span style="font-size:1.1rem; cursor:pointer;" title="Flash">⚡</span>
+            </div>
+        </div>
+
+        <div class="cs-camera-viewport">
+            <video id="cs-camera-video" autoplay playsinline></video>
+            <div id="cs-biometric-face-guide" class="cs-biometric-face-guide"></div>
+        </div>
+
+        <div class="cs-camera-mode-carousel">
+            <button class="cs-camera-mode-btn active" data-mode="docs">ডকুমেন্ট (DOCS)</button>
+            <button class="cs-camera-mode-btn" data-mode="id_photo">পাসপোর্ট ছবি (ID PHOTO)</button>
+            <button class="cs-camera-mode-btn" data-mode="id_card">আইডি কার্ড (ID CARD)</button>
+            <button class="cs-camera-mode-btn" data-mode="book">বুক স্ক্যান (BOOK)</button>
+            <button class="cs-camera-mode-btn" data-mode="to_word">টু ওয়ার্ড (TO WORD)</button>
+        </div>
+
+        <div class="cs-camera-shutter-bar">
+            <label style="cursor:pointer; display:flex; flex-direction:column; align-items:center; color:#fff; font-size:0.75rem;">
+                <span style="font-size:24px;">🖼️</span>
+                <span>অ্যালবাম</span>
+                <input type="file" id="cs-camera-import-file" accept="image/*" style="display:none;">
+            </label>
+
+            <button class="cs-shutter-main-btn" id="cs-btn-shutter">
+                <div class="cs-shutter-inner"></div>
+            </button>
+
+            <div style="font-size:0.75rem; color:#9AA0A6; text-align:center;">
+                <span style="font-size:22px; display:block;">🔄</span>
+                <span>ক্যামেরা</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 2: 8-POINT INTELLIGENT CROP VIEW & LOUPE -->
+    <!-- ============================================================= -->
+    <div id="cs-crop-screen" class="cs-crop-screen">
+        <div class="cs-crop-topbar">
+            <button id="cs-btn-crop-close" style="background:transparent; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">✕</button>
+            <span style="font-size:0.95rem; font-weight:700;">ক্রপ ও সীমানা নির্ধারণ (Crop & Align)</span>
+            <span style="font-size:0.8rem; color:var(--cs-teal); font-weight:700;">ধাপ ১/২</span>
+        </div>
+
+        <div class="cs-crop-viewport">
+            <canvas id="cs-crop-canvas"></canvas>
+            <canvas id="cs-crop-loupe" width="110" height="110" class="cs-crop-loupe"></canvas>
+        </div>
+
+        <div class="cs-crop-bottombar">
+            <button class="cs-crop-btn" id="cs-btn-crop-auto">
+                <img src="assets/ic_crop_auto.webp" alt="Auto">
+                <span>অটো ডিটেক্ট</span>
+            </button>
+            <button class="cs-crop-btn" id="cs-btn-crop-all">
+                <img src="assets/ic_crop_all.webp" alt="Full">
+                <span>সম্পূর্ণ পেজ</span>
+            </button>
+            <button class="cs-crop-btn" id="cs-btn-crop-rotate">
+                <img src="assets/ic_crop_rotate.webp" alt="Rotate">
+                <span>ঘোরান</span>
+            </button>
+            <button class="cs-crop-btn primary" id="cs-btn-crop-done">
+                <img src="assets/ic_crop_toolbar_done.webp" alt="Next">
+                <span>পরবর্তী (Next)</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 3: FILTER & ENHANCEMENT SCREEN -->
+    <!-- ============================================================= -->
+    <div id="cs-filter-screen" class="cs-filter-screen">
+        <div class="cs-filter-topbar">
+            <button id="cs-btn-filter-back" style="background:transparent; border:none; color:#fff; font-size:1.2rem; cursor:pointer;">←</button>
+            <input type="text" id="cs-doc-title-input" value="CamScanner Document" style="background:transparent; border:none; color:#fff; font-weight:700; text-align:center; font-size:0.95rem; outline:none;">
+            <button id="cs-btn-filter-done" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); padding:4px 12px; font-weight:700;">✓ সংরক্ষণ</button>
+        </div>
+
+        <div class="cs-filter-viewport" id="cs-filter-viewport-wrap"></div>
+
+        <div class="cs-filter-carousel">
+            <div class="cs-filter-thumb-card active" data-filter="magic">
+                <div class="cs-filter-thumb-box">
+                    <img src="assets/ic_filter_magic_color_5213.webp" alt="Magic Color">
+                </div>
+                <span>ম্যাজিক কালার</span>
+            </div>
+            <div class="cs-filter-thumb-card" data-filter="bw">
+                <div class="cs-filter-thumb-box">
+                    <img src="assets/ic_filter_bw_5213.webp" alt="B&W">
+                </div>
+                <span>কালো ও সাদা</span>
+            </div>
+            <div class="cs-filter-thumb-card" data-filter="bw">
+                <div class="cs-filter-thumb-box">
+                    <img src="assets/ic_filter_bw2_5213.webp" alt="B&W 2">
+                </div>
+                <span>কালো ও সাদা ২</span>
+            </div>
+            <div class="cs-filter-thumb-card" data-filter="grayscale">
+                <div class="cs-filter-thumb-box">
+                    <img src="assets/ic_filter_gray_mode_5213.webp" alt="Grayscale">
+                </div>
+                <span>গ্রে-স্কেল</span>
+            </div>
+            <div class="cs-filter-thumb-card" data-filter="lighten">
+                <div class="cs-filter-thumb-box">
+                    <img src="assets/ic_filter_lighten_5213.webp" alt="Lighten">
+                </div>
+                <span>উজ্জ্বল</span>
+            </div>
+            <div class="cs-filter-thumb-card" data-filter="original">
+                <div class="cs-filter-thumb-box">
+                    <img src="assets/ic_filter_original_5213.webp" alt="Original">
+                </div>
+                <span>আসল ছবি</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 4: CAMSCANNER DEDICATED PDF EXPORT DIALOG -->
+    <!-- ============================================================= -->
+    <div id="cs-pdf-export-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width:550px;">
+            <div class="modal-header">
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <img src="assets/icon_type_pdf.webp" alt="PDF" style="width:28px; height:28px;">
+                    <h3 style="font-size:1.1rem; color:#fff;">CamScanner PDF Export Studio</h3>
+                </div>
+                <button onclick="document.getElementById('cs-pdf-export-modal').classList.remove('active');" class="cs-icon-btn" style="border:none; font-size:1.2rem;">✕</button>
+            </div>
+
+            <!-- PDF Specs Box -->
+            <div style="background:var(--cs-bg-dark); border:1px solid var(--cs-border-dark); border-radius:10px; padding:14px; display:flex; justify-content:space-between; align-items:center;">
+                <div>
+                    <div id="pdf-doc-name-display" style="font-weight:700; font-size:0.95rem; color:#fff;">Document.pdf</div>
+                    <div id="pdf-page-count-display" style="font-size:0.8rem; color:var(--cs-teal); margin-top:2px;">1 পেজ অন্তর্ভুক্ত</div>
+                </div>
+                <div style="text-align:right;">
+                    <span id="pdf-est-size-display" class="cs-vip-badge">~1.2 MB</span>
+                    <div style="font-size:0.75rem; color:var(--cs-text-dim); margin-top:2px;">A4 স্ট্যান্ডার্ড স্কেল</div>
+                </div>
+            </div>
+
+            <!-- Compression Options -->
+            <div>
+                <label style="font-size:0.82rem; font-weight:700; color:var(--cs-text-dim); display:block; margin-bottom:6px;">কম্প্রেশন ও ফাইলের মান (File Quality):</label>
+                <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:8px;">
+                    <label class="cs-template-btn active" id="pdf-comp-high" style="padding:10px 4px; cursor:pointer;">
+                        <input type="radio" name="pdf_compress" value="original" checked style="display:none;">
+                        <span style="font-size:1.1rem;">💎</span>
+                        <span style="font-size:0.75rem;">আসল মান (Original)</span>
+                    </label>
+                    <label class="cs-template-btn" id="pdf-comp-med" style="padding:10px 4px; cursor:pointer;">
+                        <input type="radio" name="pdf_compress" value="medium" style="display:none;">
+                        <span style="font-size:1.1rem;">⚡</span>
+                        <span style="font-size:0.75rem;">স্ট্যান্ডার্ড (WhatsApp)</span>
+                    </label>
+                    <label class="cs-template-btn" id="pdf-comp-low" style="padding:10px 4px; cursor:pointer;">
+                        <input type="radio" name="pdf_compress" value="low" style="display:none;">
+                        <span style="font-size:1.1rem;">🗜️</span>
+                        <span style="font-size:0.75rem;">স্মল সাইজ (Fast Upload)</span>
+                    </label>
+                </div>
+            </div>
+
+            <!-- PDF Page Numbers & Password -->
+            <div style="display:flex; flex-direction:column; gap:8px; background:var(--cs-bg-dark); padding:10px; border-radius:8px;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                    <input type="checkbox" id="pdf-opt-page-num" checked>
+                    <span>ফুটার পেজ নম্বর যুক্ত করুন (Page 1/3)</span>
+                </label>
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
+                    <input type="checkbox" id="pdf-opt-watermark-note">
+                    <span>ডকুমেন্টে CamScanner ভেরিফাইড সিল যুক্ত করুন</span>
+                </label>
+            </div>
+
+            <!-- Actions -->
+            <div style="display:flex; gap:10px; margin-top:8px;">
+                <button id="btn-print-direct-pdf" class="cs-icon-btn" style="flex:1; justify-content:center; padding:10px;">🖨️ সরাসরি প্রিন্ট করুন</button>
+                <button id="btn-download-final-pdf" class="cs-icon-btn" style="flex:1.5; justify-content:center; background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700; padding:10px;">📥 PDF সেভ করুন (Download)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 5: PRINT SHEET LAB MODAL -->
+    <!-- ============================================================= -->
+    <div id="print-modal" class="modal-overlay">
+        <div class="modal-content" style="max-width:850px;">
+            <div class="modal-header">
+                <h3>🖨️ পাসপোর্ট ফটো প্রিন্ট শিট ল্যাব (Print Sheet Lab)</h3>
+                <button onclick="document.getElementById('print-modal').classList.remove('active');" class="cs-icon-btn" style="border:none; font-size:1.2rem;">✕</button>
+            </div>
+
+            <div style="display:grid; grid-template-columns: repeat(4, 1fr); gap:12px; background:var(--cs-bg-dark); padding:12px; border-radius:8px;">
+                <div>
+                    <label style="font-size:0.75rem; color:var(--cs-text-dim);">কাগজের সাইজ:</label>
+                    <select id="sheet-paper-size" style="width:100%; background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:6px; border-radius:6px; font-size:0.85rem;">
+                        <option value="4x6">৪×৬ ইঞ্চি (১০×১৫ সেমি)</option>
+                        <option value="A4">A4 সাইজ পেপার</option>
+                        <option value="5x7">৫×৭ ইঞ্চি পেপার</option>
+                    </select>
+                </div>
+                <div>
+                    <label style="font-size:0.75rem; color:var(--cs-text-dim);">ছবির সংখ্যা:</label>
+                    <select id="sheet-photo-count" style="width:100%; background:var(--cs-card-dark); border:1px solid var(--cs-border-dark); color:#fff; padding:6px; border-radius:6px; font-size:0.85rem;">
+                        <option value="6">৬ টি ছবি</option>
+                        <option value="8">৮ টি ছবি</option>
+                        <option value="4">৪ টি ছবি</option>
+                        <option value="12">১২ টি ছবি</option>
+                        <option value="16">১৬ টি ছবি</option>
+                        <option value="24">২৪ টি ছবি</option>
+                    </select>
+                </div>
+                <div style="display:flex; flex-direction:column; justify-content:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
+                        <input type="checkbox" id="sheet-cut-lines" checked>
+                        <span>কাটার দাগ (Cut Lines)</span>
+                    </label>
+                </div>
+                <div style="display:flex; flex-direction:column; justify-content:center;">
+                    <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
+                        <input type="checkbox" id="sheet-border" checked>
+                        <span>বর্ডার ফ্রেম</span>
+                    </label>
+                </div>
+            </div>
+
+            <div id="print-sheet-preview-wrap" style="width:100%; min-height:360px; background:var(--cs-bg-dark); border-radius:8px; display:flex; align-items:center; justify-content:center; overflow:hidden; padding:16px;"></div>
+
+            <div style="display:flex; justify-content:flex-end; gap:12px;">
+                <button id="btn-download-sheet-img" class="cs-icon-btn">🖼️ হাই-রেজোলিউশন ইমেজ (JPG)</button>
+                <button id="btn-download-sheet-pdf" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">📄 প্রিন্ট-রেডি PDF ডাউনলোড</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="js/suits.js"></script>
+    <script src="js/image_processor.js"></script>
+    <script src="js/camscanner_engine.js"></script>
+    <script src="js/crop_view.js"></script>
+    <script src="js/passport_studio.js"></script>
+    <script src="js/idcard_scanner.js"></script>
+    <script src="js/watermark_signature.js"></script>
+    <script src="js/ocr_engine.js"></script>
+    <script src="js/pdf_exporter.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
