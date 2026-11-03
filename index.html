@@ -50,9 +50,21 @@
         <!-- SCREEN 1: HOME (DOCUMENT GALLERY / LIBRARY) -->
         <!-- ============================================================= -->
         <section id="screen-home" class="cs-screen active">
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-                <h2 style="font-size:1.1rem; font-weight:700; color:var(--cs-text-white);">আমার সংরক্ষিত ফাইলসমূহ (My Documents)</h2>
-                <span style="font-size:0.8rem; color:var(--cs-text-dim);">সর্বশেষ স্ক্যান অনুযায়ী সাজানো</span>
+            <!-- Batch Upload & Quick Actions Toolbar -->
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px; margin-bottom:14px; flex-wrap:wrap;">
+                <div>
+                    <h2 style="font-size:1.15rem; font-weight:700; color:var(--cs-text-white);">আমার সংরক্ষিত ফাইলসমূহ (My Documents)</h2>
+                    <span style="font-size:0.8rem; color:var(--cs-text-dim);">সর্বশেষ স্ক্যান ও স্বয়ংক্রিয় প্রসেসিং ফাইলসমূহ</span>
+                </div>
+                <div style="display:flex; gap:10px; align-items:center;">
+                    <label class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); cursor:pointer; font-weight:700; padding:8px 16px; box-shadow:0 4px 14px rgba(0,168,132,0.4);" title="একসাথে একাধিক ছবি আপলোড করুন">
+                        📂 একাধিক ছবি আপলোড (Batch Import)
+                        <input type="file" id="cs-batch-upload-home" accept="image/*" multiple style="display:none;">
+                    </label>
+                    <button id="cs-btn-home-camera" class="cs-icon-btn" style="background:var(--cs-card-hover); font-weight:600; padding:8px 14px;">
+                        📷 ক্যামেরা স্ক্যান
+                    </button>
+                </div>
             </div>
 
             <!-- Documents List & Grid Container -->
@@ -81,10 +93,15 @@
                 </div>
             </div>
 
-            <!-- Multi-page grid -->
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px;">
+            <!-- Multi-page grid header -->
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-top:16px; flex-wrap:wrap; gap:10px;">
                 <span id="docdetail-page-counter" style="font-size:0.85rem; color:var(--cs-teal); font-weight:700;">মোট পেজ: 1</span>
-                <span style="font-size:0.75rem; color:var(--cs-text-dim);">যেকোনো পেজে ক্লিক করে এডিট বা রোটেশন করুন</span>
+                <div style="display:flex; gap:8px;">
+                    <label class="cs-icon-btn" style="padding:5px 12px; font-size:0.78rem; cursor:pointer; background:rgba(0,168,132,0.15); border-color:var(--cs-teal); color:#fff; font-weight:600;" title="একাধিক পেজ একসাথে আপলোড করুন">
+                        ➕ একাধিক পেজ যুক্ত করুন
+                        <input type="file" id="docdetail-add-page-upload" accept="image/*" multiple style="display:none;">
+                    </label>
+                </div>
             </div>
             <div id="docdetail-pages-container" class="cs-docdetail-pages-grid"></div>
 
@@ -547,7 +564,10 @@
     <!-- ============================================================= -->
     <div id="cs-camera-overlay" class="cs-camera-overlay">
         <div class="cs-camera-topbar">
-            <button id="cs-btn-close-camera" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer;">✕</button>
+            <button id="cs-btn-close-camera" style="background:transparent; border:none; color:#fff; font-size:1.4rem; cursor:pointer;" title="Close">✕</button>
+            <button id="cs-btn-toggle-autocapture" class="cs-pill active" style="font-size:0.75rem; padding:4px 10px; background:rgba(0,168,132,0.25); border-color:var(--cs-teal); color:#fff; cursor:pointer;" title="ক্যাপচার টগল করুন">
+                ⚡ অটো-ক্যাপচার: চালু (ON)
+            </button>
             <div style="display:flex; align-items:center; gap:16px;">
                 <span class="cs-vip-badge">HD AUTO</span>
                 <span style="font-size:1.1rem; cursor:pointer;" title="Flash">⚡</span>
@@ -556,6 +576,18 @@
 
         <div class="cs-camera-viewport">
             <video id="cs-camera-video" autoplay playsinline></video>
+            <!-- Real-Time Auto Document Frame & Scanner Beam -->
+            <div id="cs-camera-live-frame" class="cs-camera-live-frame">
+                <div class="cs-camera-laser"></div>
+                <div class="cs-corner-tl"></div>
+                <div class="cs-corner-tr"></div>
+                <div class="cs-corner-bl"></div>
+                <div class="cs-corner-br"></div>
+                <div class="cs-camera-status-pill">
+                    <span class="dot"></span>
+                    <span id="cs-camera-status-text">স্বয়ংক্রিয় ফ্রেম ডিটেকশন চালু (Auto-Detect Active)</span>
+                </div>
+            </div>
             <div id="cs-biometric-face-guide" class="cs-biometric-face-guide"></div>
         </div>
 
@@ -568,13 +600,13 @@
         </div>
 
         <div class="cs-camera-shutter-bar">
-            <label style="cursor:pointer; display:flex; flex-direction:column; align-items:center; color:#fff; font-size:0.75rem;">
+            <label style="cursor:pointer; display:flex; flex-direction:column; align-items:center; color:#fff; font-size:0.75rem;" title="একাধিক ছবি আপলোড">
                 <span style="font-size:24px;">🖼️</span>
-                <span>অ্যালবাম</span>
-                <input type="file" id="cs-camera-import-file" accept="image/*" style="display:none;">
+                <span>অ্যালবাম (মাল্টিপল)</span>
+                <input type="file" id="cs-camera-import-file" accept="image/*" multiple style="display:none;">
             </label>
 
-            <button class="cs-shutter-main-btn" id="cs-btn-shutter">
+            <button class="cs-shutter-main-btn" id="cs-btn-shutter" title="ছবি তুলুন">
                 <div class="cs-shutter-inner"></div>
             </button>
 
@@ -669,6 +701,17 @@
                 </div>
                 <span>আসল ছবি</span>
             </div>
+        </div>
+
+        <!-- Filter Bottom Action Bar (Clear Next & Save Buttons) -->
+        <div class="cs-filter-bottom-actions">
+            <button class="cs-icon-btn" id="cs-btn-filter-recrop" style="padding:8px 16px;">
+                <span>✂️</span>
+                <span>পুনরায় ক্রপ (Recrop)</span>
+            </button>
+            <button class="cs-icon-btn" id="cs-btn-filter-next" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700; padding:10px 24px; box-shadow:0 4px 14px rgba(0,168,132,0.4); font-size:0.95rem;">
+                <span>➡️ পরবর্তী ও সেভ করুন (Next & Save)</span>
+            </button>
         </div>
     </div>
 
@@ -789,6 +832,21 @@
                 <button id="btn-download-sheet-img" class="cs-icon-btn">🖼️ হাই-রেজোলিউশন ইমেজ (JPG)</button>
                 <button id="btn-download-sheet-pdf" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">📄 প্রিন্ট-রেডি PDF ডাউনলোড</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Batch Processing Progress Indicator Toast -->
+    <div id="cs-batch-progress-modal" class="cs-batch-progress-modal" style="display:none;">
+        <div class="cs-batch-progress-card">
+            <div class="cs-batch-spinner"></div>
+            <div style="flex:1;">
+                <div id="cs-batch-progress-title" style="font-weight:700; font-size:0.9rem; color:#fff;">ছবি প্রসেসিং হচ্ছে...</div>
+                <div id="cs-batch-progress-sub" style="font-size:0.75rem; color:var(--cs-teal); margin-top:2px;">অটোমেটিক ক্রপ ও ব্রাইটনেস অ্যাডজাস্টমেন্ট চলছে</div>
+                <div style="background:#242b35; height:6px; border-radius:3px; overflow:hidden; margin-top:6px;">
+                    <div id="cs-batch-progress-bar" style="width:0%; height:100%; background:var(--cs-teal); transition:width 0.2s;"></div>
+                </div>
+            </div>
+            <span id="cs-batch-progress-count" style="font-weight:800; color:#fff; font-size:0.9rem;">1/1</span>
         </div>
     </div>
 

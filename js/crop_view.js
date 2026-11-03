@@ -30,8 +30,8 @@ class CropView {
 
         const img = this.engine.currentImage;
         const rect = this.canvas.parentElement.getBoundingClientRect();
-        const maxW = rect.width - 20;
-        const maxH = 500;
+        const maxW = Math.max(200, (rect.width ? rect.width - 24 : window.innerWidth - 40));
+        const maxH = Math.max(200, (rect.height ? rect.height - 24 : window.innerHeight - 150));
 
         const scale = Math.min(maxW / img.width, maxH / img.height);
         this.scaleRatio = scale;

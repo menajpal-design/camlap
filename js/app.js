@@ -30,6 +30,7 @@ function initCamScannerApp() {
     setupTabNavigation();
     setupHeaderAndSearch();
     setupCategoryPills();
+    setupBatchUploadHandlers();
     renderDocumentLibrary();
 
     setupCameraViewfinder();
@@ -47,6 +48,117 @@ function initCamScannerApp() {
     setupProfileScreen();
 
     renderSuitSelector();
+}
+
+/**
+ * -------------------------------------------------------------------------
+ * BATCH / MULTI-FILE UPLOAD ENGINE
+ * Automatically processes multiple images:
+ * - Sobel edge detection & auto quad crop
+ * - Auto brightness & shadow lifting
+ * - CamScanner signature Magic Color filter
+ * - Appends to target document or creates a new multi-page document
+ * -------------------------------------------------------------------------
+ */
+function setupBatchUploadHandlers() {
+    // Home screen batch upload
+    const homeBatch = document.getElementById('cs-batch-upload-home');
+    if (homeBatch) {
+        homeBatch.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length) {
+                handleBatchFileUpload(e.target.files);
+                e.target.value = '';
+            }
+        });
+    }
+
+    // Home screen quick camera button
+    const homeCamBtn = document.getElementById('cs-btn-home-camera');
+    if (homeCamBtn) {
+        homeCamBtn.addEventListener('click', () => {
+            openCameraViewfinder('docs');
+        });
+    }
+}
+
+function handleBatchFileUpload(fileList, targetDocId = null) {
+    const files = Array.from(fileList).filter(f => f.type.startsWith('image/'));
+    if (!files.length) {
+        alert('অনুগ্রহ করে এক বা একাধিক ছবি নির্বাচন করুন (Please select image files)');
+        return;
+    }
+
+    const modal = document.getElementById('cs-batch-progress-modal');
+    const bar = document.getElementById('cs-batch-progress-bar');
+    const countEl = document.getElementById('cs-batch-progress-count');
+    const titleEl = document.getElementById('cs-batch-progress-title');
+    const subEl = document.getElementById('cs-batch-progress-sub');
+
+    if (modal) modal.style.display = 'block';
+
+    const processedPages = [];
+    let currentIndex = 0;
+
+    function processNext() {
+        if (currentIndex >= files.length) {
+            // Done processing all files!
+            if (bar) bar.style.width = '100%';
+            if (titleEl) titleEl.textContent = 'সকল ছবি সফলভাবে প্রসেস সম্পন্ন!';
+            if (subEl) subEl.textContent = 'ডকুমেন্ট আপডেট হচ্ছে...';
+
+            setTimeout(() => {
+                if (modal) modal.style.display = 'none';
+
+                if (targetDocId) {
+                    const doc = csEngine.documents.find(d => d.id === targetDocId);
+                    if (doc) {
+                        processedPages.forEach(pData => doc.pages.push(pData));
+                        doc.pageCount = doc.pages.length;
+                        csEngine.saveToStorage();
+                        openDocumentDetail(targetDocId);
+                    }
+                } else {
+                    const newDoc = {
+                        id: 'doc_' + Date.now(),
+                        title: `CamScanner Batch ${new Date().toLocaleDateString('bn-BD')}`,
+                        category: 'All Docs',
+                        date: new Date().toLocaleDateString('bn-BD', { month: 'short', day: 'numeric', year: 'numeric' }),
+                        pageCount: processedPages.length,
+                        thumbnail: processedPages[0],
+                        pages: processedPages
+                    };
+                    csEngine.documents.unshift(newDoc);
+                    csEngine.saveToStorage();
+                    openDocumentDetail(newDoc.id);
+                }
+            }, 450);
+            return;
+        }
+
+        const file = files[currentIndex];
+        const percent = Math.round(((currentIndex) / files.length) * 100);
+        if (bar) bar.style.width = `${percent}%`;
+        if (countEl) countEl.textContent = `${currentIndex + 1} / ${files.length}`;
+        if (titleEl) titleEl.textContent = `ছবি প্রসেস হচ্ছে (${currentIndex + 1}/${files.length})...`;
+        if (subEl) subEl.textContent = `${file.name} - অটো-ক্রপ ও ব্রাইটনেস অ্যাডজাস্ট`;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            csEngine.autoProcessAndCropImage(e.target.result, (warpedCanvas) => {
+                const dataUrl = warpedCanvas ? warpedCanvas.toDataURL('image/jpeg', 0.92) : e.target.result;
+                processedPages.push(dataUrl);
+                currentIndex++;
+                processNext();
+            });
+        };
+        reader.onerror = () => {
+            currentIndex++;
+            processNext();
+        };
+        reader.readAsDataURL(file);
+    }
+
+    processNext();
 }
 
 /**
@@ -86,6 +198,9 @@ function navigateToScreen(screenId) {
     if (target) {
         target.classList.add('active');
     }
+
+    // Toggle body class to hide tab bar in document detail mode so action bar is 100% visible
+    document.body.classList.toggle('in-doc-detail', screenId === 'screen-doc-detail');
 
     if (screenId === 'screen-home') {
         renderDocumentLibrary();
@@ -261,9 +376,22 @@ function setupDocumentDetailScreen() {
     }
 
     // Add Page to Current Document
-    document.getElementById('btn-doc-add-page').addEventListener('click', () => {
-        openCameraViewfinder('docs');
-    });
+    const addPageBtn = document.getElementById('btn-doc-add-page');
+    if (addPageBtn) {
+        addPageBtn.addEventListener('click', () => {
+            openCameraViewfinder('docs');
+        });
+    }
+
+    // Batch Add Pages to Current Document
+    const addPageUpload = document.getElementById('docdetail-add-page-upload');
+    if (addPageUpload) {
+        addPageUpload.addEventListener('change', (e) => {
+            if (e.target.files && e.target.files.length) {
+                handleBatchFileUpload(e.target.files, csEngine.currentDocId);
+            }
+        });
+    }
 
     // PDF triggers
     document.getElementById('btn-open-pdf-dialog').addEventListener('click', () => {
@@ -602,9 +730,13 @@ function updateIDCardA4Preview() {
 
 /**
  * -------------------------------------------------------------------------
- * 7. AUTHENTIC CAMERA VIEWFINDER WITH MODE CAROUSEL
+ * 7. AUTHENTIC CAMERA VIEWFINDER WITH MODE CAROUSEL & AUTO-DETECTION
  * -------------------------------------------------------------------------
  */
+let cameraDetectTimer = null;
+let consecutiveDetections = 0;
+let autoCaptureActive = true;
+
 function setupCameraViewfinder() {
     const modal = document.getElementById('cs-camera-overlay');
     const video = document.getElementById('cs-camera-video');
@@ -612,6 +744,17 @@ function setupCameraViewfinder() {
     const closeBtn = document.getElementById('cs-btn-close-camera');
     const importInput = document.getElementById('cs-camera-import-file');
     const faceGuide = document.getElementById('cs-biometric-face-guide');
+    const autoCapBtn = document.getElementById('cs-btn-toggle-autocapture');
+
+    // Auto-capture toggle button
+    if (autoCapBtn) {
+        autoCapBtn.addEventListener('click', () => {
+            autoCaptureActive = !autoCaptureActive;
+            autoCapBtn.classList.toggle('active', autoCaptureActive);
+            autoCapBtn.textContent = autoCaptureActive ? '⚡ অটো-ক্যাপচার: চালু (ON)' : '⚡ অটো-ক্যাপচার: বন্ধ (OFF)';
+            autoCapBtn.style.background = autoCaptureActive ? 'rgba(0,168,132,0.25)' : 'rgba(255,255,255,0.1)';
+        });
+    }
 
     const modeButtons = document.querySelectorAll('.cs-camera-mode-btn');
     modeButtons.forEach(btn => {
@@ -624,6 +767,10 @@ function setupCameraViewfinder() {
 
             if (faceGuide) {
                 faceGuide.style.display = mode === 'id_photo' ? 'block' : 'none';
+            }
+            const liveFrame = document.getElementById('cs-camera-live-frame');
+            if (liveFrame) {
+                liveFrame.style.display = (mode === 'id_photo') ? 'none' : 'flex';
             }
         });
     });
@@ -644,14 +791,19 @@ function setupCameraViewfinder() {
 
     if (importInput) {
         importInput.addEventListener('change', (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = (evt) => {
-                closeCameraViewfinder();
-                handleCapturedImage(evt.target.result);
-            };
-            reader.readAsDataURL(file);
+            const files = Array.from(e.target.files);
+            if (!files || files.length === 0) return;
+            closeCameraViewfinder();
+
+            if (files.length > 1) {
+                handleBatchFileUpload(files);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (evt) => {
+                    handleCapturedImage(evt.target.result);
+                };
+                reader.readAsDataURL(files[0]);
+            }
         });
     }
 
@@ -660,10 +812,73 @@ function setupCameraViewfinder() {
     }
 }
 
+function startCameraDetectionLoop() {
+    stopCameraDetectionLoop();
+    const video = document.getElementById('cs-camera-video');
+    const liveFrame = document.getElementById('cs-camera-live-frame');
+    const statusText = document.getElementById('cs-camera-status-text');
+    if (!video) return;
+
+    const offCanvas = document.createElement('canvas');
+    offCanvas.width = 320;
+    offCanvas.height = 240;
+    const offCtx = offCanvas.getContext('2d');
+
+    cameraDetectTimer = setInterval(() => {
+        if (!cameraMediaStream || video.readyState < 2) return;
+
+        // Run auto-detect in docs and id_card mode
+        if (csEngine.activeCameraMode !== 'docs' && csEngine.activeCameraMode !== 'id_card') {
+            if (liveFrame) liveFrame.classList.remove('detected');
+            return;
+        }
+
+        try {
+            offCtx.drawImage(video, 0, 0, 320, 240);
+            const corners = ImageProcessor.detectDocumentCorners(offCanvas);
+            const minX = Math.min(...corners.map(p => p.x));
+            const maxX = Math.max(...corners.map(p => p.x));
+            const minY = Math.min(...corners.map(p => p.y));
+            const maxY = Math.max(...corners.map(p => p.y));
+            const spanW = maxX - minX;
+            const spanH = maxY - minY;
+
+            if (spanW > 100 && spanH > 80) {
+                consecutiveDetections++;
+                if (liveFrame) liveFrame.classList.add('detected');
+                if (statusText) statusText.textContent = `ডকুমেন্ট শনাক্ত হয়েছে (${consecutiveDetections}/3)... স্থির রাখুন`;
+
+                if (autoCaptureActive && consecutiveDetections >= 3) {
+                    consecutiveDetections = 0;
+                    if (statusText) statusText.textContent = `✓ স্ক্যান সম্পন্ন হচ্ছে...`;
+                    stopCameraDetectionLoop();
+                    const shutterBtn = document.getElementById('cs-btn-shutter');
+                    if (shutterBtn) shutterBtn.click();
+                }
+            } else {
+                consecutiveDetections = Math.max(0, consecutiveDetections - 1);
+                if (liveFrame) liveFrame.classList.remove('detected');
+                if (statusText) statusText.textContent = `স্বয়ংক্রিয় ফ্রেম ডিটেকশন চালু (Auto-Detect Active)`;
+            }
+        } catch (e) {
+            // Frame processing catch
+        }
+    }, 350);
+}
+
+function stopCameraDetectionLoop() {
+    if (cameraDetectTimer) {
+        clearInterval(cameraDetectTimer);
+        cameraDetectTimer = null;
+    }
+    consecutiveDetections = 0;
+}
+
 function openCameraViewfinder(defaultMode = 'docs') {
     const modal = document.getElementById('cs-camera-overlay');
     const video = document.getElementById('cs-camera-video');
     const faceGuide = document.getElementById('cs-biometric-face-guide');
+    const liveFrame = document.getElementById('cs-camera-live-frame');
 
     csEngine.activeCameraMode = defaultMode;
     document.querySelectorAll('.cs-camera-mode-btn').forEach(btn => {
@@ -672,6 +887,10 @@ function openCameraViewfinder(defaultMode = 'docs') {
 
     if (faceGuide) {
         faceGuide.style.display = defaultMode === 'id_photo' ? 'block' : 'none';
+    }
+    if (liveFrame) {
+        liveFrame.style.display = defaultMode === 'id_photo' ? 'none' : 'flex';
+        liveFrame.classList.remove('detected');
     }
 
     navigator.mediaDevices.getUserMedia({
@@ -685,12 +904,14 @@ function openCameraViewfinder(defaultMode = 'docs') {
         video.srcObject = stream;
         video.play();
         modal.classList.add('active');
+        startCameraDetectionLoop();
     }).catch(err => {
         document.getElementById('cs-camera-import-file').click();
     });
 }
 
 function closeCameraViewfinder() {
+    stopCameraDetectionLoop();
     if (cameraMediaStream) {
         cameraMediaStream.getTracks().forEach(t => t.stop());
         cameraMediaStream = null;
@@ -801,17 +1022,36 @@ function setupFilterScreen() {
         });
     });
 
-    // Save & Done -> Opens Document Detail Screen!
-    document.getElementById('cs-btn-filter-done').addEventListener('click', () => {
+    const handleSaveAndOpen = () => {
         const titleInput = document.getElementById('cs-doc-title-input');
         const title = titleInput ? titleInput.value : null;
 
         const savedDoc = csEngine.saveActivePageToLibrary(title);
         closeFilterScreen();
         openDocumentDetail(savedDoc.id);
-    });
+    };
 
-    document.getElementById('cs-btn-filter-back').addEventListener('click', closeFilterScreen);
+    // Save & Done button on topbar
+    const doneBtn = document.getElementById('cs-btn-filter-done');
+    if (doneBtn) doneBtn.addEventListener('click', handleSaveAndOpen);
+
+    // Next & Save button on bottombar
+    const nextBtn = document.getElementById('cs-btn-filter-next');
+    if (nextBtn) nextBtn.addEventListener('click', handleSaveAndOpen);
+
+    // Recrop button on bottombar
+    const recropBtn = document.getElementById('cs-btn-filter-recrop');
+    if (recropBtn) {
+        recropBtn.addEventListener('click', () => {
+            closeFilterScreen();
+            if (csEngine.currentImage) {
+                openCropScreen(csEngine.currentImage.src);
+            }
+        });
+    }
+
+    const backBtn = document.getElementById('cs-btn-filter-back');
+    if (backBtn) backBtn.addEventListener('click', closeFilterScreen);
 }
 
 function openFilterScreen(canvas) {

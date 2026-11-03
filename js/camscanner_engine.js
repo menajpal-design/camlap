@@ -130,7 +130,7 @@ class CamScannerEngine {
     }
 
     /**
-     * Start new document from an image src
+     * Start new document from an image src with Automatic Edge & Corner Detection
      */
     startNewScan(imageSrc, callback) {
         const img = new Image();
@@ -138,8 +138,95 @@ class CamScannerEngine {
         img.onload = () => {
             this.currentImage = img;
             this.cropRotation = 0;
-            this.setupInitial8CropPoints(img.width, img.height);
+            // Use Automatic Document Edge Detection to find paper boundary
+            this.autoDetectCrop();
             if (callback) callback();
+        };
+        img.src = imageSrc;
+    }
+
+    /**
+     * Automatic Document Corner & Boundary Detection
+     */
+    autoDetectCrop() {
+        if (!this.currentImage) return;
+        try {
+            this.cropPoints = ImageProcessor.detectDocumentCorners(this.currentImage);
+        } catch (e) {
+            console.warn('Auto corner detect fallback:', e);
+            this.setupInitial8CropPoints(this.currentImage.width, this.currentImage.height);
+        }
+    }
+
+    /**
+     * Fully Automatic Pipeline: Detects Corners, Crops, and Applies Auto Brightness & Magic Filter
+     * Used for batch/multi-file uploads and auto-capture!
+     */
+    autoProcessAndCropImage(imageSrc, callback) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onerror = () => {
+            console.error('Failed to load image for auto process');
+            if (callback) callback(null);
+        };
+        img.onload = () => {
+            try {
+                let corners8;
+                try {
+                    corners8 = ImageProcessor.detectDocumentCorners(img);
+                } catch (e) {
+                    console.warn('Auto corner detect failed:', e);
+                }
+                if (!corners8 || corners8.length < 8) {
+                    const padX = img.width * 0.04;
+                    const padY = img.height * 0.04;
+                    corners8 = [
+                        { x: padX, y: padY, id: 'tl' },
+                        { x: img.width / 2, y: padY, id: 't' },
+                        { x: img.width - padX, y: padY, id: 'tr' },
+                        { x: img.width - padX, y: img.height / 2, id: 'r' },
+                        { x: img.width - padX, y: img.height - padY, id: 'br' },
+                        { x: img.width / 2, y: img.height - padY, id: 'b' },
+                        { x: padX, y: img.height - padY, id: 'bl' },
+                        { x: padX, y: img.height / 2, id: 'l' }
+                    ];
+                }
+                const corners = [corners8[0], corners8[2], corners8[4], corners8[6]];
+
+                const topW = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
+                const btmW = Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y);
+                const lftH = Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y);
+                const rgtH = Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y);
+
+                const targetW = Math.max(100, Math.round(Math.max(topW, btmW)));
+                const targetH = Math.max(100, Math.round(Math.max(lftH, rgtH)));
+
+                const srcCanvas = document.createElement('canvas');
+                srcCanvas.width = img.width;
+                srcCanvas.height = img.height;
+                const sCtx = srcCanvas.getContext('2d');
+                sCtx.drawImage(img, 0, 0);
+
+                // Perspective warp & rectify
+                let warped = ImageProcessor.perspectiveWarp(srcCanvas, corners, targetW, targetH);
+                if (!warped) warped = srcCanvas;
+
+                // Auto Brightness & Magic Color
+                const wCtx = warped.getContext('2d');
+                let imgData = wCtx.getImageData(0, 0, warped.width, warped.height);
+                ImageProcessor.autoBrightnessNormalize(imgData);
+                ImageProcessor.applyFilter(imgData, 'magic');
+                wCtx.putImageData(imgData, 0, 0);
+
+                if (callback) callback(warped);
+            } catch (err) {
+                console.error('Error auto-processing image:', err);
+                const fallbackCanvas = document.createElement('canvas');
+                fallbackCanvas.width = img.width;
+                fallbackCanvas.height = img.height;
+                fallbackCanvas.getContext('2d').drawImage(img, 0, 0);
+                if (callback) callback(fallbackCanvas);
+            }
         };
         img.src = imageSrc;
     }
@@ -148,34 +235,18 @@ class CamScannerEngine {
      * Initialize 8 crop control points around image with 5% inset
      */
     setupInitial8CropPoints(w, h) {
-        const mx = w * 0.05;
-        const my = h * 0.05;
-        const rx = w - mx;
-        const by = h - my;
-        const cx = w / 2;
-        const cy = h / 2;
-
+        const padX = w * 0.05;
+        const padY = h * 0.05;
         this.cropPoints = [
-            { x: mx, y: my, id: 'tl' },
-            { x: cx, y: my, id: 't' },
-            { x: rx, y: my, id: 'tr' },
-            { x: rx, y: cy, id: 'r' },
-            { x: rx, y: by, id: 'br' },
-            { x: cx, y: by, id: 'b' },
-            { x: mx, y: by, id: 'bl' },
-            { x: mx, y: cy, id: 'l' }
+            { x: padX, y: padY, id: 'tl' },
+            { x: w / 2, y: padY, id: 't' },
+            { x: w - padX, y: padY, id: 'tr' },
+            { x: w - padX, y: h / 2, id: 'r' },
+            { x: w - padX, y: h - padY, id: 'br' },
+            { x: w / 2, y: h - padY, id: 'b' },
+            { x: padX, y: h - padY, id: 'bl' },
+            { x: padX, y: h / 2, id: 'l' }
         ];
-    }
-
-    /**
-     * Auto detect document boundaries heuristic
-     */
-    autoDetectCrop() {
-        if (!this.currentImage) return;
-        const w = this.currentImage.width;
-        const h = this.currentImage.height;
-        // Inset 7% for smart document margins
-        this.setupInitial8CropPoints(w, h);
     }
 
     /**

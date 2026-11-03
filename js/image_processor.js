@@ -5,6 +5,173 @@
 
 class ImageProcessor {
     /**
+     * Automatic Document Corner & Edge Detection (Auto Contour / Edge Finding)
+     * Detects 4 corners [TL, TR, BR, BL] of paper document in the image.
+     */
+    static detectDocumentCorners(sourceImage) {
+        const w = sourceImage.width;
+        const h = sourceImage.height;
+
+        // Downscale to working canvas for real-time fast edge detection
+        const scale = Math.min(320 / w, 240 / h, 1.0);
+        const dw = Math.round(w * scale);
+        const dh = Math.round(h * scale);
+
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = dw;
+        tempCanvas.height = dh;
+        const tCtx = tempCanvas.getContext('2d');
+        tCtx.drawImage(sourceImage, 0, 0, dw, dh);
+
+        const imgData = tCtx.getImageData(0, 0, dw, dh);
+        const d = imgData.data;
+
+        // 1. Convert to grayscale & compute gradients (Sobel filter approximation)
+        const gray = new Uint8Array(dw * dh);
+        for (let i = 0, j = 0; i < d.length; i += 4, j++) {
+            gray[j] = Math.round(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
+        }
+
+        // 2. Compute edge magnitude map
+        const edges = new Uint8Array(dw * dh);
+        let maxGrad = 0;
+        for (let y = 1; y < dh - 1; y++) {
+            for (let x = 1; x < dw - 1; x++) {
+                const idx = y * dw + x;
+                const gx = (gray[idx + 1] - gray[idx - 1]);
+                const gy = (gray[idx + dw] - gray[idx - dw]);
+                const grad = Math.abs(gx) + Math.abs(gy);
+                edges[idx] = grad;
+                if (grad > maxGrad) maxGrad = grad;
+            }
+        }
+
+        const threshold = Math.max(25, maxGrad * 0.22);
+
+        // 3. Scan from 4 outer edges inward to locate candidate paper boundaries
+        let topY = Math.round(dh * 0.05);
+        let btmY = Math.round(dh * 0.95);
+        let lftX = Math.round(dw * 0.05);
+        let rgtX = Math.round(dw * 0.95);
+
+        // Top edge
+        for (let y = Math.round(dh * 0.04); y < dh * 0.45; y++) {
+            let edgeCount = 0;
+            for (let x = Math.round(dw * 0.15); x < dw * 0.85; x++) {
+                if (edges[y * dw + x] > threshold) edgeCount++;
+            }
+            if (edgeCount > (dw * 0.15)) {
+                topY = y;
+                break;
+            }
+        }
+
+        // Bottom edge
+        for (let y = Math.round(dh * 0.96); y > dh * 0.55; y--) {
+            let edgeCount = 0;
+            for (let x = Math.round(dw * 0.15); x < dw * 0.85; x++) {
+                if (edges[y * dw + x] > threshold) edgeCount++;
+            }
+            if (edgeCount > (dw * 0.15)) {
+                btmY = y;
+                break;
+            }
+        }
+
+        // Left edge
+        for (let x = Math.round(dw * 0.04); x < dw * 0.45; x++) {
+            let edgeCount = 0;
+            for (let y = Math.round(dh * 0.15); y < dh * 0.85; y++) {
+                if (edges[y * dw + x] > threshold) edgeCount++;
+            }
+            if (edgeCount > (dh * 0.15)) {
+                lftX = x;
+                break;
+            }
+        }
+
+        // Right edge
+        for (let x = Math.round(dw * 0.96); x > dw * 0.55; x--) {
+            let edgeCount = 0;
+            for (let y = Math.round(dh * 0.15); y < dh * 0.85; y++) {
+                if (edges[y * dw + x] > threshold) edgeCount++;
+            }
+            if (edgeCount > (dh * 0.15)) {
+                rgtX = x;
+                break;
+            }
+        }
+
+        // Scale detected coordinates back to original resolution
+        const invScale = 1.0 / scale;
+        const padX = w * 0.02;
+        const padY = h * 0.02;
+
+        const tlX = Math.max(0, lftX * invScale - padX);
+        const tlY = Math.max(0, topY * invScale - padY);
+        const trX = Math.min(w, rgtX * invScale + padX);
+        const trY = Math.max(0, topY * invScale - padY);
+        const brX = Math.min(w, rgtX * invScale + padX);
+        const brY = Math.min(h, btmY * invScale + padY);
+        const blX = Math.max(0, lftX * invScale - padX);
+        const blY = Math.min(h, btmY * invScale + padY);
+
+        return [
+            { x: Math.round(tlX), y: Math.round(tlY), id: 'tl' },
+            { x: Math.round((tlX + trX) / 2), y: Math.round((tlY + trY) / 2), id: 't' },
+            { x: Math.round(trX), y: Math.round(trY), id: 'tr' },
+            { x: Math.round((trX + brX) / 2), y: Math.round((trY + brY) / 2), id: 'r' },
+            { x: Math.round(brX), y: Math.round(brY), id: 'br' },
+            { x: Math.round((blX + brX) / 2), y: Math.round((blY + brY) / 2), id: 'b' },
+            { x: Math.round(blX), y: Math.round(blY), id: 'bl' },
+            { x: Math.round((tlX + blX) / 2), y: Math.round((tlY + blY) / 2), id: 'l' }
+        ];
+    }
+
+    /**
+     * Automatic Brightness & Lighting Normalization (White Balance & Shadow Lift)
+     */
+    static autoBrightnessNormalize(imageData) {
+        const d = imageData.data;
+        const len = d.length;
+
+        // Sample luminance to build histogram
+        const hist = new Int32Array(256);
+        let total = 0;
+        for (let i = 0; i < len; i += 16) {
+            const lum = Math.round(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
+            hist[lum]++;
+            total++;
+        }
+
+        // Find 5th percentile (ink/shadows) and 92nd percentile (paper background)
+        let count = 0;
+        let pLow = 30;
+        let pHigh = 220;
+
+        for (let i = 0; i < 256; i++) {
+            count += hist[i];
+            if (count >= total * 0.05 && pLow === 30) pLow = i;
+            if (count >= total * 0.92) { pHigh = i; break; }
+        }
+
+        if (pHigh <= pLow) { pLow = 30; pHigh = 220; }
+
+        // Contrast stretch: map [pLow, pHigh] -> [20, 255]
+        const range = pHigh - pLow;
+        for (let i = 0; i < len; i += 4) {
+            for (let c = 0; c < 3; c++) {
+                let v = d[i + c];
+                // Lift shadows and whiten paper
+                let stretched = ((v - pLow) / range) * 235 + 20;
+                d[i + c] = Math.min(255, Math.max(0, Math.round(stretched)));
+            }
+        }
+
+        return imageData;
+    }
+
+    /**
      * Apply signature CamScanner filters
      */
     static applyFilter(imageData, filterType, options = {}) {
@@ -28,22 +195,25 @@ class ImageProcessor {
                 break;
 
             case 'magic':
+                // Automatic Brightness & Lighting Normalization
+                ImageProcessor.autoBrightnessNormalize(imageData);
+
                 // Magic Color: Deepens dark ink, whitens paper, boosts saturation & contrast
                 for (let i = 0; i < len; i += 4) {
                     let r = d[i], g = d[i+1], b = d[i+2];
 
                     // Adaptive whitening for paper background
                     const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
-                    if (luminance > 140) {
+                    if (luminance > 135) {
                         // Whiten background
-                        r = Math.min(255, r * 1.25 + 20);
-                        g = Math.min(255, g * 1.25 + 20);
-                        b = Math.min(255, b * 1.25 + 20);
+                        r = Math.min(255, r * 1.25 + 15);
+                        g = Math.min(255, g * 1.25 + 15);
+                        b = Math.min(255, b * 1.25 + 15);
                     } else {
                         // Deepen text
-                        r = Math.max(0, r * 0.75 - 10);
-                        g = Math.max(0, g * 0.75 - 10);
-                        b = Math.max(0, b * 0.75 - 10);
+                        r = Math.max(0, r * 0.72 - 12);
+                        g = Math.max(0, g * 0.72 - 12);
+                        b = Math.max(0, b * 0.72 - 12);
                     }
 
                     // Boost contrast & vibrancy
