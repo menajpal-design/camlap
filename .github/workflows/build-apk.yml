@@ -40,19 +40,19 @@ jobs:
         run: gradle -p android assembleDebug --no-daemon
 
       - name: Prepare Release APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk CamScanner-Pro.apk
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk camlab.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CamScanner-Pro-APK
-          path: CamScanner-Pro.apk
+          name: camlab-APK
+          path: camlab.apk
 
       - name: Publish APK to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: CamScanner Pro v6.81.0 (Android APK)
+          name: camlab v6.81.0 (Android APK)
           body: |
-            অফলাইন Android APK — ক্যামেরা অটো-ক্রপ, বুক স্ক্যান ও PDF এক্সপোর্টসহ সরাসরি ফোনে ইনস্টলযোগ্য।
-          files: CamScanner-Pro.apk
+            অফলাইন Android APK — ক্যামেরা অটো-ক্রপ, পাসপোর্ট ফটো স্টুডিও (A4 প্রিন্ট) ও PDF এক্সপোর্টসহ সরাসরি ফোনে ইনস্টলযোগ্য।
+          files: camlab.apk

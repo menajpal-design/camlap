@@ -609,8 +609,8 @@ class ImageProcessor {
     }
 
     /**
-     * Smart Background Color Replacement for Passport Photos
-     * Uses seed flood-fill or edge sampling with color distance tolerance and edge feathering.
+     * Smart Foreground-Preserving Background Replacement for Passport Photos
+     * Combines outer-margin flood-fill with central portrait protection & smooth edge feathering.
      */
     static replaceBackground(canvas, targetHex, tolerance = 35, seedPoint = null) {
         const ctx = canvas.getContext('2d');
@@ -619,12 +619,11 @@ class ImageProcessor {
         const imgData = ctx.getImageData(0, 0, w, h);
         const data = imgData.data;
 
-        // Parse target color
         const targetR = parseInt(targetHex.slice(1, 3), 16);
         const targetG = parseInt(targetHex.slice(3, 5), 16);
         const targetB = parseInt(targetHex.slice(5, 7), 16);
 
-        // Identify background color by sampling the 4 outer corners or seed point
+        // Identify background color by sampling outer top/left/right margins (avoid bottom clothes)
         let baseR, baseG, baseB;
         if (seedPoint && seedPoint.x >= 0 && seedPoint.x < w && seedPoint.y >= 0 && seedPoint.y < h) {
             const sIdx = (seedPoint.y * w + seedPoint.x) * 4;
@@ -632,85 +631,74 @@ class ImageProcessor {
             baseG = data[sIdx + 1];
             baseB = data[sIdx + 2];
         } else {
-            // Average corners
-            const corners = [
-                0,                          // Top-Left
-                (w - 1) * 4,                // Top-Right
-                ((h - 1) * w) * 4,          // Bottom-Left
-                ((h - 1) * w + (w - 1)) * 4 // Bottom-Right
+            const samples = [
+                (Math.round(h * 0.05) * w + Math.round(w * 0.05)) * 4,
+                (Math.round(h * 0.05) * w + Math.round(w * 0.95)) * 4,
+                (Math.round(h * 0.25) * w + Math.round(w * 0.04)) * 4,
+                (Math.round(h * 0.25) * w + Math.round(w * 0.96)) * 4
             ];
-            baseR = Math.round((data[corners[0]] + data[corners[1]] + data[corners[2]] + data[corners[3]]) / 4);
-            baseG = Math.round((data[corners[0]+1] + data[corners[1]+1] + data[corners[2]+1] + data[corners[3]+1]) / 4);
-            baseB = Math.round((data[corners[0]+2] + data[corners[1]+2] + data[corners[2]+2] + data[corners[3]+2]) / 4);
+            let sumR = 0, sumG = 0, sumB = 0;
+            for (const s of samples) {
+                sumR += data[s];
+                sumG += data[s + 1];
+                sumB += data[s + 2];
+            }
+            baseR = Math.round(sumR / samples.length);
+            baseG = Math.round(sumG / samples.length);
+            baseB = Math.round(sumB / samples.length);
         }
 
-        // Flood fill mask from the edges (top, left, right)
-        const mask = new Uint8Array(w * h); // 1 = background, 0 = foreground
+        // Flood fill from top, upper-left, and upper-right edges (and protect inner face+chest oval)
+        const mask = new Uint8Array(w * h); // 1 = background, 0 = subject
         const visited = new Uint8Array(w * h);
         const queue = [];
 
-        // Seed queue with border pixels
+        const isProtectedCore = (x, y) => {
+            const nx = (x - w * 0.5) / (w * 0.22);
+            const ny = (y - h * 0.45) / (h * 0.28);
+            if (nx * nx + ny * ny < 1.0) return true; // Inner face
+            // Inner chest/neck core
+            if (y > h * 0.62 && Math.abs(x - w * 0.5) < w * 0.24) return true;
+            return false;
+        };
+
         for (let x = 0; x < w; x++) {
-            queue.push(x, 0);       // Top edge
+            queue.push(x, 0);
             visited[x] = 1;
-            const bIdx = (h - 1) * w + x;
-            queue.push(x, h - 1);   // Bottom edge
-            visited[bIdx] = 1;
         }
-        for (let y = 1; y < h - 1; y++) {
-            queue.push(0, y);       // Left edge
+        for (let y = 1; y < Math.round(h * 0.85); y++) {
+            queue.push(0, y);
             visited[y * w] = 1;
-            queue.push(w - 1, y);   // Right edge
+            queue.push(w - 1, y);
             visited[y * w + (w - 1)] = 1;
         }
 
-        // BFS Flood Fill based on color similarity
+        const tolSq = tolerance * tolerance * 1.4;
         let head = 0;
         while (head < queue.length) {
             const qx = queue[head++];
             const qy = queue[head++];
+            if (isProtectedCore(qx, qy)) continue;
+
             const pIdx = qy * w + qx;
             const dIdx = pIdx * 4;
+            const dr = data[dIdx] - baseR;
+            const dg = data[dIdx + 1] - baseG;
+            const db = data[dIdx + 2] - baseB;
+            const distSq = dr * dr + dg * dg + db * db;
 
-            const r = data[dIdx];
-            const g = data[dIdx + 1];
-            const b = data[dIdx + 2];
-
-            // Euclidean color distance in RGB space
-            const dist = Math.sqrt(
-                (r - baseR) ** 2 +
-                (g - baseG) ** 2 +
-                (b - baseB) ** 2
-            );
-
-            if (dist <= tolerance) {
+            if (distSq <= tolSq) {
                 mask[pIdx] = 1;
-
-                // Push 4-connected neighbors
-                const neighbors = [
-                    [qx + 1, qy],
-                    [qx - 1, qy],
-                    [qx, qy + 1],
-                    [qx, qy - 1]
-                ];
-
-                for (let i = 0; i < 4; i++) {
-                    const nx = neighbors[i][0];
-                    const ny = neighbors[i][1];
-                    if (nx >= 0 && nx < w && ny >= 0 && ny < h) {
-                        const nIdx = ny * w + nx;
-                        if (!visited[nIdx]) {
-                            visited[nIdx] = 1;
-                            queue.push(nx, ny);
-                        }
-                    }
-                }
+                if (qx + 1 < w && !visited[pIdx + 1]) { visited[pIdx + 1] = 1; queue.push(qx + 1, qy); }
+                if (qx - 1 >= 0 && !visited[pIdx - 1]) { visited[pIdx - 1] = 1; queue.push(qx - 1, qy); }
+                if (qy + 1 < h && !visited[pIdx + w]) { visited[pIdx + w] = 1; queue.push(qx, qy + 1); }
+                if (qy - 1 >= 0 && !visited[pIdx - w]) { visited[pIdx - w] = 1; queue.push(qx, qy - 1); }
             }
         }
 
-        // Apply background color to mask with soft edge feathering
-        for (let y = 0; y < h; y++) {
-            for (let x = 0; x < w; x++) {
+        // Edge feathering: count background neighbors for smooth hair/shoulder edge
+        for (let y = 1; y < h - 1; y++) {
+            for (let x = 1; x < w - 1; x++) {
                 const idx = y * w + x;
                 const dIdx = idx * 4;
 
@@ -718,6 +706,14 @@ class ImageProcessor {
                     data[dIdx] = targetR;
                     data[dIdx + 1] = targetG;
                     data[dIdx + 2] = targetB;
+                } else {
+                    const bgNbrs = mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w];
+                    if (bgNbrs > 0) {
+                        const alpha = (bgNbrs / 4) * 0.45;
+                        data[dIdx] = Math.round(data[dIdx] * (1 - alpha) + targetR * alpha);
+                        data[dIdx + 1] = Math.round(data[dIdx + 1] * (1 - alpha) + targetG * alpha);
+                        data[dIdx + 2] = Math.round(data[dIdx + 2] * (1 - alpha) + targetB * alpha);
+                    }
                 }
             }
         }

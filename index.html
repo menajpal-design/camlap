@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#FFFFFF">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <title>CamScanner — Smart Document & Book Scanner</title>
+    <title>camlab — Smart Document & Passport Studio</title>
     <link rel="icon" type="image/png" href="assets/cs_icon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,11 +22,11 @@
     <!-- Clean Minimal App Header -->
     <header class="cs-header">
         <div class="cs-header-left">
-            <div class="cs-brand" id="cs-brand-home" title="CamScanner Home">
-                <img src="assets/cs_icon.png" alt="CamScanner" class="cs-logo-img">
+            <div class="cs-brand" id="cs-brand-home" title="camlab Home">
+                <img src="assets/cs_icon.png" alt="camlab" class="cs-logo-img">
                 <div class="cs-brand-text">
-                    <h1>CamScanner</h1>
-                    <span class="cs-sync-badge">স্মার্ট স্ক্যানার</span>
+                    <h1>camlab</h1>
+                    <span class="cs-sync-badge">স্মার্ট স্টুডিও</span>
                 </div>
             </div>
         </div>
@@ -270,7 +270,7 @@
                 <div class="cs-docdetail-title-box">
                     <button id="btn-back-to-home" class="cs-icon-btn" style="border:none; font-size:1.2rem;" title="ফিরে যান">←</button>
                     <div style="display:flex; align-items:center; gap:6px;">
-                        <input type="text" id="docdetail-title" class="cs-docdetail-title-input" value="CamScanner Document">
+                        <input type="text" id="docdetail-title" class="cs-docdetail-title-input" value="camlab Document">
                         <span style="font-size:0.8rem; color:var(--cs-text-dim);" title="এডিট করুন">✏️</span>
                     </div>
                 </div>
@@ -460,32 +460,104 @@
                 <div class="cs-passport-preview-pane">
                     <div class="cs-pane-header">
                         <span id="passport-dimensions-badge" class="cs-vip-badge">৪০ × ৫০ মিমি | 300 DPI</span>
-                        <div style="display:flex; gap:8px;">
+                        <div style="display:flex; gap:8px; flex-wrap:wrap;">
                             <label class="cs-icon-btn" style="cursor:pointer;">
-                                📁 ছবি আপলোড
+                                📁 ছবি আপলোড / ইমপোর্ট
                                 <input type="file" id="passport-upload" accept="image/*" style="display:none;">
                             </label>
-                            <button id="btn-passport-camera" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal);">📷 লাইভ সেলফি</button>
+                            <button id="btn-passport-camera" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal);">📷 ক্যামেরায় ছবি তুলুন</button>
+                        </div>
+                    </div>
+
+                    <!-- AI Biometric Detection & Framing Bar -->
+                    <div id="passport-ai-bar" class="cs-passport-ai-bar" style="display:none;">
+                        <div class="cs-ai-badges-row">
+                            <span id="passport-face-badge" class="cs-ai-chip">🎯 মুখ, গলা ও কাঁধ: স্ক্যান হচ্ছে...</span>
+                            <div class="cs-gender-toggle-group" title="লিঙ্গ শনাক্তকরণ (ম্যানুয়ালি পরিবর্তনযোগ্য)">
+                                <span style="font-size:0.74rem; color:var(--cs-text-dim); margin-right:4px;">লিঙ্গ:</span>
+                                <button type="button" id="btn-gender-male" class="cs-gender-btn active" data-gender="male">👨 ছেলে</button>
+                                <button type="button" id="btn-gender-female" class="cs-gender-btn" data-gender="female">👩 মেয়ে</button>
+                            </div>
+                            <span id="passport-attire-badge" class="cs-ai-chip">👕 পোশাক: যাচাই করা হচ্ছে...</span>
+                        </div>
+                        <div class="cs-ai-actions-row">
+                            <button type="button" id="btn-auto-crop-face" class="cs-icon-btn cs-ai-btn">✨ অটো-ক্রপ (মুখ, গলা ও বুক)</button>
+                            <button type="button" id="btn-auto-fit-suit" class="cs-icon-btn cs-ai-btn accent">👔 অটো ফরমাল স্যুট পরান</button>
                         </div>
                     </div>
 
                     <div class="cs-passport-canvas-container">
                         <div id="passport-empty-state" class="cs-empty-state-box">
                             <div style="font-size:52px; margin-bottom:12px;">👤</div>
-                            <h3 style="font-size:1.15rem; color:#fff;">পাসপোর্ট সাইজ ছবি তৈরি করুন</h3>
-                            <p style="color:var(--cs-text-dim); max-width:380px; font-size:0.85rem; margin-top:6px; line-height:1.5;">
-                                ছবি আপলোড করুন বা লাইভ সেলফি তুলুন। অটোমেটিক সাইজিং, স্যুট চেঞ্জার, ব্যাকগ্রাউন্ড কালার এবং প্রিন্ট শিট ল্যাব।
+                            <h3 style="font-size:1.15rem; color:var(--cs-text-white);">পাসপোর্ট সাইজ ছবি তৈরি করুন</h3>
+                            <p style="color:var(--cs-text-dim); max-width:420px; font-size:0.85rem; margin-top:6px; line-height:1.5;">
+                                ছবি ইমপোর্ট করুন বা ক্যামেরায় সেলফি তুলুন। camlab AI স্বয়ংক্রিয়ভাবে মুখ, ছেলে/মেয়ে, জামাকাপড় এবং গলা ও বুকের অংশ সঠিকভাবে ক্রপ করে A4 প্রিন্ট শিট তৈরি করবে।
                             </p>
                         </div>
-                        <canvas id="passport-canvas" style="display:none; max-width:90%; max-height:90%; box-shadow:0 10px 30px rgba(0,0,0,0.6); cursor:grab;"></canvas>
+                        <canvas id="passport-canvas" style="display:none; max-width:90%; max-height:90%; box-shadow:0 10px 30px rgba(0,0,0,0.45); cursor:grab;"></canvas>
                     </div>
 
                     <div class="cs-passport-hints-bar">
                         <span>💡 মাউস ড্র্যাগ করে বা টাচ করে ছবি পজিশন করুন।</span>
                         <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
                             <input type="checkbox" id="toggle-guidelines" checked>
-                            <span>বায়োমেট্রিক ফেস গাইড</span>
+                            <span>বায়োমেট্রিক মুখ, গলা ও কাঁধ গাইড</span>
                         </label>
+                    </div>
+
+                    <!-- Inline Live A4 Print Sheet Arrangement Preview -->
+                    <div id="passport-inline-sheet-box" class="cs-passport-a4-inline-card">
+                        <div class="cs-a4-inline-header">
+                            <div>
+                                <div style="font-weight:800; font-size:0.9rem; color:var(--cs-text-white);">📄 A4 পেপার প্রিন্ট সাজানো ও লাইভ প্রিভিউ (Print Ready)</div>
+                                <div id="inline-sheet-summary" style="font-size:0.76rem; color:var(--cs-teal); margin-top:2px;">A4 পেপার (২১০ × ২৯৭ মিমি) • এক লাইনে ৫টি × ২ সারি = ১০টি ছবি</div>
+                            </div>
+                            <button type="button" id="btn-direct-print-passport" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">🖨️ সরাসরি প্রিন্ট আউট (A4 Print)</button>
+                        </div>
+
+                        <div class="cs-a4-inline-controls">
+                            <div>
+                                <label>পেপারের সাইজ</label>
+                                <select id="inline-sheet-paper" class="cs-select-clean">
+                                    <option value="A4" selected>A4 (২১০ × ২৯৭ মিমি)</option>
+                                    <option value="4x6">৪×৬ ইঞ্চি</option>
+                                    <option value="5x7">৫×৭ ইঞ্চি</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>এক লাইনে কয়টা ছবি</label>
+                                <select id="inline-sheet-per-row" class="cs-select-clean">
+                                    <option value="2">২ টি (প্রতি লাইনে)</option>
+                                    <option value="3">৩ টি (প্রতি লাইনে)</option>
+                                    <option value="4">৪ টি (প্রতি লাইনে)</option>
+                                    <option value="5" selected>৫ টি (প্রতি লাইনে — A4 বেস্ট)</option>
+                                    <option value="6">৬ টি (প্রতি লাইনে)</option>
+                                    <option value="7">৭ টি (প্রতি লাইনে)</option>
+                                    <option value="8">৮ টি (প্রতি লাইনে)</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label>সারির সংখ্যা (Rows)</label>
+                                <select id="inline-sheet-rows" class="cs-select-clean">
+                                    <option value="1">১ সারি</option>
+                                    <option value="2" selected>২ সারি</option>
+                                    <option value="3">৩ সারি</option>
+                                    <option value="4">৪ সারি</option>
+                                    <option value="full">পুরো A4 পেপার পূর্ণ</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="cs-a4-inline-preview-row">
+                            <div class="cs-a4-canvas-wrap">
+                                <canvas id="passport-inline-sheet-canvas"></canvas>
+                            </div>
+                            <div class="cs-a4-quick-export-col">
+                                <button type="button" id="btn-inline-download-pdf" class="cs-icon-btn" style="justify-content:center; width:100%;">📄 প্রিন্ট-রেডি A4 PDF</button>
+                                <button type="button" id="btn-inline-download-jpg" class="cs-icon-btn" style="justify-content:center; width:100%;">🖼️ 300 DPI JPG ডাউনলোড</button>
+                                <button type="button" id="btn-open-full-print-modal" class="cs-icon-btn" style="justify-content:center; width:100%; border-color:var(--cs-teal); color:var(--cs-teal);">⚙️ কাটিং ও পূর্ণ প্রিন্ট সেটিংস</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
@@ -562,7 +634,7 @@
 
                     <div style="display:flex; flex-direction:column; gap:8px; margin-top:8px;">
                         <button id="btn-download-single" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); justify-content:center; font-weight:700; padding:10px;">💾 সিঙ্গেল পাসপোর্ট ছবি (PNG 300 DPI)</button>
-                        <button id="btn-preview-sheet" class="cs-icon-btn" style="background:#2563eb; color:#fff; border-color:#2563eb; justify-content:center; font-weight:700; padding:10px;">🖨️ প্রিন্ট শিট তৈরি করুন (৪×৬" বা A4)</button>
+                        <button id="btn-preview-sheet" class="cs-icon-btn" style="background:#2563eb; color:#fff; border-color:#2563eb; justify-content:center; font-weight:700; padding:10px;">🖨️ পূর্ণ A4 প্রিন্ট ও কাটিং ল্যাব</button>
                     </div>
                 </div>
             </div>
@@ -711,7 +783,7 @@
             <div class="cs-profile-card">
                 <div class="cs-profile-vip-banner">
                     <div>
-                        <div style="font-size:1.15rem; font-weight:800;">👑 CamScanner VIP Unlocked</div>
+                        <div style="font-size:1.15rem; font-weight:800;">👑 camlab VIP Unlocked</div>
                         <div style="font-size:0.8rem; opacity:0.9; margin-top:2px;">সকল প্রো ফিচার, এইচডি এক্সপোর্ট ও নো ওয়াটারমার্ক আনলকড</div>
                     </div>
                     <span class="cs-vip-tag">LIFETIME</span>
@@ -728,7 +800,7 @@
                 </div>
 
                 <div style="font-size:0.85rem; color:var(--cs-text-dim); line-height:1.6;">
-                    <p>• ভার্সন: CamScanner Studio Pro v6.81.0 Web & Desktop Edition</p>
+                    <p>• ভার্সন: camlab Studio Pro v6.81.0 Web, Mobile APK & Desktop Edition</p>
                     <p>• ১০০% ক্লায়েন্ট-সাইড অফলাইন প্রাইভেসি এনক্রিপ্টেড। আপনার ডকুমেন্ট কোথাও আপলোড হয় না।</p>
                 </div>
 
@@ -915,7 +987,7 @@
     <div id="cs-filter-screen" class="cs-filter-screen">
         <div class="cs-filter-topbar">
             <button id="cs-btn-filter-back" style="background:transparent; border:none; color:#fff; font-size:1.2rem; cursor:pointer;" title="পেছনে">←</button>
-            <input type="text" id="cs-doc-title-input" value="CamScanner Document" class="cs-filter-title-input">
+            <input type="text" id="cs-doc-title-input" value="camlab Document" class="cs-filter-title-input">
             <button id="cs-btn-filter-done" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); padding:5px 14px; font-weight:700;">✓ সংরক্ষণ</button>
         </div>
 
@@ -981,7 +1053,7 @@
             <div class="modal-header">
                 <div style="display:flex; align-items:center; gap:8px;">
                     <img src="assets/icon_type_pdf.webp" alt="PDF" style="width:28px; height:28px;">
-                    <h3 style="font-size:1.1rem; color:#fff;">CamScanner PDF Export Studio</h3>
+                    <h3 style="font-size:1.1rem; color:var(--cs-text-white);">camlab PDF Export Studio</h3>
                 </div>
                 <button onclick="document.getElementById('cs-pdf-export-modal').classList.remove('active');" class="cs-icon-btn" style="border:none; font-size:1.2rem;">✕</button>
             </div>
@@ -1028,7 +1100,7 @@
                 </label>
                 <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; cursor:pointer;">
                     <input type="checkbox" id="pdf-opt-watermark-note">
-                    <span>ডকুমেন্টে CamScanner ভেরিফাইড সিল যুক্ত করুন</span>
+                    <span>ডকুমেন্টে camlab ভেরিফাইড সিল যুক্ত করুন</span>
                 </label>
             </div>
 
@@ -1044,9 +1116,9 @@
     <!-- MODAL 5: PRINT SHEET LAB MODAL -->
     <!-- ============================================================= -->
     <div id="print-modal" class="modal-overlay">
-        <div class="modal-content" style="max-width:850px;">
+        <div class="modal-content" style="max-width:860px;">
             <div class="modal-header">
-                <h3>🖨️ পাসপোর্ট ফটো প্রিন্ট শিট ল্যাব (Print Sheet Lab)</h3>
+                <h3>🖨️ পাসপোর্ট ফটো A4 প্রিন্ট শিট ল্যাব (Print Sheet Lab)</h3>
                 <button onclick="document.getElementById('print-modal').classList.remove('active');" class="cs-icon-btn" style="border:none; font-size:1.2rem;">✕</button>
             </div>
 
@@ -1054,29 +1126,38 @@
                 <div>
                     <label style="font-size:0.75rem; color:var(--cs-text-dim);">কাগজের সাইজ:</label>
                     <select id="sheet-paper-size" class="cs-select-clean" style="margin-top:4px;">
+                        <option value="A4" selected>A4 সাইজ পেপার (২১০ × ২৯৭ মিমি)</option>
                         <option value="4x6">৪×৬ ইঞ্চি (১০×১৫ সেমি)</option>
-                        <option value="A4">A4 সাইজ পেপার</option>
                         <option value="5x7">৫×৭ ইঞ্চি পেপার</option>
                     </select>
                 </div>
                 <div>
-                    <label style="font-size:0.75rem; color:var(--cs-text-dim);">ছবির সংখ্যা:</label>
-                    <select id="sheet-photo-count" class="cs-select-clean" style="margin-top:4px;">
-                        <option value="6">৬ টি ছবি</option>
-                        <option value="8">৮ টি ছবি</option>
-                        <option value="4">৪ টি ছবি</option>
-                        <option value="12">১২ টি ছবি</option>
-                        <option value="16">১৬ টি ছবি</option>
-                        <option value="24">২৪ টি ছবি</option>
+                    <label style="font-size:0.75rem; color:var(--cs-text-dim);">এক লাইনে কয়টা ছবি (Photos/Row):</label>
+                    <select id="sheet-photos-per-row" class="cs-select-clean" style="margin-top:4px;">
+                        <option value="2">২ টি (প্রতি লাইনে)</option>
+                        <option value="3">৩ টি (প্রতি লাইনে)</option>
+                        <option value="4">৪ টি (প্রতি লাইনে)</option>
+                        <option value="5" selected>৫ টি (প্রতি লাইনে — A4 বেস্ট)</option>
+                        <option value="6">৬ টি (প্রতি লাইনে)</option>
+                        <option value="7">৭ টি (প্রতি লাইনে)</option>
+                        <option value="8">৮ টি (প্রতি লাইনে)</option>
                     </select>
                 </div>
-                <div style="display:flex; flex-direction:column; justify-content:center;">
+                <div>
+                    <label style="font-size:0.75rem; color:var(--cs-text-dim);">সারির সংখ্যা (Rows):</label>
+                    <select id="sheet-row-count" class="cs-select-clean" style="margin-top:4px;">
+                        <option value="1">১ সারি</option>
+                        <option value="2" selected>২ সারি</option>
+                        <option value="3">৩ সারি</option>
+                        <option value="4">৪ সারি</option>
+                        <option value="full">পুরো পেপার পূর্ণ</option>
+                    </select>
+                </div>
+                <div style="display:flex; flex-direction:column; justify-content:center; gap:6px;">
                     <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
                         <input type="checkbox" id="sheet-cut-lines" checked>
                         <span>কাটার দাগ (Cut Lines)</span>
                     </label>
-                </div>
-                <div style="display:flex; flex-direction:column; justify-content:center;">
                     <label style="display:flex; align-items:center; gap:6px; font-size:0.8rem; cursor:pointer;">
                         <input type="checkbox" id="sheet-border" checked>
                         <span>বর্ডার ফ্রেম</span>
@@ -1084,11 +1165,14 @@
                 </div>
             </div>
 
+            <div id="sheet-modal-summary" style="font-size:0.8rem; color:var(--cs-teal); font-weight:600;">A4 পেপারে এক লাইনে ৫টি × ২ সারি = ১০টি পাসপোর্ট ছবি</div>
+
             <div id="print-sheet-preview-wrap" class="cs-print-sheet-preview-wrap"></div>
 
-            <div style="display:flex; justify-content:flex-end; gap:12px; flex-wrap:wrap;">
+            <div style="display:flex; justify-content:flex-end; gap:10px; flex-wrap:wrap;">
                 <button id="btn-download-sheet-img" class="cs-icon-btn">🖼️ হাই-রেজোলিউশন ইমেজ (JPG)</button>
-                <button id="btn-download-sheet-pdf" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">📄 প্রিন্ট-রেডি PDF ডাউনলোড</button>
+                <button id="btn-download-sheet-pdf" class="cs-icon-btn" style="border-color:var(--cs-teal); color:var(--cs-teal); font-weight:700;">📄 প্রিন্ট-রেডি PDF ডাউনলোড</button>
+                <button id="btn-print-passport-now" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">🖨️ সরাসরি প্রিন্ট আউট (Print A4)</button>
             </div>
         </div>
     </div>
@@ -1115,9 +1199,9 @@
         <div class="modal-content cs-app-dl-modal-content">
             <div class="modal-header cs-app-dl-modal-header">
                 <div style="display:flex; align-items:center; gap:12px;">
-                    <img src="assets/cs_icon.png" alt="CamScanner" style="width:42px; height:42px; border-radius:10px; box-shadow:0 4px 12px rgba(0,168,132,0.35);">
+                    <img src="assets/cs_icon.png" alt="camlab" style="width:42px; height:42px; border-radius:10px; box-shadow:0 4px 12px rgba(0,168,132,0.35);">
                     <div>
-                        <h3 style="font-size:1.15rem; font-weight:800;">📲 CamScanner মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড সেন্টার</h3>
+                        <h3 style="font-size:1.15rem; font-weight:800;">📲 camlab মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড সেন্টার</h3>
                         <p style="font-size:0.8rem; color:var(--cs-text-dim); margin-top:2px;">যেকোনো ডিভাইসে ১-ক্লিকে ইনস্টল করুন — ১০০% ফ্রি ও অফলাইন অটো-স্ক্যানার</p>
                     </div>
                 </div>
@@ -1132,19 +1216,19 @@
                         <div class="cs-platform-icon">🤖</div>
                         <div>
                             <h4>মোবাইল অ্যাপ (Android & iOS)</h4>
-                            <span>ভার্সন v6.81.0 Pro • অটো-ক্রপ ক্যামেরা ও বুক স্ক্যানার</span>
+                            <span>ভার্সন v6.81.0 Pro • অটো-ক্রপ ক্যামেরা ও পাসপোর্ট A4 স্টুডিও</span>
                         </div>
                     </div>
                     <ul class="cs-platform-features">
                         <li>✓ অটো বর্ডার ডিটেকশন ও কন্টিনিউয়াস বুক স্ক্যানিং</li>
                         <li>✓ ব্যাকগ্রাউন্ড ম্যাজিক কালার প্রসেসিং ও HD PDF</li>
-                        <li>✓ পাসপোর্ট ছবি ও ২-সাইড আইডি কার্ড মেকার</li>
+                        <li>✓ এআই পাসপোর্ট ফটো, স্যুট চেঞ্জার ও A4 প্রিন্ট শিট</li>
                     </ul>
                     <div class="cs-platform-actions">
                         <button id="btn-dl-android-apk" class="cs-dl-action-btn primary-teal">
                             <span class="btn-icon">📦</span>
                             <div class="btn-text">
-                                <strong>Android APK ডাউনলোড (CamScanner-Pro.apk)</strong>
+                                <strong>Android APK ডাউনলোড (camlab.apk)</strong>
                                 <small>Android 7.0+ • অফিশিয়াল বিল্ড (.apk) সরাসরি ডাউনলোড</small>
                             </div>
                         </button>
@@ -1199,7 +1283,7 @@
                 </div>
                 <div class="cs-qr-info">
                     <h5>📷 ফোনের ক্যামেরা দিয়ে QR কোড স্ক্যান করুন</h5>
-                    <p>ডেস্কটপ থেকে আপনার মোবাইলে সরাসরি CamScanner অ্যাপটি ওপেন ও ইনস্টল করতে উপরের QR কোডটি স্ক্যান করুন অথবা নিচের লিংকটি কপি করুন।</p>
+                    <p>ডেস্কটপ থেকে আপনার মোবাইলে সরাসরি camlab অ্যাপটি ওপেন ও ইনস্টল করতে উপরের QR কোডটি স্ক্যান করুন অথবা নিচের লিংকটি কপি করুন।</p>
                     <div class="cs-app-link-copy-row">
                         <input type="text" id="cs-app-share-url" class="cs-input-clean" readonly value="https://menajpal-design.github.io/camlap/">
                         <button id="btn-copy-app-link" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700; white-space:nowrap;">📋 লিংক কপি করুন</button>

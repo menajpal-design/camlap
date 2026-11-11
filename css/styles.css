@@ -3424,4 +3424,179 @@ body.in-doc-detail .cs-tabbar {
     }
 }
 
+/* ==========================================================================
+   camlab PASSPORT BIOMETRIC BAR & INLINE A4 PRINT ARRANGEMENT PREVIEW
+   ========================================================================== */
+.cs-passport-canvas-container {
+    background: var(--cs-bg-dark);
+}
+
+.cs-passport-ai-bar {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-bottom: 10px;
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-sm);
+}
+
+.cs-ai-badges-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+}
+
+.cs-ai-actions-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cs-ai-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    color: var(--cs-text-dim);
+}
+
+.cs-ai-chip.ok {
+    border-color: rgba(0, 168, 132, 0.45);
+    color: var(--cs-teal);
+    background: rgba(0, 168, 132, 0.1);
+}
+
+.cs-ai-chip.warn {
+    border-color: rgba(245, 158, 11, 0.45);
+    color: #f59e0b;
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.cs-gender-toggle-group {
+    display: inline-flex;
+    align-items: center;
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: 999px;
+    padding: 2px 4px 2px 8px;
+    gap: 3px;
+}
+
+.cs-gender-btn {
+    border: none;
+    background: transparent;
+    color: var(--cs-text-dim);
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 3px 9px;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.cs-gender-btn.active {
+    background: var(--cs-teal);
+    color: #fff;
+}
+
+.cs-ai-btn {
+    font-size: 0.78rem;
+    padding: 6px 12px;
+    font-weight: 600;
+}
+
+.cs-ai-btn.accent {
+    background: rgba(0, 168, 132, 0.12);
+    border-color: rgba(0, 168, 132, 0.45);
+    color: var(--cs-teal);
+}
+
+.cs-passport-a4-inline-card {
+    margin-top: 14px;
+    padding: 14px;
+    border-radius: var(--cs-radius-sm);
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.cs-a4-inline-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.cs-a4-inline-controls {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+}
+
+.cs-a4-inline-controls label {
+    display: block;
+    font-size: 0.73rem;
+    color: var(--cs-text-dim);
+    margin-bottom: 4px;
+    font-weight: 600;
+}
+
+.cs-a4-inline-preview-row {
+    display: grid;
+    grid-template-columns: 1fr 210px;
+    gap: 12px;
+    align-items: center;
+}
+
+.cs-a4-canvas-wrap {
+    background: #1e293b;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 180px;
+    max-height: 310px;
+    overflow: hidden;
+    border: 1px solid var(--cs-border-dark);
+}
+
+#passport-inline-sheet-canvas {
+    max-width: 100%;
+    max-height: 285px;
+    width: auto;
+    height: auto;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
+    background: #ffffff;
+    border-radius: 2px;
+}
+
+.cs-a4-quick-export-col {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+@media (max-width: 767px) {
+    .cs-a4-inline-controls {
+        grid-template-columns: 1fr;
+    }
+
+    .cs-a4-inline-preview-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+
 

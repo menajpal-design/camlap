@@ -87,23 +87,23 @@ class CamScannerEngine {
 
         ctx.fillStyle = '#ffffff';
         ctx.font = 'bold 26px sans-serif';
-        ctx.fillText('CamScanner Studio Welcome Note', 30, 55);
+        ctx.fillText('camlab Studio Welcome Note', 30, 55);
 
         ctx.fillStyle = '#1e293b';
         ctx.font = '18px sans-serif';
-        ctx.fillText('Welcome to CamScanner Web Studio Pro!', 40, 150);
-        ctx.fillText('স্বাগতম! ক্যামস্ক্যানার ওয়েব স্টুডিও প্রো-তে।', 40, 185);
+        ctx.fillText('Welcome to camlab Studio Pro!', 40, 150);
+        ctx.fillText('স্বাগতম! ক্যামল্যাব (camlab) স্টুডিও প্রো-তে।', 40, 185);
 
         ctx.font = '14px sans-serif';
         ctx.fillStyle = '#475569';
-        ctx.fillText('• 100% Authentic CamScanner Mobile & Web Experience', 40, 240);
+        ctx.fillText('• 100% Smart Document, Book & Passport Studio', 40, 240);
         ctx.fillText('• Signature Magic Color, B&W, and Grayscale filters', 40, 275);
         ctx.fillText('• Intelligent 8-Point Quad Crop with Live Zoom Magnifier', 40, 310);
-        ctx.fillText('• Passport Photo Studio with 10+ Country presets & Suit Changer', 40, 345);
+        ctx.fillText('• AI Passport Photo Studio, Auto Suit & A4 Print Sheet', 40, 345);
         ctx.fillText('• ID Card 2-Sided Scanner (A4 1:1 Scale)', 40, 380);
         ctx.fillText('• Digital Signatures, Security Watermarks & OCR Text', 40, 415);
 
-        // Official CamScanner Stamp in bottom right
+        // Official camlab Stamp in bottom right
         ctx.strokeStyle = '#00a884';
         ctx.lineWidth = 3;
         ctx.strokeRect(380, 650, 180, 80);
@@ -112,14 +112,14 @@ class CamScannerEngine {
         ctx.textAlign = 'center';
         ctx.fillText('VERIFIED ORIGINAL', 470, 685);
         ctx.font = '12px sans-serif';
-        ctx.fillText('CamScanner Studio Pro', 470, 710);
+        ctx.fillText('camlab Studio Pro', 470, 710);
         ctx.textAlign = 'left';
 
         const dataUrl = sampleCanvas.toDataURL('image/jpeg', 0.85);
 
         this.documents.push({
             id: 'doc_' + Date.now(),
-            title: 'Welcome to CamScanner Pro',
+            title: 'Welcome to camlab',
             category: 'All Docs',
             date: new Date().toLocaleDateString('bn-BD', { month: 'short', day: 'numeric', year: 'numeric' }),
             pageCount: 1,
@@ -371,7 +371,7 @@ class CamScannerEngine {
             }
         }
 
-        const defaultTitle = title || `CamScanner ${new Date().toISOString().slice(5, 10).replace('-', '')}_${Math.floor(Math.random()*1000)}`;
+        const defaultTitle = title || `camlab ${new Date().toISOString().slice(5, 10).replace('-', '')}_${Math.floor(Math.random()*1000)}`;
 
         const newDoc = {
             id: 'doc_' + Date.now(),

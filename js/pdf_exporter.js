@@ -8,7 +8,7 @@ class PDFExporter {
     /**
      * Export multiple canvas pages to a single PDF
      */
-    static async exportPagesToPDF(canvasList, filename = 'CamScanner_Document.pdf', pageSize = 'a4') {
+    static async exportPagesToPDF(canvasList, filename = 'camlab_Document.pdf', pageSize = 'a4') {
         if (!canvasList || canvasList.length === 0) return;
 
         // Try CDN jsPDF if available
@@ -64,7 +64,7 @@ class PDFExporter {
     /**
      * Clean native print-to-PDF window that prompts user to "Save as PDF"
      */
-    static printCanvasListAsPDF(canvasList, title = 'CamScanner Document') {
+    static printCanvasListAsPDF(canvasList, title = 'camlab Document', pageCssSize = 'auto') {
         const printWin = window.open('', '_blank');
         if (!printWin) {
             alert('অনুগ্রহ করে পপ-আপ অনুমোদন করুন যাতে PDF তৈরি হতে পারে।');
@@ -83,7 +83,7 @@ class PDFExporter {
             <head>
                 <title>${title}</title>
                 <style>
-                    @page { size: auto; margin: 0; }
+                    @page { size: ${pageCssSize}; margin: 0; }
                     body { margin: 0; padding: 0; background: #fff; font-family: sans-serif; }
                     .page { page-break-after: always; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; }
                     img { max-width: 100%; max-height: 100%; object-fit: contain; }

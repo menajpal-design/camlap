@@ -12,6 +12,6 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "CamScannerPro"
+rootProject.name = "camlab"
 include ":app"
 

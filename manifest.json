@@ -1,6 +1,6 @@
 {
-  "name": "CamScanner Studio Pro - Mobile & Desktop Scanner",
-  "short_name": "CamScanner Pro",
+  "name": "camlab — Smart Document & Passport Studio",
+  "short_name": "camlab",
   "description": "অফিশিয়াল ডকুমেন্ট স্ক্যানার, অটো-ক্রপ, বুক স্ক্যানার, আইডি কার্ড ও পাসপোর্ট ফটো স্টুডিও",
   "start_url": "./index.html",
   "display": "standalone",

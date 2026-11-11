@@ -174,7 +174,7 @@ function handleBatchFileUpload(fileList, targetDocId = null) {
                 } else {
                     const newDoc = {
                         id: 'doc_' + Date.now(),
-                        title: `CamScanner Batch ${new Date().toLocaleDateString('bn-BD')}`,
+                        title: `camlab Batch ${new Date().toLocaleDateString('bn-BD')}`,
                         category: 'All Docs',
                         date: new Date().toLocaleDateString('bn-BD', { month: 'short', day: 'numeric', year: 'numeric' }),
                         pageCount: processedPages.length,
@@ -638,7 +638,7 @@ function setupBatchSelectEngine() {
                 });
 
             if (allCanvases.length) {
-                PDFExporter.exportPagesToPDF(allCanvases, `CamScanner_Batch_Merged_${Date.now()}.pdf`, 'a4');
+                PDFExporter.exportPagesToPDF(allCanvases, `camlab_Batch_Merged_${Date.now()}.pdf`, 'a4');
             }
         });
     }
@@ -1703,7 +1703,7 @@ function finalizeContinuousCameraSession() {
         const nowStr = new Date().toISOString().slice(0, 16).replace('T', ' ');
         const defaultTitle = modeAtFinish === 'book'
             ? `Book Scan ${nowStr}`
-            : `CamScanner ${nowStr}`;
+            : `camlab ${nowStr}`;
         savedDoc = {
             id: 'doc_' + Date.now(),
             title: defaultTitle,
@@ -1913,12 +1913,8 @@ function closeCameraViewfinder(hideModal = true) {
 function handleCapturedImage(dataUrl) {
     if (csEngine.activeCameraMode === 'id_photo') {
         navigateToScreen('screen-passport');
-        passportStudio.loadImage(dataUrl, () => {
-            const emptyState = document.getElementById('passport-empty-state');
-            const pCanvas = document.getElementById('passport-canvas');
-            if (emptyState) emptyState.style.display = 'none';
-            if (pCanvas) pCanvas.style.display = 'block';
-            updatePassportCanvasView();
+        passportStudio.loadImage(dataUrl, (analysis) => {
+            onPassportImageLoaded(analysis);
         });
     } else if (csEngine.activeCameraMode === 'id_card') {
         navigateToScreen('screen-idcard');
@@ -2093,6 +2089,147 @@ function closeFilterScreen() {
  * 15. PASSPORT & ID PHOTO STUDIO
  * -------------------------------------------------------------------------
  */
+function syncPassportSlidersFromState() {
+    const zoomEl = document.getElementById('passport-zoom');
+    const zoomVal = document.getElementById('passport-zoom-val');
+    if (zoomEl) {
+        const clampedZoom = Math.min(3, Math.max(0.3, passportStudio.state.scale)).toFixed(2);
+        zoomEl.value = clampedZoom;
+        if (zoomVal) zoomVal.textContent = clampedZoom;
+    }
+
+    const rotEl = document.getElementById('passport-rotate');
+    const rotVal = document.getElementById('passport-rotate-val');
+    if (rotEl) {
+        rotEl.value = Math.round(passportStudio.state.rotation || 0);
+        if (rotVal) rotVal.textContent = `${Math.round(passportStudio.state.rotation || 0)}°`;
+    }
+}
+
+function updatePassportAnalysisUI(analysis) {
+    if (!analysis) return;
+    const aiBar = document.getElementById('passport-ai-bar');
+    if (aiBar) aiBar.style.display = 'flex';
+
+    const faceBadge = document.getElementById('passport-face-badge');
+    if (faceBadge) {
+        faceBadge.className = `cs-ai-chip ${analysis.faceDetected ? 'ok' : 'warn'}`;
+        faceBadge.textContent = analysis.faceDetected
+            ? `🎯 মুখ, গলা ও কাঁধ শনাক্ত (${analysis.confidence}%)`
+            : '⚠️ মুখ অস্পষ্ট — মাউস ড্র্যাগ করে ফ্রেম ঠিক করুন';
+    }
+
+    const btnMale = document.getElementById('btn-gender-male');
+    const btnFemale = document.getElementById('btn-gender-female');
+    if (btnMale && btnFemale) {
+        btnMale.classList.toggle('active', analysis.gender === 'male');
+        btnFemale.classList.toggle('active', analysis.gender === 'female');
+    }
+
+    const attireBadge = document.getElementById('passport-attire-badge');
+    if (attireBadge) {
+        const activeSuit = passportStudio.state.selectedSuit !== 'none';
+        attireBadge.className = `cs-ai-chip ${(!analysis.needsFormalSuit || activeSuit) ? 'ok' : 'warn'}`;
+        attireBadge.textContent = activeSuit
+            ? '👔 ফরমাল স্যুট পরানো হয়েছে ✓'
+            : `👕 ${analysis.attireLabelBn || 'পোশাক বিশ্লেষণ সম্পন্ন'}`;
+    }
+}
+
+function onPassportImageLoaded(analysis) {
+    const emptyState = document.getElementById('passport-empty-state');
+    const previewCanvas = document.getElementById('passport-canvas');
+    if (emptyState) emptyState.style.display = 'none';
+    if (previewCanvas) previewCanvas.style.display = 'block';
+
+    syncPassportSlidersFromState();
+    updatePassportAnalysisUI(analysis);
+    renderSuitSelector();
+    updatePassportCanvasView();
+
+    if (analysis?.faceDetected) {
+        showComfortToast(
+            `${analysis.genderLabelBn} • মুখ ও গলা অটো-ক্রপ সম্পন্ন!`,
+            '✨',
+            3000
+        );
+    }
+}
+
+function getPrintSheetLayoutSummaryText() {
+    const ps = passportStudio.printState;
+    const { maxRowsFit } = passportStudio.getPaperMetrics();
+    const rowsUsed = ps.rowCount === 'full' ? maxRowsFit : (parseInt(ps.rowCount) || 2);
+    const cols = parseInt(ps.photosPerRow) || 5;
+    const total = rowsUsed * cols;
+    const paperName = ps.paperSize === 'A4'
+        ? 'A4 (২১০ × ২৯৭ মিমি)'
+        : (ps.paperSize === '4x6' ? '৪×৬ ইঞ্চি' : '৫×৭ ইঞ্চি');
+    return `${paperName} • এক লাইনে ${cols}টি × ${rowsUsed} সারি = ${total}টি পাসপোর্ট ছবি`;
+}
+
+function syncPrintSheetControls(source = 'inline') {
+    const pairs = [
+        { inlineId: 'inline-sheet-paper', modalId: 'sheet-paper-size', key: 'paperSize', isInt: false },
+        { inlineId: 'inline-sheet-per-row', modalId: 'sheet-photos-per-row', key: 'photosPerRow', isInt: true },
+        { inlineId: 'inline-sheet-rows', modalId: 'sheet-row-count', key: 'rowCount', isInt: false }
+    ];
+
+    pairs.forEach(({ inlineId, modalId, key, isInt }) => {
+        const inlineEl = document.getElementById(inlineId);
+        const modalEl = document.getElementById(modalId);
+        const activeEl = source === 'modal' ? modalEl : inlineEl;
+        if (!activeEl) return;
+
+        const rawVal = activeEl.value;
+        passportStudio.printState[key] = isInt ? (parseInt(rawVal) || 1) : rawVal;
+
+        if (inlineEl && inlineEl.value !== rawVal) inlineEl.value = rawVal;
+        if (modalEl && modalEl.value !== rawVal) modalEl.value = rawVal;
+    });
+
+    renderInlineA4SheetPreview();
+    if (document.getElementById('print-modal')?.classList.contains('active')) {
+        renderPrintSheetModal();
+    }
+}
+
+function exportOrPrintPassportSheet(action) {
+    if (!passportStudio.rawImage) {
+        alert('প্রথমে একটি ছবি আপলোড বা ক্যামেরায় তুলুন!');
+        return;
+    }
+    const sheet = passportStudio.generatePrintSheet();
+    if (!sheet) return;
+
+    const paper = passportStudio.printState.paperSize;
+    if (action === 'jpg') {
+        PDFExporter.downloadCanvasImage(sheet, `camlab_Passport_${paper}.jpg`, 'image/jpeg', 0.96);
+    } else if (action === 'pdf') {
+        const pdfSize = paper === 'A4' ? 'a4' : (paper === '5x7' ? [177.8, 127] : [152.4, 101.6]);
+        PDFExporter.exportPagesToPDF([sheet], `camlab_Passport_Sheet_${paper}.pdf`, pdfSize);
+    } else if (action === 'print') {
+        const pageCss = paper === 'A4'
+            ? 'A4 portrait'
+            : (paper === '5x7' ? '177.8mm 127mm' : '152.4mm 101.6mm');
+        PDFExporter.printCanvasListAsPDF([sheet], `camlab Passport ${paper} Print`, pageCss);
+    }
+}
+
+function renderInlineA4SheetPreview() {
+    const inlineCanvas = document.getElementById('passport-inline-sheet-canvas');
+    const summaryEl = document.getElementById('inline-sheet-summary');
+    if (summaryEl) summaryEl.textContent = getPrintSheetLayoutSummaryText();
+    if (!inlineCanvas) return;
+
+    const sheet = passportStudio.generatePrintSheet();
+    if (!sheet) return;
+
+    inlineCanvas.width = sheet.width;
+    inlineCanvas.height = sheet.height;
+    inlineCanvas.getContext('2d').drawImage(sheet, 0, 0);
+}
+
 function setupPassportStudio() {
     const uploadInput = document.getElementById('passport-upload');
     const previewCanvas = document.getElementById('passport-canvas');
@@ -2111,6 +2248,7 @@ function setupPassportStudio() {
             } else {
                 if (customWrap) customWrap.style.display = 'none';
                 passportStudio.setPreset(val);
+                syncPassportSlidersFromState();
                 updatePassportCanvasView();
             }
         });
@@ -2120,6 +2258,7 @@ function setupPassportStudio() {
         const w = parseFloat(document.getElementById('custom-width').value) || 35;
         const h = parseFloat(document.getElementById('custom-height').value) || 45;
         passportStudio.setPreset('custom', w, h);
+        syncPassportSlidersFromState();
         updatePassportCanvasView();
     };
     document.getElementById('custom-width')?.addEventListener('input', customApply);
@@ -2131,11 +2270,8 @@ function setupPassportStudio() {
             if (!file) return;
             const reader = new FileReader();
             reader.onload = (evt) => {
-                passportStudio.loadImage(evt.target.result, () => {
-                    const emptyState = document.getElementById('passport-empty-state');
-                    if (emptyState) emptyState.style.display = 'none';
-                    if (previewCanvas) previewCanvas.style.display = 'block';
-                    updatePassportCanvasView();
+                passportStudio.loadImage(evt.target.result, (analysis) => {
+                    onPassportImageLoaded(analysis);
                 });
             };
             reader.readAsDataURL(file);
@@ -2146,6 +2282,37 @@ function setupPassportStudio() {
         openCameraViewfinder('id_photo');
     });
 
+    // Gender detection & manual toggle
+    const handleGenderSwitch = (gender) => {
+        passportStudio.setGender(gender);
+        updatePassportAnalysisUI(passportStudio.analysis);
+        renderSuitSelector();
+        updatePassportCanvasView();
+    };
+    document.getElementById('btn-gender-male')?.addEventListener('click', () => handleGenderSwitch('male'));
+    document.getElementById('btn-gender-female')?.addEventListener('click', () => handleGenderSwitch('female'));
+
+    // One-click Auto Crop (Face + Neck + Upper Chest)
+    document.getElementById('btn-auto-crop-face')?.addEventListener('click', () => {
+        if (!passportStudio.rawImage) return;
+        passportStudio.autoFrameHeadNeckChest();
+        syncPassportSlidersFromState();
+        updatePassportCanvasView();
+        showComfortToast('মুখ, গলা ও বুকের অংশ পাসপোর্ট মাপে ক্রপ করা হয়েছে!', '✨');
+    });
+
+    // One-click Auto Formal Suit matching Male/Female
+    document.getElementById('btn-auto-fit-suit')?.addEventListener('click', () => {
+        if (!passportStudio.rawImage) return;
+        passportStudio.applyAutoFormalSuit();
+        const suitControls = document.getElementById('suit-adjust-controls');
+        if (suitControls) suitControls.style.display = 'flex';
+        updatePassportAnalysisUI(passportStudio.analysis);
+        renderSuitSelector();
+        updatePassportCanvasView();
+        showComfortToast('ফরমাল স্যুট স্বয়ংক্রিয়ভাবে বসানো হয়েছে!', '👔');
+    });
+
     const bindSlider = (id, property) => {
         const el = document.getElementById(id);
         const valDisplay = document.getElementById(`${id}-val`);
@@ -2153,7 +2320,7 @@ function setupPassportStudio() {
         el.addEventListener('input', (e) => {
             const v = parseFloat(e.target.value);
             passportStudio.state[property] = v;
-            if (valDisplay) valDisplay.textContent = v;
+            if (valDisplay) valDisplay.textContent = property === 'rotation' ? `${v}°` : v;
             updatePassportCanvasView();
         });
     };
@@ -2197,8 +2364,8 @@ function setupPassportStudio() {
         const tol = parseInt(document.getElementById('bg-tolerance').value) || 35;
         ImageProcessor.replaceBackground(tempCanvas, passportStudio.state.bgColor, tol);
 
-        passportStudio.loadImage(tempCanvas.toDataURL('image/png'), () => {
-            updatePassportCanvasView();
+        passportStudio.loadImage(tempCanvas.toDataURL('image/png'), (analysis) => {
+            onPassportImageLoaded(analysis);
         });
     });
 
@@ -2209,46 +2376,48 @@ function setupPassportStudio() {
     document.getElementById('btn-download-single')?.addEventListener('click', () => {
         const photo = passportStudio.renderCroppedPhoto();
         if (!photo) return;
-        PDFExporter.downloadCanvasImage(photo, `Passport_Photo_${passportStudio.currentPreset.id}.png`, 'image/png');
+        PDFExporter.downloadCanvasImage(photo, `camlab_Passport_${passportStudio.currentPreset.id}.png`, 'image/png');
     });
 
-    document.getElementById('btn-preview-sheet')?.addEventListener('click', () => {
+    const openPrintModal = () => {
         if (!passportStudio.rawImage) {
-            alert('প্রথমে একটি ছবি আপলোড করুন!');
+            alert('প্রথমে একটি ছবি আপলোড বা ক্যামেরায় তুলুন!');
             return;
         }
         document.getElementById('print-modal')?.classList.add('active');
         renderPrintSheetModal();
+    };
+    document.getElementById('btn-preview-sheet')?.addEventListener('click', openPrintModal);
+    document.getElementById('btn-open-full-print-modal')?.addEventListener('click', openPrintModal);
+
+    // Inline A4 Sheet controls
+    ['inline-sheet-paper', 'inline-sheet-per-row', 'inline-sheet-rows'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => syncPrintSheetControls('inline'));
     });
 
-    document.getElementById('sheet-paper-size')?.addEventListener('change', (e) => {
-        passportStudio.printState.paperSize = e.target.value;
-        renderPrintSheetModal();
+    // Modal A4 Sheet controls
+    ['sheet-paper-size', 'sheet-photos-per-row', 'sheet-row-count'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => syncPrintSheetControls('modal'));
     });
-    document.getElementById('sheet-photo-count')?.addEventListener('change', (e) => {
-        passportStudio.printState.photoCount = parseInt(e.target.value);
-        renderPrintSheetModal();
-    });
+
     document.getElementById('sheet-cut-lines')?.addEventListener('change', (e) => {
         passportStudio.printState.showCutLines = e.target.checked;
         renderPrintSheetModal();
+        renderInlineA4SheetPreview();
     });
     document.getElementById('sheet-border')?.addEventListener('change', (e) => {
         passportStudio.printState.hasBorder = e.target.checked;
         renderPrintSheetModal();
+        renderInlineA4SheetPreview();
     });
 
-    document.getElementById('btn-download-sheet-img')?.addEventListener('click', () => {
-        const sheet = passportStudio.generatePrintSheet();
-        if (!sheet) return;
-        PDFExporter.downloadCanvasImage(sheet, `Print_Sheet_${passportStudio.printState.paperSize}.jpg`, 'image/jpeg', 0.95);
-    });
-
-    document.getElementById('btn-download-sheet-pdf')?.addEventListener('click', () => {
-        const sheet = passportStudio.generatePrintSheet();
-        if (!sheet) return;
-        PDFExporter.exportPagesToPDF([sheet], `Passport_Print_Sheet_${passportStudio.printState.paperSize}.pdf`, passportStudio.printState.paperSize === 'A4' ? 'a4' : [102, 152]);
-    });
+    // Export / Direct Print actions (inline + modal)
+    document.getElementById('btn-direct-print-passport')?.addEventListener('click', () => exportOrPrintPassportSheet('print'));
+    document.getElementById('btn-print-passport-now')?.addEventListener('click', () => exportOrPrintPassportSheet('print'));
+    document.getElementById('btn-inline-download-pdf')?.addEventListener('click', () => exportOrPrintPassportSheet('pdf'));
+    document.getElementById('btn-download-sheet-pdf')?.addEventListener('click', () => exportOrPrintPassportSheet('pdf'));
+    document.getElementById('btn-inline-download-jpg')?.addEventListener('click', () => exportOrPrintPassportSheet('jpg'));
+    document.getElementById('btn-download-sheet-img')?.addEventListener('click', () => exportOrPrintPassportSheet('jpg'));
 }
 
 function updatePassportCanvasView() {
@@ -2269,13 +2438,24 @@ function updatePassportCanvasView() {
     if (dimBadge) {
         dimBadge.textContent = `${passportStudio.currentPreset.widthMm} × ${passportStudio.currentPreset.heightMm} mm | ${cropped.width} × ${cropped.height} px (300 DPI)`;
     }
+
+    renderInlineA4SheetPreview();
 }
 
 function renderSuitSelector() {
     const container = document.getElementById('suits-container');
     if (!container) return;
 
-    container.innerHTML = SUIT_TEMPLATES.map(suit => `
+    const detectedGender = passportStudio.analysis?.gender || 'male';
+    const sortedSuits = [...SUIT_TEMPLATES].sort((a, b) => {
+        if (a.id === 'none') return -1;
+        if (b.id === 'none') return 1;
+        const aMatch = a.gender === detectedGender ? 0 : 1;
+        const bMatch = b.gender === detectedGender ? 0 : 1;
+        return aMatch - bMatch;
+    });
+
+    container.innerHTML = sortedSuits.map(suit => `
         <div class="suit-card ${passportStudio.state.selectedSuit === suit.id ? 'active' : ''}" data-suit="${suit.id}">
             <div class="suit-thumb">
                 ${suit.svg ? suit.svg : '<div style="font-size:24px;">🚫</div>'}
@@ -2294,25 +2474,35 @@ function renderSuitSelector() {
             if (suitControls) {
                 suitControls.style.display = card.dataset.suit === 'none' ? 'none' : 'flex';
             }
+            updatePassportAnalysisUI(passportStudio.analysis);
             updatePassportCanvasView();
         });
     });
 
-    document.getElementById('suit-scale')?.addEventListener('input', (e) => {
-        passportStudio.state.suitState.scale = parseFloat(e.target.value);
-        updatePassportCanvasView();
-    });
-
-    document.getElementById('suit-y-pos')?.addEventListener('input', (e) => {
-        const h = passportStudio.getPixelHeight();
-        passportStudio.state.suitState.y = h * (parseFloat(e.target.value) / 100);
-        updatePassportCanvasView();
-    });
+    const suitScaleEl = document.getElementById('suit-scale');
+    const suitYPosEl = document.getElementById('suit-y-pos');
+    if (suitScaleEl && !suitScaleEl.dataset.bound) {
+        suitScaleEl.dataset.bound = '1';
+        suitScaleEl.addEventListener('input', (e) => {
+            passportStudio.state.suitState.scale = parseFloat(e.target.value);
+            updatePassportCanvasView();
+        });
+    }
+    if (suitYPosEl && !suitYPosEl.dataset.bound) {
+        suitYPosEl.dataset.bound = '1';
+        suitYPosEl.addEventListener('input', (e) => {
+            const h = passportStudio.getPixelHeight();
+            passportStudio.state.suitState.y = h * (parseFloat(e.target.value) / 100);
+            updatePassportCanvasView();
+        });
+    }
 }
 
 function renderPrintSheetModal() {
     const sheetCanvas = passportStudio.generatePrintSheet();
     const container = document.getElementById('print-sheet-preview-wrap');
+    const summaryEl = document.getElementById('sheet-modal-summary');
+    if (summaryEl) summaryEl.textContent = getPrintSheetLayoutSummaryText();
     if (!sheetCanvas || !container) return;
 
     container.innerHTML = '';
@@ -2571,7 +2761,7 @@ function setupToolsHub() {
                             allPages.push(c);
                         });
                     });
-                    PDFExporter.exportPagesToPDF(allPages, 'Merged_CamScanner_Docs.pdf', 'a4');
+                    PDFExporter.exportPagesToPDF(allPages, 'Merged_camlab_Docs.pdf', 'a4');
                     break;
                 default:
                     openCameraViewfinder('docs');
@@ -2741,7 +2931,7 @@ function triggerPWAInstall(platformType = 'desktop') {
         deferredInstallPrompt.prompt();
         deferredInstallPrompt.userChoice.then((choice) => {
             if (choice.outcome === 'accepted') {
-                showComfortToast('CamScanner Pro অ্যাপ সফলভাবে ইনস্টল হচ্ছে!', '🎉');
+                showComfortToast('camlab অ্যাপ সফলভাবে ইনস্টল হচ্ছে!', '🎉');
             }
             deferredInstallPrompt = null;
         });
@@ -2766,32 +2956,32 @@ function triggerAppDownload(type) {
     const appUrl = (window.location.protocol.startsWith('http'))
         ? window.location.href
         : 'https://menajpal-design.github.io/camlap/';
-    const apkReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/CamScanner-Pro.apk';
+    const apkReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.apk';
 
     // Direct native Android .APK download from GitHub Releases
     if (type === 'android-apk') {
         if (statusText) {
-            statusText.innerHTML = `📦 <strong>CamScanner-Pro.apk</strong> ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
+            statusText.innerHTML = `📦 <strong>camlab.apk</strong> ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
         }
         if (percentText) percentText.textContent = '100%';
         if (bar) bar.style.width = '100%';
 
         const a = document.createElement('a');
         a.href = apkReleaseUrl;
-        a.download = 'CamScanner-Pro.apk';
+        a.download = 'camlab.apk';
         a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
 
-        showComfortToast('CamScanner-Pro.apk ডাউনলোড শুরু হয়েছে!', '📦', 3500);
+        showComfortToast('camlab.apk ডাউনলোড শুরু হয়েছে!', '📦', 3500);
         return;
     }
 
-    let label = 'CamScanner App';
-    if (type === 'windows-exe') label = 'CamScanner_Studio_Pro_Windows_Desktop.bat';
-    else if (type === 'mobile-shortcut') label = 'CamScanner_Mobile_App_QuickLaunch.html';
-    else label = 'CamScanner_Studio_Pro_Desktop.url';
+    let label = 'camlab App';
+    if (type === 'windows-exe') label = 'camlab_Studio_Windows_Desktop.bat';
+    else if (type === 'mobile-shortcut') label = 'camlab_Mobile_QuickLaunch.html';
+    else label = 'camlab_Studio_Desktop.url';
 
     let pct = 0;
     const timer = setInterval(() => {
@@ -2816,28 +3006,28 @@ function downloadGeneratedAppPackage(type, appUrl) {
     let mime = 'text/plain;charset=utf-8';
 
     if (type === 'windows-exe') {
-        filename = 'CamScanner_Studio_Pro_Desktop.bat';
+        filename = 'camlab_Studio_Desktop.bat';
         content = [
             '@echo off',
-            'title CamScanner Studio Pro v6.81.0 - Desktop App',
-            'echo Starting CamScanner Studio Pro Desktop Application...',
+            'title camlab Studio Pro v6.81.0 - Desktop App',
+            'echo Starting camlab Studio Pro Desktop Application...',
             'start msedge --app="' + appUrl + '" 2>nul || start chrome --app="' + appUrl + '" 2>nul || start "" "' + appUrl + '"',
             'exit'
         ].join('\r\n');
     } else if (type === 'desktop-shortcut') {
-        filename = 'CamScanner Studio Pro.url';
+        filename = 'camlab Studio.url';
         content = `[InternetShortcut]\r\nURL=${appUrl}\r\nIconIndex=0\r\n`;
     } else {
         filename = type === 'android-apk'
-            ? 'CamScanner_v6.81.0_Mobile_App_Installer.html'
-            : 'CamScanner_Mobile_QuickLaunch.html';
+            ? 'camlab_v6.81.0_Mobile_App_Installer.html'
+            : 'camlab_Mobile_QuickLaunch.html';
         mime = 'text/html;charset=utf-8';
         content = `<!DOCTYPE html>
 <html lang="bn">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CamScanner Pro v6.81.0 Mobile App Installer</title>
+<title>camlab v6.81.0 Mobile App Installer</title>
 <style>
 body { background:#0F141A; color:#F8FAFC; font-family:sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:20px; text-align:center; }
 .card { background:#18202A; border:1px solid #00A884; border-radius:18px; padding:28px; max-width:420px; box-shadow:0 12px 32px rgba(0,0,0,0.45); }
@@ -2846,9 +3036,9 @@ body { background:#0F141A; color:#F8FAFC; font-family:sans-serif; display:flex; 
 </head>
 <body>
 <div class="card">
-<h2>📲 CamScanner Studio Pro v6.81.0</h2>
+<h2>📲 camlab Studio Pro v6.81.0</h2>
 <p>আপনার মোবাইলে অ্যাপটি চালু করতে নিচের বাটনে ট্যাপ করুন এবং ব্রাউজারের মেনু (⋮) থেকে <strong>"Add to Home Screen / Install App"</strong> চাপুন।</p>
-<a class="btn" href="${appUrl}">🚀 CamScanner অ্যাপ চালু করুন</a>
+<a class="btn" href="${appUrl}">🚀 camlab অ্যাপ চালু করুন</a>
 </div>
 <script>setTimeout(function(){ window.location.href = "${appUrl}"; }, 1800);</script>
 </body>
