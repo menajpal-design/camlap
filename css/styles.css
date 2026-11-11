@@ -1,31 +1,48 @@
 /* ==========================================================================
-   CamScanner Web Studio Pro - Authentic Official Look & Feel
-   Color Palette: CamScanner Teal #00A884, Charcoal #18191A, Slate #242526
+   CamScanner Web Studio Pro - Master Multi-Device Responsive Stylesheet
+   Supports Mobile (<768px), Tablet (768-1023px), and Desktop (>=1024px)
+   Theme: Official CamScanner Teal (#00A884), Obsidian (#0E1114), Slate (#181C21)
    ========================================================================== */
 
 :root {
     --cs-teal: #00A884;
     --cs-teal-dark: #00896C;
     --cs-teal-light: #E0F2EF;
+    --cs-teal-glow: rgba(0, 168, 132, 0.35);
+    --cs-mint: #00FFBB;
     --cs-gold: #FFA000;
+    --cs-gold-dark: #FF8F00;
     --cs-gold-light: #FFF8E1;
-    --cs-bg-dark: #121417;
-    --cs-card-dark: #1E2228;
-    --cs-card-hover: #292E36;
-    --cs-border-dark: #2F3540;
+
+    /* Dark Theme Default */
+    --cs-bg-dark: #0E1114;
+    --cs-card-dark: #181C21;
+    --cs-card-hover: #22272E;
+    --cs-card-sub: #121519;
+    --cs-border-dark: #2A313C;
+    --cs-border-subtle: #1F242C;
     --cs-text-white: #FFFFFF;
     --cs-text-dim: #9AA0A6;
-    --cs-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    --cs-text-muted: #6B7280;
+    --cs-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    --cs-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+    --cs-radius-sm: 6px;
+    --cs-radius-md: 10px;
+    --cs-radius-lg: 16px;
 }
 
 [data-theme="light"] {
-    --cs-bg-dark: #F3F4F6;
+    --cs-bg-dark: #F4F6F8;
     --cs-card-dark: #FFFFFF;
-    --cs-card-hover: #F9FAFB;
-    --cs-border-dark: #E5E7EB;
-    --cs-text-white: #111827;
-    --cs-text-dim: #6B7280;
+    --cs-card-hover: #F8FAFC;
+    --cs-card-sub: #EEF2F6;
+    --cs-border-dark: #E2E8F0;
+    --cs-border-subtle: #EDF2F7;
+    --cs-text-white: #0F172A;
+    --cs-text-dim: #64748B;
+    --cs-text-muted: #94A3B8;
     --cs-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
+    --cs-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.05);
 }
 
 * {
@@ -34,68 +51,112 @@
     padding: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Hind Siliguri", "Inter", sans-serif;
     -webkit-font-smoothing: antialiased;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html, body {
+    width: 100%;
+    min-height: 100%;
+    background-color: var(--cs-bg-dark);
+    color: var(--cs-text-white);
+    overflow-x: hidden;
 }
 
 body {
-    background-color: var(--cs-bg-dark);
-    color: var(--cs-text-white);
-    min-height: 100vh;
     display: flex;
     flex-direction: column;
-    overflow-x: hidden;
+    min-height: 100vh;
+    min-height: 100dvh;
     user-select: none;
 }
 
-/* App Header */
+/* ==========================================================================
+   APP HEADER (Adaptive Mobile, Tablet & Desktop)
+   ========================================================================== */
 .cs-header {
     background: var(--cs-card-dark);
     border-bottom: 1px solid var(--cs-border-dark);
-    padding: 10px 20px;
+    padding: 10px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     position: sticky;
     top: 0;
     z-index: 500;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.15);
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+    gap: 12px;
+}
+
+.cs-header-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .cs-brand {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
+    cursor: pointer;
 }
 
 .cs-logo-img {
     width: 36px;
     height: 36px;
     border-radius: 8px;
-    box-shadow: 0 2px 8px rgba(0, 168, 132, 0.4);
+    box-shadow: 0 2px 8px var(--cs-teal-glow);
+    flex-shrink: 0;
+}
+
+.cs-brand-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
 }
 
 .cs-brand h1 {
-    font-size: 1.15rem;
-    font-weight: 700;
+    font-size: 1.1rem;
+    font-weight: 800;
     display: flex;
     align-items: center;
     gap: 6px;
+    letter-spacing: -0.3px;
+    line-height: 1.1;
 }
 
 .cs-vip-badge {
-    background: linear-gradient(135deg, #FFA000, #FF6F00);
+    background: linear-gradient(135deg, var(--cs-gold), var(--cs-gold-dark));
     color: #fff;
-    font-size: 0.65rem;
+    font-size: 0.62rem;
     font-weight: 800;
     padding: 2px 6px;
     border-radius: 4px;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
+    box-shadow: 0 2px 6px rgba(255, 160, 0, 0.35);
 }
 
-/* Search Bar */
+.cs-sync-badge {
+    font-size: 0.68rem;
+    color: var(--cs-teal);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cs-sync-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--cs-teal);
+    box-shadow: 0 0 6px var(--cs-teal);
+}
+
+/* Header Search Box */
 .cs-search-box {
     flex: 1;
-    max-width: 480px;
-    margin: 0 20px;
+    max-width: 440px;
+    margin: 0 12px;
     position: relative;
     display: flex;
     align-items: center;
@@ -106,43 +167,71 @@ body {
     background: var(--cs-bg-dark);
     border: 1px solid var(--cs-border-dark);
     color: var(--cs-text-white);
-    padding: 8px 16px 8px 38px;
+    padding: 8px 36px 8px 34px;
     border-radius: 20px;
     font-size: 0.85rem;
     outline: none;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
 }
 
 .cs-search-input:focus {
     border-color: var(--cs-teal);
-    box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.2);
+    box-shadow: 0 0 0 2px var(--cs-teal-glow);
 }
 
 .cs-search-icon {
     position: absolute;
     left: 12px;
     color: var(--cs-text-dim);
-    font-size: 14px;
+    font-size: 13px;
+    pointer-events: none;
 }
 
+.cs-search-clear {
+    position: absolute;
+    right: 68px;
+    background: transparent;
+    border: none;
+    color: var(--cs-text-dim);
+    font-size: 11px;
+    cursor: pointer;
+}
+
+.cs-search-shortcut-badge {
+    position: absolute;
+    right: 12px;
+    background: var(--cs-card-hover);
+    color: var(--cs-text-muted);
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    border: 1px solid var(--cs-border-dark);
+    pointer-events: none;
+}
+
+/* Header Actions */
 .cs-header-actions {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-shrink: 0;
 }
 
 .cs-icon-btn {
     background: transparent;
     border: 1px solid var(--cs-border-dark);
     color: var(--cs-text-white);
-    padding: 7px 12px;
-    border-radius: 8px;
+    padding: 6px 12px;
+    border-radius: var(--cs-radius-sm);
     cursor: pointer;
-    font-size: 0.85rem;
-    display: flex;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    white-space: nowrap;
 }
 
 .cs-icon-btn:hover {
@@ -150,15 +239,56 @@ body {
     border-color: var(--cs-teal);
 }
 
-/* Category Filter Pills Ribbon */
+.cs-btn-scan-header {
+    background: var(--cs-teal) !important;
+    color: #fff !important;
+    border-color: var(--cs-teal) !important;
+    box-shadow: 0 2px 8px var(--cs-teal-glow);
+}
+
+.cs-btn-scan-header:hover {
+    background: var(--cs-teal-dark) !important;
+}
+
+.cs-btn-batch-header {
+    background: rgba(0, 168, 132, 0.12);
+    border-color: var(--cs-teal);
+    color: var(--cs-text-white);
+    cursor: pointer;
+}
+
+/* Mobile Search Drawer */
+.cs-mobile-search-drawer {
+    background: var(--cs-card-dark);
+    border-bottom: 1px solid var(--cs-border-dark);
+    padding: 8px 12px;
+    animation: csSlideDown 0.2s ease;
+}
+
+@keyframes csSlideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.cs-mobile-search-inner {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==========================================================================
+   CATEGORY FILTER PILLS RIBBON
+   ========================================================================== */
 .cs-pills-bar {
     background: var(--cs-card-dark);
     border-bottom: 1px solid var(--cs-border-dark);
-    padding: 10px 20px;
+    padding: 8px 16px;
     display: flex;
     gap: 8px;
     overflow-x: auto;
     scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
 }
 
 .cs-pills-bar::-webkit-scrollbar {
@@ -166,19 +296,20 @@ body {
 }
 
 .cs-pill {
-    padding: 6px 14px;
+    padding: 5px 13px;
     border-radius: 16px;
     border: 1px solid var(--cs-border-dark);
     background: transparent;
     color: var(--cs-text-dim);
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     font-weight: 600;
     cursor: pointer;
     white-space: nowrap;
-    display: flex;
+    display: inline-flex;
     align-items: center;
     gap: 6px;
-    transition: all 0.2s;
+    transition: all 0.2s ease;
+    flex-shrink: 0;
 }
 
 .cs-pill:hover {
@@ -190,15 +321,18 @@ body {
     background: var(--cs-teal);
     color: #ffffff;
     border-color: var(--cs-teal);
+    box-shadow: 0 2px 8px var(--cs-teal-glow);
 }
 
-/* Main Container */
+/* ==========================================================================
+   MAIN WORKSPACE CONTAINER
+   ========================================================================== */
 .cs-main {
     flex: 1;
-    max-width: 1300px;
+    max-width: 1360px;
     width: 100%;
     margin: 0 auto;
-    padding: 20px 16px 90px 16px; /* space for bottom tab bar */
+    padding: 16px 16px 84px 16px; /* 84px padding for bottom bar */
 }
 
 /* Screen Views */
@@ -208,37 +342,341 @@ body {
 
 .cs-screen.active {
     display: block;
-    animation: csFade 0.2s ease;
+    animation: csFadeIn 0.2s ease;
 }
 
-@keyframes csFade {
+@keyframes csFadeIn {
     from { opacity: 0; transform: translateY(4px); }
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* Document Grid & Cards (Home View) */
+/* ==========================================================================
+   OFFICIAL CAMSCANNER PROMO BANNER CAROUSEL
+   ========================================================================== */
+.cs-banner-slider-container {
+    width: 100%;
+    margin-bottom: 16px;
+    position: relative;
+    border-radius: var(--cs-radius-lg);
+    overflow: hidden;
+    box-shadow: var(--cs-shadow-sm);
+    border: 1px solid var(--cs-border-dark);
+}
+
+.cs-banner-slider {
+    display: flex;
+    width: 100%;
+    transition: transform 0.4s ease-in-out;
+    position: relative;
+}
+
+.cs-banner-slide {
+    min-width: 100%;
+    height: 140px;
+    display: none;
+    cursor: pointer;
+    background: #000;
+    overflow: hidden;
+    position: relative;
+}
+
+.cs-banner-slide.active {
+    display: block;
+}
+
+.cs-banner-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.3s ease;
+}
+
+.cs-banner-slide:hover img {
+    transform: scale(1.02);
+}
+
+.cs-banner-dots {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 6px;
+    z-index: 20;
+}
+
+.cs-banner-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.4);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cs-banner-dot.active {
+    width: 20px;
+    border-radius: 4px;
+    background: var(--cs-teal);
+    box-shadow: 0 0 6px var(--cs-teal);
+}
+
+/* ==========================================================================
+   CAMSCANNER QUICK SHORTCUTS ROW (App Style)
+   ========================================================================== */
+.cs-quick-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 10px;
+    margin-bottom: 18px;
+}
+
+.cs-shortcut-item {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-md);
+    padding: 12px 6px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--cs-text-white);
+}
+
+.cs-shortcut-item:hover {
+    border-color: var(--cs-teal);
+    transform: translateY(-2px);
+    box-shadow: var(--cs-shadow-sm);
+}
+
+.cs-shortcut-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    transition: transform 0.2s;
+}
+
+.cs-shortcut-item:hover .cs-shortcut-icon {
+    transform: scale(1.1);
+}
+
+.cs-shortcut-item span {
+    font-size: 0.76rem;
+    font-weight: 700;
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   DESKTOP DRAG & DROP ZONE
+   ========================================================================== */
+.cs-desktop-dropzone {
+    background: rgba(0, 168, 132, 0.04);
+    border: 2px dashed var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 24px 20px;
+    text-align: center;
+    margin-bottom: 18px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.cs-desktop-dropzone:hover, .cs-desktop-dropzone.dragover {
+    border-color: var(--cs-teal);
+    background: rgba(0, 168, 132, 0.08);
+    transform: scale(1.005);
+}
+
+.cs-dropzone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.cs-dropzone-icon {
+    font-size: 32px;
+}
+
+.cs-dropzone-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cs-text-white);
+}
+
+.cs-dropzone-sub {
+    font-size: 0.8rem;
+    color: var(--cs-text-dim);
+}
+
+.cs-dropzone-btn {
+    margin-top: 6px;
+    background: var(--cs-card-dark);
+    cursor: pointer;
+}
+
+/* ==========================================================================
+   LIBRARY HEADER & CONTROLS TOOLBAR
+   ========================================================================== */
+.cs-library-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+}
+
+.cs-library-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.cs-library-title {
+    font-size: 1.1rem;
+    font-weight: 800;
+    color: var(--cs-text-white);
+}
+
+.cs-library-count {
+    background: var(--cs-card-hover);
+    color: var(--cs-teal);
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 3px 8px;
+    border-radius: 12px;
+    border: 1px solid var(--cs-border-dark);
+}
+
+.cs-library-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cs-select-clean {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    color: var(--cs-text-white);
+    padding: 7px 10px;
+    border-radius: var(--cs-radius-sm);
+    font-size: 0.8rem;
+    outline: none;
+    cursor: pointer;
+}
+
+.cs-select-clean:focus {
+    border-color: var(--cs-teal);
+}
+
+.cs-btn-batch-primary {
+    background: rgba(0, 168, 132, 0.15);
+    border-color: var(--cs-teal);
+    color: #fff;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cs-btn-cam-primary {
+    background: var(--cs-teal);
+    color: #fff;
+    border-color: var(--cs-teal);
+    font-weight: 700;
+    box-shadow: 0 4px 12px var(--cs-teal-glow);
+}
+
+.cs-btn-cam-primary:hover {
+    background: var(--cs-teal-dark);
+}
+
+/* ==========================================================================
+   BATCH SELECTION ACTION BAR
+   ========================================================================== */
+.cs-batch-action-bar {
+    background: var(--cs-card-hover);
+    border: 1px solid var(--cs-teal);
+    border-radius: var(--cs-radius-md);
+    padding: 10px 16px;
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    animation: csSlideDown 0.2s ease;
+}
+
+.cs-batch-action-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.cs-checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.cs-batch-action-buttons {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ==========================================================================
+   DOCUMENT LIBRARY - GRID & LIST VIEWS
+   ========================================================================== */
+/* Grid View (Default) */
 .cs-docs-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
     gap: 16px;
-    margin-top: 14px;
 }
 
 .cs-doc-card {
     background: var(--cs-card-dark);
     border: 1px solid var(--cs-border-dark);
-    border-radius: 12px;
+    border-radius: var(--cs-radius-md);
     overflow: hidden;
     cursor: pointer;
     transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
     display: flex;
     flex-direction: column;
+    position: relative;
 }
 
 .cs-doc-card:hover {
     transform: translateY(-2px);
     border-color: var(--cs-teal);
     box-shadow: var(--cs-shadow);
+}
+
+.cs-doc-card.selected {
+    border-color: var(--cs-teal);
+    box-shadow: 0 0 0 2px var(--cs-teal);
+}
+
+.cs-doc-select-checkbox {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    width: 20px;
+    height: 20px;
+    accent-color: var(--cs-teal);
+    cursor: pointer;
 }
 
 .cs-doc-thumb {
@@ -253,9 +691,14 @@ body {
 }
 
 .cs-doc-thumb img {
-    width: 100%;
-    height: 100%;
+    max-width: 100%;
+    max-height: 100%;
     object-fit: contain;
+    transition: transform 0.3s;
+}
+
+.cs-doc-card:hover .cs-doc-thumb img {
+    transform: scale(1.03);
 }
 
 .cs-page-badge {
@@ -264,10 +707,11 @@ body {
     right: 8px;
     background: rgba(0, 0, 0, 0.75);
     color: #fff;
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 700;
     padding: 2px 7px;
     border-radius: 4px;
+    backdrop-filter: blur(4px);
 }
 
 .cs-doc-body {
@@ -288,14 +732,14 @@ body {
 .cs-doc-meta {
     display: flex;
     justify-content: space-between;
-    font-size: 0.75rem;
+    font-size: 0.74rem;
     color: var(--cs-text-dim);
 }
 
 .cs-doc-actions {
     display: flex;
     border-top: 1px solid var(--cs-border-dark);
-    margin-top: 6px;
+    margin-top: 4px;
     padding-top: 8px;
     justify-content: space-around;
 }
@@ -311,6 +755,7 @@ body {
     display: flex;
     align-items: center;
     gap: 4px;
+    transition: all 0.2s;
 }
 
 .cs-action-mini:hover {
@@ -318,794 +763,126 @@ body {
     background: var(--cs-card-hover);
 }
 
-/* Bottom Tab Bar (Authentic 5 Tabs with CamScanner Icons) */
-.cs-tabbar {
-    position: fixed;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 64px;
+/* List View (Table Format) */
+.cs-docs-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.cs-doc-row {
     background: var(--cs-card-dark);
-    border-top: 1px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    z-index: 1000;
-    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.2);
-}
-
-body.in-doc-detail .cs-tabbar {
-    display: none !important;
-}
-
-.cs-tab-item {
-    background: transparent;
-    border: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    color: var(--cs-text-dim);
-    cursor: pointer;
-    flex: 1;
-    height: 100%;
-    transition: color 0.2s;
-}
-
-.cs-tab-item img {
-    width: 24px;
-    height: 24px;
-    margin-bottom: 3px;
-    opacity: 0.7;
-    transition: opacity 0.2s;
-}
-
-.cs-tab-item span {
-    font-size: 0.7rem;
-    font-weight: 600;
-}
-
-.cs-tab-item:hover, .cs-tab-item.active {
-    color: var(--cs-teal);
-}
-
-.cs-tab-item.active img {
-    opacity: 1;
-    filter: drop-shadow(0 2px 6px rgba(0, 168, 132, 0.4));
-}
-
-/* Center Floating Shutter FAB */
-.cs-fab-shutter {
-    width: 60px;
-    height: 60px;
-    background: linear-gradient(135deg, #00A884, #00896C);
-    border: 3px solid var(--cs-card-dark);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 168, 132, 0.5);
-    margin-top: -24px;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.cs-fab-shutter:hover {
-    transform: scale(1.08);
-    box-shadow: 0 6px 22px rgba(0, 168, 132, 0.7);
-}
-
-.cs-fab-shutter img {
-    width: 32px;
-    height: 32px;
-}
-
-/* ==========================================================================
-   FULL-SCREEN CAMERA SCANNER VIEW (Exact CamScanner Camera UI)
-   ========================================================================== */
-.cs-camera-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #000000;
-    z-index: 2000;
-    display: none;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-}
-
-.cs-camera-overlay.active {
-    display: flex;
-}
-
-.cs-camera-topbar {
-    height: 56px;
-    flex-shrink: 0;
-    padding: 0 16px;
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-md);
+    padding: 10px 14px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: rgba(0, 0, 0, 0.6);
-    color: #fff;
-    z-index: 10;
-}
-
-.cs-camera-viewport {
-    flex: 1;
-    min-height: 0;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    overflow: hidden;
-}
-
-.cs-camera-viewport video {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-}
-
-/* Real-Time Live Auto-Detect Frame in Camera */
-.cs-camera-live-frame {
-    position: absolute;
-    width: 82%;
-    height: 72%;
-    border: 2px solid rgba(0, 168, 132, 0.75);
-    border-radius: 12px;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(0, 168, 132, 0.25);
-    pointer-events: none;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    align-items: center;
-    padding-bottom: 14px;
-    transition: all 0.25s ease;
-    overflow: hidden;
-    z-index: 20;
-}
-
-.cs-camera-live-frame.detected {
-    border-color: #00FFBB;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), inset 0 0 35px rgba(0, 255, 187, 0.45);
-}
-
-/* 4 Distinct High-Visibility Corner Brackets */
-.cs-corner-tl, .cs-corner-tr, .cs-corner-bl, .cs-corner-br {
-    position: absolute;
-    width: 28px;
-    height: 28px;
-    border-color: #00A884;
-    border-style: solid;
-}
-.cs-camera-live-frame.detected .cs-corner-tl,
-.cs-camera-live-frame.detected .cs-corner-tr,
-.cs-camera-live-frame.detected .cs-corner-bl,
-.cs-camera-live-frame.detected .cs-corner-br {
-    border-color: #00FFBB;
-}
-
-.cs-corner-tl { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 10px; }
-.cs-corner-tr { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-top-right-radius: 10px; }
-.cs-corner-bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-bottom-left-radius: 10px; }
-.cs-corner-br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-bottom-right-radius: 10px; }
-
-/* Animated CamScanner Laser Beam */
-.cs-camera-laser {
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, transparent, #00FFBB, #00A884, transparent);
-    box-shadow: 0 0 14px #00FFBB, 0 0 28px #00A884;
-    animation: csLaserScan 2.4s ease-in-out infinite alternate;
-}
-
-@keyframes csLaserScan {
-    0% { top: 2%; opacity: 0.2; }
-    50% { opacity: 1; }
-    100% { top: 96%; opacity: 0.2; }
-}
-
-.cs-camera-status-pill {
-    background: rgba(18, 20, 23, 0.85);
-    backdrop-filter: blur(8px);
-    border: 1px solid rgba(0, 168, 132, 0.6);
-    border-radius: 20px;
-    padding: 6px 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #ffffff;
-    font-size: 0.75rem;
-    font-weight: 600;
-    z-index: 10;
-}
-
-.cs-camera-status-pill .dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #00A884;
-    box-shadow: 0 0 8px #00A884;
-    animation: csPulse 1.2s infinite;
-}
-
-@keyframes csPulse {
-    0%, 100% { transform: scale(1); opacity: 1; }
-    50% { transform: scale(1.3); opacity: 0.6; }
-}
-
-/* Biometric Oval Guide for ID Photo Mode */
-.cs-biometric-face-guide {
-    position: absolute;
-    width: 220px;
-    height: 290px;
-    border: 2px dashed #00A884;
-    border-radius: 50%;
-    pointer-events: none;
-    display: none;
-    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
-}
-
-/* Horizontal Mode Carousel above Shutter */
-.cs-camera-mode-carousel {
-    height: 44px;
-    flex-shrink: 0;
-    background: rgba(0, 0, 0, 0.75);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 18px;
-    overflow-x: auto;
-    padding: 0 20px;
-}
-
-.cs-camera-mode-btn {
-    background: transparent;
-    border: none;
-    color: #9AA0A6;
-    font-size: 0.85rem;
-    font-weight: 700;
+    gap: 12px;
     cursor: pointer;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    padding: 4px 8px;
     transition: all 0.2s;
 }
 
-.cs-camera-mode-btn.active {
-    color: #00A884;
-    border-bottom: 2px solid #00A884;
+.cs-doc-row:hover {
+    border-color: var(--cs-teal);
+    background: var(--cs-card-hover);
 }
 
-/* Camera Bottom Shutter Controls */
-.cs-camera-shutter-bar {
-    height: 96px;
-    flex-shrink: 0;
-    background: #000000;
+.cs-doc-row.selected {
+    border-color: var(--cs-teal);
+    background: rgba(0, 168, 132, 0.08);
+}
+
+.cs-row-left {
     display: flex;
     align-items: center;
-    justify-content: space-around;
-    padding: 0 24px;
-}
-
-.cs-shutter-main-btn {
-    width: 72px;
-    height: 72px;
-    background: transparent;
-    border: 4px solid #ffffff;
-    border-radius: 50%;
-    padding: 4px;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: transform 0.15s;
-}
-
-.cs-shutter-main-btn:active {
-    transform: scale(0.92);
-}
-
-.cs-shutter-inner {
-    width: 100%;
-    height: 100%;
-    background: #00A884;
-    border-radius: 50%;
-}
-
-/* ==========================================================================
-   8-POINT CROP & ALIGN VIEW (Ensuring Bottom Bar & Next Button Always Visible!)
-   ========================================================================== */
-.cs-crop-screen {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #121417;
-    z-index: 2100;
-    display: none;
-    flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
-}
-
-.cs-crop-screen.active {
-    display: flex;
-}
-
-.cs-crop-topbar {
-    height: 52px;
-    flex-shrink: 0;
-    padding: 0 16px;
-    background: #1E2228;
-    border-bottom: 1px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    z-index: 10;
-}
-
-.cs-crop-viewport {
+    gap: 12px;
     flex: 1;
-    min-height: 0;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: #0B0D0F;
-    overflow: hidden;
+    min-width: 0;
 }
 
-.cs-crop-viewport canvas {
-    max-width: 95%;
-    max-height: 95%;
-    object-fit: contain;
-}
-
-/* Live Zoom Loupe Magnifier */
-.cs-crop-loupe {
-    position: absolute;
-    top: 20px;
-    left: 20px;
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    border: 3px solid #00A884;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
-    pointer-events: none;
-    display: none;
-    z-index: 100;
+.cs-row-thumb {
+    width: 48px;
+    height: 48px;
     background: #000;
-}
-
-.cs-crop-bottombar {
-    height: 76px;
-    flex-shrink: 0;
-    background: #1E2228;
-    border-top: 1px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    justify-content: space-around;
-    padding: 0 16px;
-    position: relative;
-    z-index: 50;
-    box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
-}
-
-.cs-crop-btn {
-    background: #252A33;
-    border: 1px solid var(--cs-border-dark);
-    color: #fff;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 5px;
-    cursor: pointer;
-    font-size: 0.78rem;
-    font-weight: 600;
-    padding: 8px 16px;
-    border-radius: 8px;
-    transition: all 0.2s;
-    min-width: 74px;
-}
-
-.cs-crop-btn:hover {
-    background: var(--cs-card-hover);
-    border-color: var(--cs-teal);
-}
-
-.cs-crop-btn img {
-    width: 22px;
-    height: 22px;
-}
-
-.cs-crop-btn.primary {
-    background: var(--cs-teal);
-    border-color: var(--cs-teal);
-    color: #ffffff;
-    box-shadow: 0 4px 14px rgba(0, 168, 132, 0.45);
-    padding: 8px 24px;
-    font-weight: 700;
-}
-
-.cs-crop-btn.primary:hover {
-    background: var(--cs-teal-dark);
-}
-
-/* ==========================================================================
-   FILTER & ENHANCEMENT SCREEN (Always Visible Buttons!)
-   ========================================================================== */
-.cs-filter-screen {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: #121417;
-    z-index: 2200;
-    display: none;
-    flex-direction: column;
-    height: 100vh;
+    border-radius: 6px;
     overflow: hidden;
-}
-
-.cs-filter-screen.active {
-    display: flex;
-}
-
-.cs-filter-topbar {
-    height: 52px;
-    flex-shrink: 0;
-    padding: 0 16px;
-    background: #1E2228;
-    border-bottom: 1px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    z-index: 10;
-}
-
-.cs-filter-viewport {
-    flex: 1;
-    min-height: 0;
-    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #0B0D0F;
-    padding: 16px;
-    overflow: hidden;
-}
-
-.cs-filter-viewport canvas {
-    max-width: 95%;
-    max-height: 95%;
-    object-fit: contain;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
-    border-radius: 4px;
-}
-
-/* Filter Carousel Tray */
-.cs-filter-carousel {
-    height: 96px;
     flex-shrink: 0;
-    background: #1E2228;
-    border-top: 1px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    overflow-x: auto;
-    padding: 0 16px;
 }
 
-.cs-filter-bottom-actions {
-    height: 64px;
-    flex-shrink: 0;
-    background: #16191E;
-    border-top: 1px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 20px;
-    position: relative;
-    z-index: 50;
-}
-
-.cs-filter-thumb-card {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    flex: 0 0 68px;
-    opacity: 0.75;
-    transition: opacity 0.2s;
-}
-
-.cs-filter-thumb-card.active {
-    opacity: 1;
-}
-
-.cs-filter-thumb-box {
-    width: 52px;
-    height: 52px;
-    border-radius: 8px;
-    overflow: hidden;
-    border: 2px solid transparent;
-}
-
-.cs-filter-thumb-card.active .cs-filter-thumb-box {
-    border-color: #00A884;
-    box-shadow: 0 0 0 2px rgba(0, 168, 132, 0.4);
-}
-
-.cs-filter-thumb-box img {
-    width: 100%;
-    height: 100%;
+.cs-row-thumb img {
+    max-width: 100%;
+    max-height: 100%;
     object-fit: cover;
 }
 
-.cs-filter-thumb-card span {
-    font-size: 0.7rem;
-    font-weight: 600;
+.cs-row-details {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.cs-row-title {
+    font-size: 0.9rem;
+    font-weight: 700;
     white-space: nowrap;
-}
-
-/* ==========================================================================
-   TOOLS HUB (25+ CamScanner Features in Categories)
-   ========================================================================== */
-.cs-tools-hub {
-    display: flex;
-    flex-direction: column;
-    gap: 24px;
-}
-
-.cs-tool-section-title {
-    font-size: 0.95rem;
-    font-weight: 700;
-    color: var(--cs-teal);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.cs-tools-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
-    gap: 12px;
-    margin-top: 10px;
-}
-
-.cs-tool-item {
-    background: var(--cs-card-dark);
-    border: 1px solid var(--cs-border-dark);
-    border-radius: 12px;
-    padding: 16px 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-    gap: 8px;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.cs-tool-item:hover {
-    border-color: var(--cs-teal);
-    transform: translateY(-2px);
-    box-shadow: var(--cs-shadow);
-}
-
-.cs-tool-icon {
-    font-size: 26px;
-    width: 46px;
-    height: 46px;
-    border-radius: 12px;
-    background: var(--cs-bg-dark);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.cs-tool-name {
-    font-size: 0.78rem;
-    font-weight: 600;
-}
-
-.cs-tool-badge {
-    font-size: 0.62rem;
-    background: var(--cs-gold);
-    color: #000;
-    font-weight: 800;
-    padding: 1px 5px;
-    border-radius: 3px;
-}
-
-/* ==========================================================================
-   Modals & Overlays (Print Sheet Modal, Dialogs)
-   ========================================================================== */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(8px);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 2500;
-}
-
-.modal-overlay.active {
-    display: flex;
-}
-
-.modal-content {
-    background: var(--cs-card-dark);
-    border: 1px solid var(--cs-border-dark);
-    border-radius: 12px;
-    width: 90%;
-    max-width: 850px;
-    padding: 20px;
-    box-shadow: var(--cs-shadow);
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
-    position: relative;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 1px solid var(--cs-border-dark);
-    padding-bottom: 12px;
-}
-
-/* ==========================================================================
-   AUTHENTIC ID CARD STUDIO (3-Step CamScanner Workflow)
-   ========================================================================== */
-.cs-idcard-stepper {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--cs-card-dark);
-    border: 1px solid var(--cs-border-dark);
-    border-radius: 12px;
-    padding: 12px 20px;
-    margin-bottom: 16px;
-}
-
-.cs-step-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--cs-text-dim);
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.cs-step-item.active {
-    color: var(--cs-teal);
-}
-
-.cs-step-circle {
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    background: var(--cs-bg-dark);
-    border: 2px solid var(--cs-border-dark);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-}
-
-.cs-step-item.active .cs-step-circle {
-    background: var(--cs-teal);
-    border-color: var(--cs-teal);
-    color: #fff;
-}
-
-.cs-card-template-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 10px;
-    margin-bottom: 16px;
-}
-
-.cs-template-btn {
-    background: var(--cs-card-dark);
-    border: 1px solid var(--cs-border-dark);
-    border-radius: 10px;
-    padding: 12px 8px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-    transition: all 0.2s;
-    color: var(--cs-text-white);
-}
-
-.cs-template-btn:hover, .cs-template-btn.active {
-    border-color: var(--cs-teal);
-    background: var(--cs-card-hover);
-}
-
-.cs-template-btn.active {
-    box-shadow: 0 0 0 2px var(--cs-teal);
-}
-
-.cs-template-btn img {
-    width: 38px;
-    height: 38px;
-}
-
-.cs-template-btn span {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: center;
-}
-
-/* Card Alignment Camera / Upload Frame */
-.cs-card-scanner-frame {
-    width: 100%;
-    max-width: 480px;
-    height: 300px;
-    border: 3px dashed var(--cs-teal);
-    border-radius: 16px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    background: rgba(0, 168, 132, 0.05);
-    margin: 20px auto;
-    position: relative;
     overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-.cs-card-silhouette {
-    width: 70px;
-    height: 70px;
-    opacity: 0.8;
+.cs-row-meta {
+    font-size: 0.75rem;
+    color: var(--cs-text-dim);
+    display: flex;
+    gap: 10px;
+}
+
+.cs-row-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
 }
 
 /* ==========================================================================
-   DOCUMENT DETAIL & MULTI-PAGE PDF STUDIO (The Authentic CamScanner Screen)
+   DOCUMENT DETAIL & MULTI-PAGE STUDIO
    ========================================================================== */
 .cs-docdetail-header {
     background: var(--cs-card-dark);
     border-bottom: 1px solid var(--cs-border-dark);
-    padding: 12px 20px;
+    padding: 12px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     position: sticky;
     top: 56px;
     z-index: 400;
+    border-radius: var(--cs-radius-md) var(--cs-radius-md) 0 0;
 }
 
 .cs-docdetail-title-box {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
 }
 
 .cs-docdetail-title-input {
     background: transparent;
     border: 1px solid transparent;
     color: var(--cs-text-white);
-    font-size: 1.1rem;
+    font-size: 1.05rem;
     font-weight: 700;
     padding: 4px 8px;
-    border-radius: 6px;
+    border-radius: var(--cs-radius-sm);
     outline: none;
+    max-width: 320px;
 }
 
 .cs-docdetail-title-input:hover, .cs-docdetail-title-input:focus {
@@ -1114,19 +891,20 @@ body.in-doc-detail .cs-tabbar {
 }
 
 .cs-pdf-prominent-btn {
-    background: linear-gradient(135deg, #00A884, #00896C);
+    background: linear-gradient(135deg, var(--cs-teal), var(--cs-teal-dark));
     color: #fff;
     border: none;
     border-radius: 20px;
-    padding: 8px 18px;
-    display: flex;
+    padding: 8px 16px;
+    display: inline-flex;
     align-items: center;
     gap: 8px;
     cursor: pointer;
-    font-size: 0.88rem;
+    font-size: 0.85rem;
     font-weight: 700;
-    box-shadow: 0 4px 12px rgba(0, 168, 132, 0.4);
+    box-shadow: 0 4px 12px var(--cs-teal-glow);
     transition: transform 0.2s, box-shadow 0.2s;
+    white-space: nowrap;
 }
 
 .cs-pdf-prominent-btn:hover {
@@ -1139,27 +917,42 @@ body.in-doc-detail .cs-tabbar {
     height: 20px;
 }
 
+.cs-docdetail-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 14px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.cs-page-counter-badge {
+    font-size: 0.85rem;
+    color: var(--cs-teal);
+    font-weight: 700;
+}
+
 .cs-docdetail-pages-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
     gap: 16px;
-    margin: 20px 0;
+    margin: 18px 0;
 }
 
 .cs-docpage-card {
     background: var(--cs-card-dark);
     border: 1px solid var(--cs-border-dark);
-    border-radius: 10px;
+    border-radius: var(--cs-radius-md);
     overflow: hidden;
     position: relative;
-    box-shadow: var(--cs-shadow);
+    box-shadow: var(--cs-shadow-sm);
     display: flex;
     flex-direction: column;
 }
 
 .cs-docpage-thumb {
     width: 100%;
-    height: 260px;
+    height: 250px;
     background: #000;
     display: flex;
     align-items: center;
@@ -1202,6 +995,7 @@ body.in-doc-detail .cs-tabbar {
     justify-content: space-around;
     z-index: 1000;
     padding: 0 16px;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
 }
 
 .cs-doc-bottom-action {
@@ -1227,6 +1021,1232 @@ body.in-doc-detail .cs-tabbar {
 }
 
 /* ==========================================================================
+   AUTHENTIC ID CARD STUDIO (Responsive 3-Step)
+   ========================================================================== */
+.cs-idcard-stepper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-md);
+    padding: 12px 18px;
+    margin-bottom: 16px;
+}
+
+.cs-step-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--cs-text-dim);
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.cs-step-item.active {
+    color: var(--cs-teal);
+}
+
+.cs-step-circle {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--cs-bg-dark);
+    border: 2px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+.cs-step-item.active .cs-step-circle {
+    background: var(--cs-teal);
+    border-color: var(--cs-teal);
+    color: #fff;
+}
+
+.cs-step-line {
+    flex: 1;
+    height: 2px;
+    background: var(--cs-border-dark);
+    margin: 0 10px;
+}
+
+.cs-card-template-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+
+.cs-template-btn {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-md);
+    padding: 10px 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    color: var(--cs-text-white);
+}
+
+.cs-template-btn:hover, .cs-template-btn.active {
+    border-color: var(--cs-teal);
+    background: var(--cs-card-hover);
+}
+
+.cs-template-btn.active {
+    box-shadow: 0 0 0 2px var(--cs-teal);
+}
+
+.cs-template-btn img {
+    width: 36px;
+    height: 36px;
+}
+
+.cs-template-btn span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+}
+
+/* Card Capture Frame */
+.cs-card-scanner-frame {
+    width: 100%;
+    max-width: 480px;
+    min-height: 260px;
+    border: 3px dashed var(--cs-teal);
+    border-radius: var(--cs-radius-lg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    background: rgba(0, 168, 132, 0.05);
+    margin: 16px auto;
+    padding: 20px;
+    text-align: center;
+}
+
+.cs-card-silhouette {
+    width: 60px;
+    height: 60px;
+    opacity: 0.85;
+}
+
+.cs-card-capture-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.cs-card-capture-sub {
+    font-size: 0.8rem;
+    color: var(--cs-text-dim);
+}
+
+.cs-btn-upload-secondary {
+    cursor: pointer;
+    padding: 8px 16px;
+}
+
+.cs-idcard-thumbs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    max-width: 480px;
+    margin: 0 auto;
+}
+
+.cs-idcard-thumb-card {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-sm);
+    padding: 8px;
+    text-align: center;
+}
+
+.cs-idcard-thumb-label {
+    font-size: 0.75rem;
+    color: var(--cs-text-dim);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.cs-idcard-thumb-box {
+    height: 100px;
+    background: #000;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.cs-placeholder-text {
+    font-size: 0.75rem;
+    color: #64748b;
+}
+
+/* A4 View Layout */
+.cs-idcard-a4-layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+    align-items: start;
+}
+
+.cs-idcard-a4-preview-pane {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 16px;
+}
+
+.cs-pane-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.cs-a4-canvas-container {
+    background: #0B0D0F;
+    border-radius: var(--cs-radius-sm);
+    min-height: 480px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 14px;
+    overflow: hidden;
+}
+
+.cs-idcard-a4-controls-pane {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.cs-control-title {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--cs-teal);
+    margin-bottom: 6px;
+}
+
+.cs-input-clean {
+    width: 100%;
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: var(--cs-radius-sm);
+    font-size: 0.85rem;
+    outline: none;
+}
+
+.cs-input-clean:focus {
+    border-color: var(--cs-teal);
+}
+
+.cs-quick-pills-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+}
+
+.cs-quick-pills-row .cs-pill {
+    font-size: 0.7rem;
+    padding: 3px 8px;
+}
+
+/* ==========================================================================
+   PASSPORT & ID PHOTO STUDIO (Responsive Layout)
+   ========================================================================== */
+.cs-passport-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 20px;
+    align-items: start;
+}
+
+.cs-passport-preview-pane {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    min-height: 520px;
+}
+
+.cs-passport-canvas-container {
+    flex: 1;
+    background: #0B0D0F;
+    border-radius: var(--cs-radius-sm);
+    border: 1px dashed var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    min-height: 420px;
+}
+
+.cs-empty-state-box {
+    text-align: center;
+    padding: 40px 20px;
+}
+
+.cs-passport-hints-bar {
+    margin-top: 10px;
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--cs-text-dim);
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.cs-passport-controls-pane {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-height: calc(100vh - 140px);
+    overflow-y: auto;
+}
+
+.cs-range-slider {
+    width: 100%;
+    accent-color: var(--cs-teal);
+    cursor: pointer;
+}
+
+.cs-color-dots-row {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.color-dot {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    border: 2px solid transparent;
+}
+
+.color-dot:hover {
+    transform: scale(1.1);
+}
+
+.color-dot.active {
+    box-shadow: 0 0 0 2px var(--cs-teal);
+    transform: scale(1.12);
+}
+
+.cs-color-input {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: none;
+    cursor: pointer;
+    background: transparent;
+}
+
+.cs-sub-control-box {
+    margin-top: 8px;
+    background: var(--cs-bg-dark);
+    padding: 10px;
+    border-radius: var(--cs-radius-sm);
+}
+
+.cs-suits-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.suit-card {
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-sm);
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.suit-card:hover, .suit-card.active {
+    border-color: var(--cs-teal);
+    background: var(--cs-card-hover);
+}
+
+.suit-card.active {
+    box-shadow: 0 0 0 2px var(--cs-teal);
+}
+
+.suit-thumb {
+    width: 100%;
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.suit-thumb svg {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+.suit-card span {
+    font-size: 0.72rem;
+    font-weight: 600;
+}
+
+/* ==========================================================================
+   WATERMARK & SIGNATURE & OCR STUDIOS
+   ========================================================================== */
+.cs-watermark-layout, .cs-ocr-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+.cs-card-panel {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 20px;
+}
+
+.cs-panel-heading {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--cs-teal);
+    margin-bottom: 12px;
+}
+
+.cs-field-label {
+    font-size: 0.8rem;
+    color: var(--cs-text-dim);
+    display: block;
+    margin-bottom: 4px;
+}
+
+.cs-color-input-wide {
+    width: 100%;
+    height: 36px;
+    border: none;
+    border-radius: var(--cs-radius-sm);
+    cursor: pointer;
+}
+
+.cs-signature-canvas {
+    background: #ffffff;
+    width: 100%;
+    height: 200px;
+    border-radius: var(--cs-radius-sm);
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.cs-ocr-textarea {
+    width: 100%;
+    height: 220px;
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    color: #fff;
+    border-radius: var(--cs-radius-sm);
+    padding: 12px;
+    font-family: monospace;
+    font-size: 0.85rem;
+    resize: vertical;
+    outline: none;
+}
+
+/* ==========================================================================
+   TOOLS HUB
+   ========================================================================== */
+.cs-tools-hub {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.cs-tool-section-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--cs-teal);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.cs-tools-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+    gap: 12px;
+}
+
+.cs-tool-item {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-md);
+    padding: 16px 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.cs-tool-item:hover {
+    border-color: var(--cs-teal);
+    transform: translateY(-2px);
+    box-shadow: var(--cs-shadow);
+}
+
+.cs-tool-icon {
+    font-size: 26px;
+    width: 46px;
+    height: 46px;
+    border-radius: 12px;
+    background: var(--cs-bg-dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-tool-name {
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.cs-tool-badge {
+    font-size: 0.62rem;
+    background: var(--cs-gold);
+    color: #000;
+    font-weight: 800;
+    padding: 1px 5px;
+    border-radius: 3px;
+}
+
+/* ==========================================================================
+   ME / PROFILE SCREEN
+   ========================================================================== */
+.cs-profile-card {
+    max-width: 600px;
+    margin: 0 auto;
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.cs-profile-vip-banner {
+    background: linear-gradient(135deg, var(--cs-gold), var(--cs-gold-dark));
+    border-radius: var(--cs-radius-md);
+    padding: 16px;
+    color: #fff;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cs-vip-tag {
+    background: rgba(255, 255, 255, 0.25);
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 0.75rem;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   BOTTOM TAB BAR (Authentic CamScanner Mobile Bottom Bar)
+   ========================================================================== */
+.cs-tabbar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 64px;
+    background: var(--cs-card-dark);
+    border-top: 1px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1000;
+    box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.25);
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+
+body.in-doc-detail .cs-tabbar {
+    display: none !important;
+}
+
+.cs-tab-item {
+    background: transparent;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--cs-text-dim);
+    cursor: pointer;
+    flex: 1;
+    height: 100%;
+    transition: color 0.2s;
+}
+
+.cs-tab-item img {
+    width: 24px;
+    height: 24px;
+    margin-bottom: 3px;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.cs-tab-item span {
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+
+.cs-tab-item:hover, .cs-tab-item.active {
+    color: var(--cs-teal);
+}
+
+.cs-tab-item.active img {
+    opacity: 1;
+    filter: drop-shadow(0 2px 6px var(--cs-teal-glow));
+}
+
+/* Center Floating Shutter FAB */
+.cs-fab-shutter {
+    width: 60px;
+    height: 60px;
+    background: linear-gradient(135deg, var(--cs-teal), var(--cs-teal-dark));
+    border: 3px solid var(--cs-card-dark);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0, 168, 132, 0.55);
+    margin-top: -24px;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.cs-fab-shutter:hover {
+    transform: scale(1.08);
+    box-shadow: 0 6px 22px rgba(0, 168, 132, 0.75);
+}
+
+.cs-fab-shutter img {
+    width: 32px;
+    height: 32px;
+}
+
+/* ==========================================================================
+   FULL-SCREEN CAMERA SCANNER VIEW (Mobile 100dvh)
+   ========================================================================== */
+.cs-camera-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #000000;
+    z-index: 2000;
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.cs-camera-overlay.active {
+    display: flex;
+}
+
+.cs-camera-topbar {
+    height: 56px;
+    flex-shrink: 0;
+    padding: 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(0, 0, 0, 0.65);
+    color: #fff;
+    z-index: 10;
+}
+
+.cs-camera-top-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 6px;
+}
+
+.cs-camera-viewport {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.cs-camera-viewport video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cs-camera-grid-overlay {
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, rgba(255,255,255,0.15) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255,255,255,0.15) 1px, transparent 1px);
+    background-size: 33.333% 33.333%;
+}
+
+/* Real-Time Live Auto-Detect Frame in Camera */
+.cs-camera-live-frame {
+    position: absolute;
+    width: 82%;
+    height: 72%;
+    border: 2px solid rgba(0, 168, 132, 0.75);
+    border-radius: 12px;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), inset 0 0 25px rgba(0, 168, 132, 0.25);
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: center;
+    padding-bottom: 14px;
+    transition: all 0.25s ease;
+    overflow: hidden;
+    z-index: 20;
+}
+
+.cs-camera-live-frame.detected {
+    border-color: var(--cs-mint);
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45), inset 0 0 35px rgba(0, 255, 187, 0.45);
+}
+
+.cs-corner-tl, .cs-corner-tr, .cs-corner-bl, .cs-corner-br {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border-color: var(--cs-teal);
+    border-style: solid;
+}
+
+.cs-camera-live-frame.detected .cs-corner-tl,
+.cs-camera-live-frame.detected .cs-corner-tr,
+.cs-camera-live-frame.detected .cs-corner-bl,
+.cs-camera-live-frame.detected .cs-corner-br {
+    border-color: var(--cs-mint);
+}
+
+.cs-corner-tl { top: -2px; left: -2px; border-width: 4px 0 0 4px; border-top-left-radius: 10px; }
+.cs-corner-tr { top: -2px; right: -2px; border-width: 4px 4px 0 0; border-top-right-radius: 10px; }
+.cs-corner-bl { bottom: -2px; left: -2px; border-width: 0 0 4px 4px; border-bottom-left-radius: 10px; }
+.cs-corner-br { bottom: -2px; right: -2px; border-width: 0 4px 4px 0; border-bottom-right-radius: 10px; }
+
+.cs-camera-laser {
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--cs-mint), var(--cs-teal), transparent);
+    box-shadow: 0 0 14px var(--cs-mint), 0 0 28px var(--cs-teal);
+    animation: csLaserScan 2.4s ease-in-out infinite alternate;
+}
+
+@keyframes csLaserScan {
+    0% { top: 2%; opacity: 0.2; }
+    50% { opacity: 1; }
+    100% { top: 96%; opacity: 0.2; }
+}
+
+.cs-camera-status-pill {
+    background: rgba(18, 20, 23, 0.88);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(0, 168, 132, 0.6);
+    border-radius: 20px;
+    padding: 6px 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #ffffff;
+    font-size: 0.75rem;
+    font-weight: 600;
+    z-index: 10;
+}
+
+.cs-camera-status-pill .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--cs-teal);
+    box-shadow: 0 0 8px var(--cs-teal);
+    animation: csPulse 1.2s infinite;
+}
+
+@keyframes csPulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(1.3); opacity: 0.6; }
+}
+
+.cs-biometric-face-guide {
+    position: absolute;
+    width: 220px;
+    height: 290px;
+    border: 2px dashed var(--cs-teal);
+    border-radius: 50%;
+    pointer-events: none;
+    display: none;
+    box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.45);
+}
+
+.cs-camera-mode-carousel {
+    height: 44px;
+    flex-shrink: 0;
+    background: rgba(0, 0, 0, 0.75);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    overflow-x: auto;
+    padding: 0 16px;
+    scrollbar-width: none;
+}
+
+.cs-camera-mode-btn {
+    background: transparent;
+    border: none;
+    color: var(--cs-text-dim);
+    font-size: 0.82rem;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 4px 6px;
+    transition: all 0.2s;
+}
+
+.cs-camera-mode-btn.active {
+    color: var(--cs-teal);
+    border-bottom: 2px solid var(--cs-teal);
+}
+
+.cs-camera-shutter-bar {
+    height: 96px;
+    flex-shrink: 0;
+    background: #000000;
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 24px;
+    padding-bottom: max(10px, env(safe-area-inset-bottom));
+}
+
+.cs-camera-sub-action {
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    color: #fff;
+    font-size: 0.72rem;
+    background: transparent;
+    border: none;
+    min-width: 60px;
+}
+
+.cs-shutter-main-btn {
+    width: 72px;
+    height: 72px;
+    background: transparent;
+    border: 4px solid #ffffff;
+    border-radius: 50%;
+    padding: 4px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform 0.15s;
+}
+
+.cs-shutter-main-btn:active {
+    transform: scale(0.92);
+}
+
+.cs-shutter-inner {
+    width: 100%;
+    height: 100%;
+    background: var(--cs-teal);
+    border-radius: 50%;
+}
+
+/* ==========================================================================
+   8-POINT CROP VIEW (Responsive 100dvh)
+   ========================================================================== */
+.cs-crop-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #121417;
+    z-index: 2100;
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.cs-crop-screen.active {
+    display: flex;
+}
+
+.cs-crop-topbar {
+    height: 52px;
+    flex-shrink: 0;
+    padding: 0 16px;
+    background: #1E2228;
+    border-bottom: 1px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+}
+
+.cs-crop-viewport {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0B0D0F;
+    overflow: hidden;
+    touch-action: none;
+}
+
+.cs-crop-viewport canvas {
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    touch-action: none;
+}
+
+.cs-crop-loupe {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    border: 3px solid var(--cs-teal);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+    pointer-events: none;
+    display: none;
+    z-index: 100;
+    background: #000;
+}
+
+.cs-crop-bottombar {
+    height: 76px;
+    flex-shrink: 0;
+    background: #1E2228;
+    border-top: 1px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 16px;
+    position: relative;
+    z-index: 50;
+    box-shadow: 0 -4px 16px rgba(0,0,0,0.4);
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+
+.cs-crop-btn {
+    background: #252A33;
+    border: 1px solid var(--cs-border-dark);
+    color: #fff;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    cursor: pointer;
+    font-size: 0.76rem;
+    font-weight: 600;
+    padding: 8px 14px;
+    border-radius: var(--cs-radius-sm);
+    transition: all 0.2s;
+    min-width: 70px;
+}
+
+.cs-crop-btn:hover {
+    background: var(--cs-card-hover);
+    border-color: var(--cs-teal);
+}
+
+.cs-crop-btn img {
+    width: 22px;
+    height: 22px;
+}
+
+.cs-crop-btn.primary {
+    background: var(--cs-teal);
+    border-color: var(--cs-teal);
+    color: #ffffff;
+    box-shadow: 0 4px 14px var(--cs-teal-glow);
+    padding: 8px 22px;
+    font-weight: 700;
+}
+
+/* ==========================================================================
+   FILTER SCREEN (Responsive 100dvh)
+   ========================================================================== */
+.cs-filter-screen {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: #121417;
+    z-index: 2200;
+    display: none;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.cs-filter-screen.active {
+    display: flex;
+}
+
+.cs-filter-topbar {
+    height: 52px;
+    flex-shrink: 0;
+    padding: 0 16px;
+    background: #1E2228;
+    border-bottom: 1px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    z-index: 10;
+}
+
+.cs-filter-title-input {
+    background: transparent;
+    border: none;
+    color: #fff;
+    font-weight: 700;
+    text-align: center;
+    font-size: 0.95rem;
+    outline: none;
+}
+
+.cs-filter-viewport {
+    flex: 1;
+    min-height: 0;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #0B0D0F;
+    padding: 16px;
+    overflow: hidden;
+}
+
+.cs-filter-viewport canvas {
+    max-width: 95%;
+    max-height: 95%;
+    object-fit: contain;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    border-radius: 4px;
+}
+
+.cs-filter-carousel {
+    height: 96px;
+    flex-shrink: 0;
+    background: #1E2228;
+    border-top: 1px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    overflow-x: auto;
+    padding: 0 16px;
+    scrollbar-width: none;
+}
+
+.cs-filter-bottom-actions {
+    height: 64px;
+    flex-shrink: 0;
+    background: #16191E;
+    border-top: 1px solid var(--cs-border-dark);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    position: relative;
+    z-index: 50;
+    padding-bottom: max(6px, env(safe-area-inset-bottom));
+}
+
+.cs-filter-thumb-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    flex: 0 0 68px;
+    opacity: 0.75;
+    transition: opacity 0.2s;
+}
+
+.cs-filter-thumb-card.active {
+    opacity: 1;
+}
+
+.cs-filter-thumb-box {
+    width: 52px;
+    height: 52px;
+    border-radius: var(--cs-radius-sm);
+    overflow: hidden;
+    border: 2px solid transparent;
+}
+
+.cs-filter-thumb-card.active .cs-filter-thumb-box {
+    border-color: var(--cs-teal);
+    box-shadow: 0 0 0 2px var(--cs-teal-glow);
+}
+
+.cs-filter-thumb-box img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cs-filter-thumb-card span {
+    font-size: 0.7rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* ==========================================================================
+   MODALS (PDF Studio, Print Sheet Lab)
+   ========================================================================== */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2500;
+    padding: 16px;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-lg);
+    width: 100%;
+    max-width: 850px;
+    padding: 20px;
+    box-shadow: var(--cs-shadow);
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    position: relative;
+    max-height: 90vh;
+    max-height: 90dvh;
+    overflow-y: auto;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--cs-border-dark);
+    padding-bottom: 12px;
+}
+
+.cs-pdf-specs-box {
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: var(--cs-radius-md);
+    padding: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.cs-pdf-comp-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+}
+
+.cs-print-options-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    background: var(--cs-bg-dark);
+    padding: 12px;
+    border-radius: var(--cs-radius-sm);
+}
+
+.cs-print-sheet-preview-wrap {
+    width: 100%;
+    min-height: 360px;
+    background: var(--cs-bg-dark);
+    border-radius: var(--cs-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    padding: 16px;
+}
+
+/* ==========================================================================
    BATCH PROGRESS MODAL & TOAST
    ========================================================================== */
 .cs-batch-progress-modal {
@@ -1243,14 +2263,14 @@ body.in-doc-detail .cs-tabbar {
 }
 
 .cs-batch-progress-card {
-    background: #1E2228;
+    background: var(--cs-card-dark);
     border: 1px solid var(--cs-teal);
-    border-radius: 12px;
+    border-radius: var(--cs-radius-md);
     padding: 14px 20px;
     display: flex;
     align-items: center;
     gap: 16px;
-    min-width: 320px;
+    min-width: 300px;
     max-width: 440px;
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
 }
@@ -1267,4 +2287,252 @@ body.in-doc-detail .cs-tabbar {
 
 @keyframes csSpin {
     to { transform: rotate(360deg); }
+}
+
+/* Helper Utilities */
+.cs-mobile-only {
+    display: none !important;
+}
+
+.cs-desktop-only {
+    display: inline-flex !important;
+}
+
+/* ==========================================================================
+   RESPONSIVE BREAKPOINTS (MOBILE, TABLET, DESKTOP)
+   ========================================================================== */
+
+/* 1. MOBILE PHONES (< 768px) */
+@media (max-width: 767px) {
+    .cs-desktop-only {
+        display: none !important;
+    }
+
+    .cs-mobile-only {
+        display: inline-flex !important;
+    }
+
+    .cs-header {
+        padding: 8px 12px;
+    }
+
+    .cs-brand h1 {
+        font-size: 1rem;
+    }
+
+    .cs-sync-badge {
+        display: none;
+    }
+
+    .cs-search-box {
+        display: none; /* Collapses into mobile drawer */
+    }
+
+    .cs-pills-bar {
+        padding: 8px 12px;
+    }
+
+    .cs-main {
+        padding: 12px 12px 76px 12px;
+    }
+
+    /* Banner */
+    .cs-banner-slide {
+        height: 110px;
+    }
+
+    /* Quick Shortcuts */
+    .cs-quick-shortcuts {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+    }
+
+    .cs-shortcut-item {
+        padding: 10px 4px;
+    }
+
+    .cs-shortcut-icon {
+        width: 38px;
+        height: 38px;
+    }
+
+    /* Desktop Dropzone Hidden on Mobile */
+    .cs-desktop-dropzone {
+        display: none;
+    }
+
+    /* Library Toolbar */
+    .cs-library-toolbar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .cs-library-actions {
+        width: 100%;
+        justify-content: space-between;
+    }
+
+    /* Documents 2-Column Mobile Grid */
+    .cs-docs-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .cs-doc-thumb {
+        height: 130px;
+    }
+
+    .cs-doc-body {
+        padding: 8px;
+        gap: 4px;
+    }
+
+    .cs-doc-title {
+        font-size: 0.8rem;
+    }
+
+    .cs-doc-meta {
+        font-size: 0.68rem;
+    }
+
+    .cs-action-mini {
+        padding: 2px 4px;
+        font-size: 0.68rem;
+    }
+
+    /* Multi-Page Doc Detail */
+    .cs-docdetail-pages-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .cs-docpage-thumb {
+        height: 180px;
+    }
+
+    /* ID Card Studio Stacked Layout */
+    .cs-idcard-a4-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .cs-a4-canvas-container {
+        min-height: 360px;
+        padding: 8px;
+    }
+
+    .cs-card-scanner-frame {
+        min-height: 200px;
+        margin: 12px auto;
+        padding: 14px;
+    }
+
+    /* Passport Studio Stacked Layout */
+    .cs-passport-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .cs-passport-preview-pane {
+        min-height: 380px;
+        padding: 12px;
+    }
+
+    .cs-passport-canvas-container {
+        min-height: 320px;
+    }
+
+    .cs-passport-controls-pane {
+        max-height: none;
+        overflow-y: visible;
+        padding: 14px;
+    }
+
+    /* Watermark & Signature Stacked Layout */
+    .cs-watermark-layout, .cs-ocr-layout {
+        grid-template-columns: 1fr;
+        gap: 14px;
+    }
+
+    .cs-card-panel {
+        padding: 14px;
+    }
+
+    /* Print Modal */
+    .cs-print-options-grid {
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+    }
+
+    .cs-batch-progress-modal {
+        left: 12px;
+        right: 12px;
+        bottom: 80px;
+    }
+
+    .cs-batch-progress-card {
+        min-width: auto;
+        width: 100%;
+    }
+}
+
+/* 2. TABLET SCREENS (768px to 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+    .cs-quick-shortcuts {
+        grid-template-columns: repeat(6, 1fr);
+    }
+
+    .cs-docs-grid {
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    }
+
+    .cs-idcard-a4-layout {
+        grid-template-columns: 1fr 300px;
+    }
+
+    .cs-passport-layout {
+        grid-template-columns: 1fr 320px;
+    }
+
+    .cs-print-options-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* 3. DESKTOP & LARGE SCREENS (>= 1024px) */
+@media (min-width: 1024px) {
+    .cs-header {
+        padding: 12px 32px;
+    }
+
+    .cs-main {
+        padding: 24px 32px 90px 32px;
+    }
+
+    .cs-banner-slide {
+        height: 160px;
+    }
+
+    .cs-docs-grid {
+        grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+        gap: 20px;
+    }
+
+    .cs-doc-thumb {
+        height: 190px;
+    }
+
+    .cs-idcard-a4-layout {
+        grid-template-columns: 1fr 360px;
+    }
+
+    .cs-passport-layout {
+        grid-template-columns: 1fr 380px;
+    }
+
+    .cs-passport-controls-pane {
+        position: sticky;
+        top: 80px;
+    }
 }

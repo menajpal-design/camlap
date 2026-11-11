@@ -165,6 +165,12 @@ class CropView {
         this.canvas.addEventListener('touchstart', onStart, { passive: false });
         window.addEventListener('touchmove', onMove, { passive: false });
         window.addEventListener('touchend', onEnd);
+
+        window.addEventListener('resize', () => {
+            if (this.engine && this.engine.currentImage) {
+                this.render();
+            }
+        });
     }
 
     updateMidpoints() {
