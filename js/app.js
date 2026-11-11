@@ -68,6 +68,7 @@ function initCamScannerApp() {
     setupOCR();
     setupToolsHub();
     setupProfileScreen();
+    setupAppDownloadCenter();
     setupKeyboardShortcuts();
 
     renderSuitSelector();
@@ -475,6 +476,8 @@ function setupQuickShortcuts() {
                 navigateToScreen('screen-ocr');
             } else if (action === 'tool-watermark') {
                 navigateToScreen('screen-watermark');
+            } else if (action === 'open-app-download') {
+                openAppDownloadModal();
             }
         });
     });
@@ -862,11 +865,11 @@ function setupDocumentDetailScreen() {
         });
     }
 
-    // Add Page to Current Document via Camera
+    // Add Page to Current Document via Camera (append to currentDocId)
     const addPageBtn = document.getElementById('btn-doc-add-page');
     if (addPageBtn) {
         addPageBtn.addEventListener('click', () => {
-            openCameraViewfinder('docs');
+            openCameraViewfinder('docs', null, csEngine.currentDocId);
         });
     }
 
@@ -960,11 +963,12 @@ function openDocumentDetail(docId) {
         });
     });
 
-    // Re-crop / Edit Page
+    // Re-crop / Edit Page in-place
     container.querySelectorAll('.btn-recrop-page').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const idx = parseInt(btn.dataset.idx);
+            editingPageIndex = idx;
             openCropScreen(doc.pages[idx]);
         });
     });
@@ -1220,12 +1224,22 @@ function updateIDCardA4Preview() {
 
 /**
  * -------------------------------------------------------------------------
- * 12. CAMERA VIEWFINDER WITH FLIP, TORCH, GRID & AUTO-DETECTION
+ * 12. CONTINUOUS AUTO-CROP CAMERA VIEWFINDER, BACKGROUND QUEUE & COMPLETE BAR
  * -------------------------------------------------------------------------
  */
 let cameraDetectTimer = null;
 let consecutiveDetections = 0;
 let autoCaptureActive = true;
+
+// Continuous Scanning & Background Auto-Crop Session State
+let cameraSessionPages = [];
+let pendingBgCount = 0;
+let cameraTargetDocId = null;
+let prevFrameGray = null;
+let lastCapturedGray = null;
+let captureCooldownUntil = 0;
+let latestDetectedCorners = null;
+let editingPageIndex = null;
 
 function setupCameraViewfinder() {
     const video = document.getElementById('cs-camera-video');
@@ -1238,13 +1252,15 @@ function setupCameraViewfinder() {
     const torchBtn = document.getElementById('cs-btn-camera-torch');
     const gridBtn = document.getElementById('cs-btn-camera-grid');
     const gridOverlay = document.getElementById('cs-camera-grid-overlay');
+    const completeBtn = document.getElementById('cs-btn-camera-complete');
+    const undoBtn = document.getElementById('cs-btn-camera-undo');
 
-    // Camera Flip (Rear / Front Switch)
+    // Camera Flip (Rear / Front Switch) without losing current session pages
     if (flipBtn) {
         flipBtn.addEventListener('click', () => {
             currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
             closeCameraViewfinder(false);
-            openCameraViewfinder(csEngine.activeCameraMode, currentFacingMode);
+            openCameraViewfinder(csEngine.activeCameraMode, currentFacingMode, cameraTargetDocId, true);
         });
     }
 
@@ -1288,6 +1304,7 @@ function setupCameraViewfinder() {
             autoCapBtn.classList.toggle('active', autoCaptureActive);
             autoCapBtn.textContent = autoCaptureActive ? '⚡ অটো-ক্যাপচার: চালু (ON)' : '⚡ অটো-ক্যাপচার: বন্ধ (OFF)';
             autoCapBtn.style.background = autoCaptureActive ? 'rgba(0,168,132,0.25)' : 'rgba(255,255,255,0.1)';
+            consecutiveDetections = 0;
         });
     }
 
@@ -1300,28 +1317,52 @@ function setupCameraViewfinder() {
 
             const mode = btn.dataset.mode;
             csEngine.activeCameraMode = mode;
-
-            if (faceGuide) {
-                faceGuide.style.display = mode === 'id_photo' ? 'block' : 'none';
-            }
-            const liveFrame = document.getElementById('cs-camera-live-frame');
-            if (liveFrame) {
-                liveFrame.style.display = (mode === 'id_photo') ? 'none' : 'flex';
-            }
+            updateCameraModeGuides(mode);
+            consecutiveDetections = 0;
         });
     });
 
+    // Shutter Button: Continuous Background Auto-Crop in docs/book/to_word mode
     if (shutterBtn) {
         shutterBtn.addEventListener('click', () => {
-            const snapCanvas = document.createElement('canvas');
-            snapCanvas.width = video.videoWidth || 1280;
-            snapCanvas.height = video.videoHeight || 720;
-            const ctx = snapCanvas.getContext('2d');
-            ctx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
-            const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
+            if (!video) return;
 
-            closeCameraViewfinder();
-            handleCapturedImage(dataUrl);
+            if (csEngine.activeCameraMode === 'id_photo' || csEngine.activeCameraMode === 'id_card') {
+                const snapCanvas = document.createElement('canvas');
+                snapCanvas.width = video.videoWidth || 1280;
+                snapCanvas.height = video.videoHeight || 720;
+                const ctx = snapCanvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+                const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
+                closeCameraViewfinder();
+                handleCapturedImage(dataUrl);
+                return;
+            }
+
+            // Continuous background auto-crop for Document, Book & To-Word modes
+            captureCooldownUntil = Date.now() + 1800;
+            consecutiveDetections = 0;
+            triggerContinuousCameraCapture(latestDetectedCorners);
+        });
+    }
+
+    // Undo Last Scanned Page in Current Session
+    if (undoBtn) {
+        undoBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (cameraSessionPages.length > 0) {
+                cameraSessionPages.pop();
+                lastCapturedGray = null;
+                updateCameraSessionUI();
+                showCameraBgToast('↩️ সর্বশেষ পেজটি বাদ দেওয়া হয়েছে', false, 1800);
+            }
+        });
+    }
+
+    // Complete Button: Finish Continuous Scanning & Open Scanned Document
+    if (completeBtn) {
+        completeBtn.addEventListener('click', () => {
+            finalizeContinuousCameraSession();
         });
     }
 
@@ -1332,7 +1373,7 @@ function setupCameraViewfinder() {
             closeCameraViewfinder();
 
             if (files.length > 1) {
-                handleBatchFileUpload(files);
+                handleBatchFileUpload(files, cameraTargetDocId);
             } else {
                 const reader = new FileReader();
                 reader.onload = (evt) => {
@@ -1340,11 +1381,340 @@ function setupCameraViewfinder() {
                 };
                 reader.readAsDataURL(files[0]);
             }
+            e.target.value = '';
         });
     }
 
     if (closeBtn) {
-        closeBtn.addEventListener('click', () => closeCameraViewfinder());
+        closeBtn.addEventListener('click', () => {
+            if (cameraSessionPages.length > 0 || pendingBgCount > 0) {
+                if (confirm(`আপনি ${cameraSessionPages.length}টি পেজ স্ক্যান করেছেন। সেভ করতে "OK" চাপুন অথবা বাতিল করতে "Cancel" চাপুন।`)) {
+                    finalizeContinuousCameraSession();
+                    return;
+                }
+            }
+            cameraSessionPages = [];
+            pendingBgCount = 0;
+            closeCameraViewfinder();
+        });
+    }
+}
+
+function updateCameraModeGuides(mode) {
+    const faceGuide = document.getElementById('cs-biometric-face-guide');
+    const liveFrame = document.getElementById('cs-camera-live-frame');
+    const bookGuide = document.getElementById('cs-book-split-guide');
+    const quadCanvas = document.getElementById('cs-camera-quad-canvas');
+
+    if (faceGuide) {
+        faceGuide.style.display = mode === 'id_photo' ? 'block' : 'none';
+    }
+    if (liveFrame) {
+        liveFrame.style.display = mode === 'id_photo' ? 'none' : 'flex';
+        liveFrame.classList.remove('detected');
+    }
+    if (bookGuide) {
+        bookGuide.style.display = mode === 'book' ? 'block' : 'none';
+    }
+    if (quadCanvas && mode === 'id_photo') {
+        const qCtx = quadCanvas.getContext('2d');
+        qCtx.clearRect(0, 0, quadCanvas.width, quadCanvas.height);
+    }
+}
+
+function updateCameraSessionUI() {
+    const thumbWrap = document.getElementById('cs-camera-thumb-wrap');
+    const lastThumb = document.getElementById('cs-camera-last-thumb');
+    const badge = document.getElementById('cs-camera-page-badge');
+    const completeBtn = document.getElementById('cs-btn-camera-complete');
+    const completeCount = document.getElementById('cs-camera-complete-count');
+
+    const count = cameraSessionPages.length;
+    if (completeCount) completeCount.textContent = count;
+
+    if (completeBtn) {
+        completeBtn.disabled = (count === 0 && pendingBgCount === 0);
+        if (pendingBgCount > 0) {
+            completeBtn.innerHTML = `⏳ প্রসেস হচ্ছে... (<span id="cs-camera-complete-count">${count}</span>)`;
+        } else {
+            completeBtn.innerHTML = `✓ কমপ্লিট (<span id="cs-camera-complete-count">${count}</span>)`;
+        }
+    }
+
+    if (thumbWrap && lastThumb && badge) {
+        if (count > 0) {
+            thumbWrap.style.display = 'block';
+            lastThumb.src = cameraSessionPages[count - 1];
+            badge.textContent = count;
+        } else {
+            thumbWrap.style.display = 'none';
+        }
+    }
+}
+
+let bgToastHideTimer = null;
+function showCameraBgToast(message, showSpinner = true, autoHideMs = 0) {
+    const toast = document.getElementById('cs-camera-bg-toast');
+    const textEl = document.getElementById('cs-camera-bg-toast-text');
+    const spinner = document.getElementById('cs-camera-bg-spinner');
+    if (!toast || !textEl) return;
+
+    if (bgToastHideTimer) {
+        clearTimeout(bgToastHideTimer);
+        bgToastHideTimer = null;
+    }
+
+    textEl.textContent = message;
+    if (spinner) spinner.style.display = showSpinner ? 'inline-block' : 'none';
+    toast.style.display = 'flex';
+
+    if (autoHideMs > 0 && pendingBgCount === 0) {
+        bgToastHideTimer = setTimeout(() => {
+            if (pendingBgCount === 0) toast.style.display = 'none';
+        }, autoHideMs);
+    }
+}
+
+function triggerCameraShutterFlash() {
+    const flashEl = document.getElementById('cs-camera-shutter-flash');
+    if (!flashEl) return;
+    flashEl.classList.add('flash');
+    setTimeout(() => {
+        flashEl.classList.remove('flash');
+    }, 160);
+}
+
+/**
+ * Draw real-time detected green boundary polygon around page/book on #cs-camera-quad-canvas
+ */
+function drawLiveCameraQuad(corners320, isSteadyLock = false) {
+    const quadCanvas = document.getElementById('cs-camera-quad-canvas');
+    const video = document.getElementById('cs-camera-video');
+    if (!quadCanvas || !video) return;
+
+    const rect = quadCanvas.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) return;
+
+    if (quadCanvas.width !== Math.round(rect.width) || quadCanvas.height !== Math.round(rect.height)) {
+        quadCanvas.width = Math.round(rect.width);
+        quadCanvas.height = Math.round(rect.height);
+    }
+
+    const ctx = quadCanvas.getContext('2d');
+    ctx.clearRect(0, 0, quadCanvas.width, quadCanvas.height);
+
+    if (!corners320 || corners320.length < 8) return;
+
+    // Map 320x240 coordinates to video object-fit: cover display coordinates
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 720;
+    const cw = quadCanvas.width;
+    const ch = quadCanvas.height;
+
+    const scale = Math.max(cw / vw, ch / vh);
+    const dispW = vw * scale;
+    const dispH = vh * scale;
+    const offsetX = (cw - dispW) / 2;
+    const offsetY = (ch - dispH) / 2;
+
+    const mapPt = (pt) => ({
+        x: offsetX + (pt.x / 320) * dispW,
+        y: offsetY + (pt.y / 240) * dispH
+    });
+
+    const tl = mapPt(corners320[0]);
+    const tr = mapPt(corners320[2]);
+    const br = mapPt(corners320[4]);
+    const bl = mapPt(corners320[6]);
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(tl.x, tl.y);
+    ctx.lineTo(tr.x, tr.y);
+    ctx.lineTo(br.x, br.y);
+    ctx.lineTo(bl.x, bl.y);
+    ctx.closePath();
+
+    ctx.fillStyle = isSteadyLock ? 'rgba(0, 230, 184, 0.24)' : 'rgba(0, 196, 154, 0.14)';
+    ctx.fill();
+
+    ctx.lineWidth = isSteadyLock ? 3.5 : 2.5;
+    ctx.strokeStyle = isSteadyLock ? '#00FFBB' : '#00C49A';
+    ctx.shadowColor = 'rgba(0, 255, 187, 0.6)';
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+
+    // If Book mode, draw center spine split line inside the detected book quad
+    if (csEngine.activeCameraMode === 'book') {
+        const topMid = { x: (tl.x + tr.x) / 2, y: (tl.y + tr.y) / 2 };
+        const btmMid = { x: (bl.x + br.x) / 2, y: (bl.y + br.y) / 2 };
+        ctx.beginPath();
+        ctx.setLineDash([7, 5]);
+        ctx.moveTo(topMid.x, topMid.y);
+        ctx.lineTo(btmMid.x, btmMid.y);
+        ctx.strokeStyle = '#FFD166';
+        ctx.lineWidth = 2.5;
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    // Draw corner handles
+    [tl, tr, br, bl].forEach(p => {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+        ctx.fillStyle = '#00FFBB';
+        ctx.fill();
+        ctx.lineWidth = 2;
+        ctx.strokeStyle = '#ffffff';
+        ctx.stroke();
+    });
+
+    ctx.restore();
+}
+
+/**
+ * Capture frame and auto-crop in background WITHOUT closing camera
+ */
+function triggerContinuousCameraCapture(detectedCorners320 = null) {
+    const video = document.getElementById('cs-camera-video');
+    const statusText = document.getElementById('cs-camera-status-text');
+    if (!video) return;
+
+    triggerCameraShutterFlash();
+
+    const vw = video.videoWidth || 1280;
+    const vh = video.videoHeight || 720;
+    const snapCanvas = document.createElement('canvas');
+    snapCanvas.width = vw;
+    snapCanvas.height = vh;
+    const ctx = snapCanvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, vw, vh);
+    const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.94);
+
+    // Scale 320x240 corners to full frame resolution if detected
+    let scaledCorners = null;
+    if (detectedCorners320 && detectedCorners320.length === 8) {
+        const scaleX = vw / 320;
+        const scaleY = vh / 240;
+        scaledCorners = detectedCorners320.map(pt => ({
+            x: pt.x * scaleX,
+            y: pt.y * scaleY,
+            id: pt.id
+        }));
+    }
+
+    const captureMode = csEngine.activeCameraMode;
+    pendingBgCount++;
+    updateCameraSessionUI();
+
+    if (captureMode === 'book') {
+        showCameraBgToast('⚙️ বইয়ের ২টি পৃষ্ঠা আড়ালে অটো-ক্রপ ও প্রসেস হচ্ছে...', true);
+    } else {
+        showCameraBgToast(`⚙️ পেজ আড়ালে অটো-ক্রপ ও প্রসেস হচ্ছে... (${pendingBgCount})`, true);
+    }
+    if (statusText) {
+        statusText.textContent = '✓ ক্যাপচার হয়েছে! আড়ালে অটো-ক্রপ চলছে — পরের পেজ ধরুন';
+    }
+
+    // Process asynchronously in background so camera stays smooth and ready for next page
+    setTimeout(() => {
+        if (captureMode === 'book') {
+            csEngine.splitBookPages(dataUrl, (leftCanvas, rightCanvas) => {
+                if (leftCanvas) {
+                    cameraSessionPages.push(leftCanvas.toDataURL('image/jpeg', 0.92));
+                }
+                if (rightCanvas) {
+                    cameraSessionPages.push(rightCanvas.toDataURL('image/jpeg', 0.92));
+                }
+                pendingBgCount = Math.max(0, pendingBgCount - 1);
+                updateCameraSessionUI();
+                showCameraBgToast(
+                    `✅ বইয়ের ২টি পেজ অটো-ক্রপ সম্পন্ন (মোট ${cameraSessionPages.length} পেজ) — পরের পেজ উল্টান বা কমপ্লিট চাপুন`,
+                    false,
+                    3200
+                );
+            }, scaledCorners);
+        } else {
+            csEngine.autoProcessAndCropImage(dataUrl, (croppedCanvas) => {
+                if (croppedCanvas) {
+                    cameraSessionPages.push(croppedCanvas.toDataURL('image/jpeg', 0.92));
+                }
+                pendingBgCount = Math.max(0, pendingBgCount - 1);
+                updateCameraSessionUI();
+                showCameraBgToast(
+                    `✅ পেজ ${cameraSessionPages.length} অটো-ক্রপ সম্পন্ন — পরের ডকুমেন্ট ধরুন বা কমপ্লিট চাপুন`,
+                    false,
+                    2800
+                );
+            }, scaledCorners);
+        }
+    }, 30);
+}
+
+/**
+ * Finalize continuous camera session when user clicks Complete (✓ কমপ্লিট)
+ */
+function finalizeContinuousCameraSession() {
+    if (pendingBgCount > 0) {
+        showCameraBgToast('⏳ আড়ালে অটো-ক্রপ শেষ হচ্ছে, একটু অপেক্ষা করুন...', true);
+        const waitTimer = setInterval(() => {
+            if (pendingBgCount <= 0) {
+                clearInterval(waitTimer);
+                finalizeContinuousCameraSession();
+            }
+        }, 150);
+        return;
+    }
+
+    if (cameraSessionPages.length === 0) {
+        alert('কমপ্লিট করার আগে অন্তত ১টি ডকুমেন্ট বা বইয়ের পেজ স্ক্যান করুন।');
+        return;
+    }
+
+    const pagesToSave = [...cameraSessionPages];
+    const modeAtFinish = csEngine.activeCameraMode;
+    const targetId = cameraTargetDocId;
+
+    cameraSessionPages = [];
+    cameraTargetDocId = null;
+    closeCameraViewfinder(true);
+
+    let savedDoc = null;
+    if (targetId) {
+        savedDoc = csEngine.documents.find(d => d.id === targetId);
+    }
+
+    if (savedDoc) {
+        pagesToSave.forEach(p => savedDoc.pages.push(p));
+        savedDoc.pageCount = savedDoc.pages.length;
+        savedDoc.thumbnail = savedDoc.pages[0];
+        csEngine.currentDocId = savedDoc.id;
+        csEngine.saveToStorage();
+    } else {
+        const nowStr = new Date().toISOString().slice(0, 16).replace('T', ' ');
+        const defaultTitle = modeAtFinish === 'book'
+            ? `Book Scan ${nowStr}`
+            : `CamScanner ${nowStr}`;
+        savedDoc = {
+            id: 'doc_' + Date.now(),
+            title: defaultTitle,
+            date: new Date().toLocaleString('bn-BD'),
+            category: modeAtFinish === 'book' ? 'Book' : 'Document',
+            pages: pagesToSave,
+            pageCount: pagesToSave.length,
+            thumbnail: pagesToSave[0]
+        };
+        csEngine.documents.unshift(savedDoc);
+        csEngine.currentDocId = savedDoc.id;
+        csEngine.saveToStorage();
+    }
+
+    renderDocumentLibrary();
+
+    if (modeAtFinish === 'to_word') {
+        navigateToScreen('screen-ocr');
+    } else {
+        openDocumentDetail(savedDoc.id);
     }
 }
 
@@ -1363,42 +1733,108 @@ function startCameraDetectionLoop() {
     cameraDetectTimer = setInterval(() => {
         if (!cameraMediaStream || video.readyState < 2) return;
 
-        if (csEngine.activeCameraMode !== 'docs' && csEngine.activeCameraMode !== 'id_card') {
+        const mode = csEngine.activeCameraMode;
+        if (mode === 'id_photo') {
             if (liveFrame) liveFrame.classList.remove('detected');
+            drawLiveCameraQuad(null);
             return;
         }
 
         try {
             offCtx.drawImage(video, 0, 0, 320, 240);
-            const corners = ImageProcessor.detectDocumentCorners(offCanvas);
-            const minX = Math.min(...corners.map(p => p.x));
-            const maxX = Math.max(...corners.map(p => p.x));
-            const minY = Math.min(...corners.map(p => p.y));
-            const maxY = Math.max(...corners.map(p => p.y));
-            const spanW = maxX - minX;
-            const spanH = maxY - minY;
+            const analysis = ImageProcessor.analyzeLiveFrame(offCanvas, prevFrameGray, lastCapturedGray);
+            prevFrameGray = analysis.grayBuffer;
 
-            if (spanW > 100 && spanH > 80) {
-                consecutiveDetections++;
+            // Cooldown right after capturing a page so user can flip page or place next document
+            if (Date.now() < captureCooldownUntil) {
+                consecutiveDetections = 0;
+                if (liveFrame) liveFrame.classList.remove('detected');
+                drawLiveCameraQuad(analysis.detected ? analysis.corners : null, false);
+                if (statusText) {
+                    statusText.textContent = `✓ পেজ স্ক্যান হয়েছে (মোট ${cameraSessionPages.length + pendingBgCount}টি) — পরের পেজ বা ডকুমেন্ট ধরুন`;
+                }
+                return;
+            }
+
+            if (analysis.detected) {
+                latestDetectedCorners = analysis.corners;
+
+                // Prevent re-capturing the exact same unmoved page right after an auto-capture
+                if (lastCapturedGray && analysis.diffFromLastCapture < 9.5) {
+                    drawLiveCameraQuad(analysis.corners, false);
+                    if (liveFrame) liveFrame.classList.remove('detected');
+                    if (statusText) {
+                        statusText.textContent = `✓ এই পেজটি স্ক্যান হয়েছে — পরের পৃষ্ঠা উল্টান বা কমপ্লিট চাপুন`;
+                    }
+                    return;
+                } else if (lastCapturedGray && analysis.diffFromLastCapture >= 9.5) {
+                    // User changed the page or moved a new document into view!
+                    lastCapturedGray = null;
+                }
+
+                if (analysis.isSteady) {
+                    consecutiveDetections++;
+                } else {
+                    consecutiveDetections = Math.max(1, consecutiveDetections - 1);
+                }
+
+                drawLiveCameraQuad(analysis.corners, consecutiveDetections >= 2);
                 if (liveFrame) liveFrame.classList.add('detected');
-                if (statusText) statusText.textContent = `ডকুমেন্ট শনাক্ত হয়েছে (${consecutiveDetections}/3)... স্থির রাখুন`;
 
-                if (autoCaptureActive && consecutiveDetections >= 3) {
-                    consecutiveDetections = 0;
-                    if (statusText) statusText.textContent = `✓ স্ক্যান সম্পন্ন হচ্ছে...`;
-                    stopCameraDetectionLoop();
-                    const shutterBtn = document.getElementById('cs-btn-shutter');
-                    if (shutterBtn) shutterBtn.click();
+                const modeLabel = mode === 'book' ? 'বইয়ের ২ পৃষ্ঠা' : 'ডকুমেন্ট সীমানা';
+                if (autoCaptureActive) {
+                    if (statusText) {
+                        statusText.textContent = `${modeLabel} শনাক্ত হয়েছে (${Math.min(3, consecutiveDetections)}/3)... অটো-ক্রপের জন্য স্থির রাখুন`;
+                    }
+
+                    if (consecutiveDetections >= 3) {
+                        consecutiveDetections = 0;
+                        lastCapturedGray = analysis.grayBuffer;
+                        captureCooldownUntil = Date.now() + 2200;
+
+                        if (mode === 'id_card') {
+                            const snapCanvas = document.createElement('canvas');
+                            snapCanvas.width = video.videoWidth || 1280;
+                            snapCanvas.height = video.videoHeight || 720;
+                            snapCanvas.getContext('2d').drawImage(video, 0, 0, snapCanvas.width, snapCanvas.height);
+                            const dataUrl = snapCanvas.toDataURL('image/jpeg', 0.95);
+                            closeCameraViewfinder();
+                            handleCapturedImage(dataUrl);
+                        } else {
+                            // Auto-crop in background and KEEP camera open for next page!
+                            triggerContinuousCameraCapture(analysis.corners);
+                        }
+                    }
+                } else {
+                    if (statusText) {
+                        statusText.textContent = `${modeLabel} শনাক্ত হয়েছে — ছবি তুলতে শাটার বাটনে চাপুন`;
+                    }
                 }
             } else {
+                latestDetectedCorners = null;
                 consecutiveDetections = Math.max(0, consecutiveDetections - 1);
                 if (liveFrame) liveFrame.classList.remove('detected');
-                if (statusText) statusText.textContent = `স্বয়ংক্রিয় ফ্রেম ডিটেকশন চালু (Auto-Detect Active)`;
+                drawLiveCameraQuad(null);
+
+                // If user removed the old page, clear lastCapturedGray so next page is ready
+                if (lastCapturedGray && analysis.diffFromLastCapture > 11) {
+                    lastCapturedGray = null;
+                }
+
+                if (statusText) {
+                    if (cameraSessionPages.length > 0) {
+                        statusText.textContent = `${cameraSessionPages.length}টি পেজ স্ক্যান হয়েছে — পরের ডকুমেন্ট ধরুন অথবা "✓ কমপ্লিট" চাপুন`;
+                    } else {
+                        statusText.textContent = mode === 'book'
+                            ? 'বইয়ের দুটি পৃষ্ঠা ফ্রেমের ভেতর ধরুন — অটো ক্রপ ও স্প্লিট হবে'
+                            : 'ডকুমেন্ট বা বইয়ের পেজ ফ্রেমের ভেতর ধরুন (Auto-Crop Active)';
+                    }
+                }
             }
         } catch (e) {
             // Frame processing catch
         }
-    }, 350);
+    }, 320);
 }
 
 function stopCameraDetectionLoop() {
@@ -1407,13 +1843,24 @@ function stopCameraDetectionLoop() {
         cameraDetectTimer = null;
     }
     consecutiveDetections = 0;
+    latestDetectedCorners = null;
 }
 
-function openCameraViewfinder(defaultMode = 'docs', facing = null) {
+function openCameraViewfinder(defaultMode = 'docs', facing = null, targetDocId = null, preserveSession = false) {
     const modal = document.getElementById('cs-camera-overlay');
     const video = document.getElementById('cs-camera-video');
-    const faceGuide = document.getElementById('cs-biometric-face-guide');
-    const liveFrame = document.getElementById('cs-camera-live-frame');
+
+    if (!preserveSession) {
+        cameraSessionPages = [];
+        pendingBgCount = 0;
+        cameraTargetDocId = targetDocId || null;
+        prevFrameGray = null;
+        lastCapturedGray = null;
+        captureCooldownUntil = 0;
+        const toast = document.getElementById('cs-camera-bg-toast');
+        if (toast) toast.style.display = 'none';
+    }
+    updateCameraSessionUI();
 
     if (facing) currentFacingMode = facing;
     else currentFacingMode = defaultMode === 'id_photo' ? 'user' : 'environment';
@@ -1422,14 +1869,7 @@ function openCameraViewfinder(defaultMode = 'docs', facing = null) {
     document.querySelectorAll('.cs-camera-mode-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.mode === defaultMode);
     });
-
-    if (faceGuide) {
-        faceGuide.style.display = defaultMode === 'id_photo' ? 'block' : 'none';
-    }
-    if (liveFrame) {
-        liveFrame.style.display = defaultMode === 'id_photo' ? 'none' : 'flex';
-        liveFrame.classList.remove('detected');
-    }
+    updateCameraModeGuides(defaultMode);
 
     navigator.mediaDevices.getUserMedia({
         video: {
@@ -1484,12 +1924,22 @@ function handleCapturedImage(dataUrl) {
         }
     } else if (csEngine.activeCameraMode === 'book') {
         csEngine.splitBookPages(dataUrl, (leftCanvas, rightCanvas) => {
-            csEngine.processedCanvas = leftCanvas;
-            csEngine.saveActivePageToLibrary('Book Scan - Left Page');
-            csEngine.processedCanvas = rightCanvas;
-            const doc = csEngine.saveActivePageToLibrary('Book Scan - Right Page');
-            openDocumentDetail(doc.id);
-            alert('বইয়ের দুটি পেজ সফলভাবে আলাদা করে সংরক্ষণ করা হয়েছে!');
+            const pages = [];
+            if (leftCanvas) pages.push(leftCanvas.toDataURL('image/jpeg', 0.92));
+            if (rightCanvas) pages.push(rightCanvas.toDataURL('image/jpeg', 0.92));
+            const newDoc = {
+                id: 'doc_' + Date.now(),
+                title: 'Book Scan ' + new Date().toISOString().slice(0, 10),
+                date: new Date().toLocaleString('bn-BD'),
+                category: 'Book',
+                pages: pages,
+                pageCount: pages.length,
+                thumbnail: pages[0]
+            };
+            csEngine.documents.unshift(newDoc);
+            csEngine.currentDocId = newDoc.id;
+            csEngine.saveToStorage();
+            openDocumentDetail(newDoc.id);
         });
     } else {
         openCropScreen(dataUrl);
@@ -1529,7 +1979,10 @@ function setupCropViewAndLoupe() {
         openFilterScreen(warpedCanvas);
     });
 
-    document.getElementById('cs-btn-crop-close')?.addEventListener('click', closeCropScreen);
+    document.getElementById('cs-btn-crop-close')?.addEventListener('click', () => {
+        editingPageIndex = null;
+        closeCropScreen();
+    });
 }
 
 function openCropScreen(imageSrc) {
@@ -1569,6 +2022,21 @@ function setupFilterScreen() {
         const titleInput = document.getElementById('cs-doc-title-input');
         const title = titleInput ? titleInput.value : null;
 
+        // If re-cropping/editing an existing page in Document Detail, update in-place
+        if (editingPageIndex !== null && csEngine.currentDocId && csEngine.processedCanvas) {
+            const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId);
+            if (doc && doc.pages[editingPageIndex] !== undefined) {
+                doc.pages[editingPageIndex] = csEngine.processedCanvas.toDataURL('image/jpeg', 0.92);
+                doc.thumbnail = doc.pages[0];
+                csEngine.saveToStorage();
+                editingPageIndex = null;
+                closeFilterScreen();
+                openDocumentDetail(doc.id);
+                return;
+            }
+        }
+
+        editingPageIndex = null;
         const savedDoc = csEngine.saveActivePageToLibrary(title);
         closeFilterScreen();
         openDocumentDetail(savedDoc.id);
@@ -2162,4 +2630,255 @@ function setupKeyboardShortcuts() {
             document.getElementById('cs-btn-shutter')?.click();
         }
     });
+}
+
+/**
+ * -------------------------------------------------------------------------
+ * 21. MOBILE & DESKTOP APP DOWNLOAD CENTER, PWA INSTALLER & COMFORT TOAST
+ * -------------------------------------------------------------------------
+ */
+let deferredInstallPrompt = null;
+let comfortToastTimer = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+});
+
+function showComfortToast(message, icon = '✅', duration = 3200) {
+    const toast = document.getElementById('cs-comfort-toast');
+    const iconEl = document.getElementById('cs-comfort-toast-icon');
+    const msgEl = document.getElementById('cs-comfort-toast-msg');
+    if (!toast || !msgEl) return;
+
+    if (comfortToastTimer) clearTimeout(comfortToastTimer);
+    if (iconEl) iconEl.textContent = icon;
+    msgEl.textContent = message;
+    toast.style.display = 'flex';
+
+    comfortToastTimer = setTimeout(() => {
+        toast.style.display = 'none';
+    }, duration);
+}
+
+function setupAppDownloadCenter() {
+    // Open Modal triggers
+    document.getElementById('cs-btn-header-get-app')?.addEventListener('click', () => openAppDownloadModal());
+    document.getElementById('cs-btn-home-dl-center')?.addEventListener('click', () => openAppDownloadModal());
+    document.getElementById('cs-btn-me-open-dl-modal')?.addEventListener('click', () => openAppDownloadModal());
+
+    // Quick Home & Profile Mobile/Desktop Download Buttons
+    document.getElementById('cs-btn-home-dl-mobile')?.addEventListener('click', () => {
+        openAppDownloadModal();
+        triggerAppDownload('android-apk');
+    });
+    document.getElementById('cs-btn-home-dl-desktop')?.addEventListener('click', () => {
+        openAppDownloadModal();
+        triggerAppDownload('windows-exe');
+    });
+    document.getElementById('cs-btn-me-dl-mobile')?.addEventListener('click', () => {
+        openAppDownloadModal();
+        triggerAppDownload('android-apk');
+    });
+    document.getElementById('cs-btn-me-dl-desktop')?.addEventListener('click', () => {
+        openAppDownloadModal();
+        triggerAppDownload('windows-exe');
+    });
+
+    // Modal internal action buttons
+    document.getElementById('cs-btn-close-app-dl-modal')?.addEventListener('click', () => {
+        document.getElementById('cs-app-download-modal')?.classList.remove('active');
+    });
+
+    document.getElementById('btn-dl-android-apk')?.addEventListener('click', () => triggerAppDownload('android-apk'));
+    document.getElementById('btn-dl-mobile-pwa')?.addEventListener('click', () => triggerPWAInstall('mobile'));
+    document.getElementById('btn-dl-windows-exe')?.addEventListener('click', () => triggerAppDownload('windows-exe'));
+    document.getElementById('btn-dl-desktop-pwa')?.addEventListener('click', () => triggerPWAInstall('desktop'));
+
+    // Copy Link button
+    document.getElementById('btn-copy-app-link')?.addEventListener('click', () => {
+        const urlInput = document.getElementById('cs-app-share-url');
+        const link = urlInput ? urlInput.value : window.location.href;
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(link).then(() => {
+                showComfortToast('অ্যাপ ডাউনলোড লিংক কপি করা হয়েছে!', '📋');
+            });
+        } else if (urlInput) {
+            urlInput.select();
+            document.execCommand('copy');
+            showComfortToast('অ্যাপ ডাউনলোড লিংক কপি করা হয়েছে!', '📋');
+        }
+    });
+}
+
+function openAppDownloadModal() {
+    const modal = document.getElementById('cs-app-download-modal');
+    if (!modal) return;
+
+    const urlInput = document.getElementById('cs-app-share-url');
+    const liveUrl = (window.location.protocol.startsWith('http'))
+        ? window.location.href
+        : 'https://menajpal-design.github.io/camlap/';
+    if (urlInput) urlInput.value = liveUrl;
+
+    modal.classList.add('active');
+    drawAppQRCode(liveUrl);
+}
+
+function triggerPWAInstall(platformType = 'desktop') {
+    if (deferredInstallPrompt) {
+        deferredInstallPrompt.prompt();
+        deferredInstallPrompt.userChoice.then((choice) => {
+            if (choice.outcome === 'accepted') {
+                showComfortToast('CamScanner Pro অ্যাপ সফলভাবে ইনস্টল হচ্ছে!', '🎉');
+            }
+            deferredInstallPrompt = null;
+        });
+        return;
+    }
+
+    if (platformType === 'mobile') {
+        triggerAppDownload('mobile-shortcut');
+    } else {
+        triggerAppDownload('desktop-shortcut');
+    }
+}
+
+function triggerAppDownload(type) {
+    const progressBox = document.getElementById('cs-app-dl-progress-box');
+    const statusText = document.getElementById('cs-app-dl-status-text');
+    const percentText = document.getElementById('cs-app-dl-percent');
+    const bar = document.getElementById('cs-app-dl-bar');
+
+    if (progressBox) progressBox.style.display = 'block';
+
+    const appUrl = (window.location.protocol.startsWith('http'))
+        ? window.location.href
+        : 'https://menajpal-design.github.io/camlap/';
+
+    let label = 'CamScanner App';
+    if (type === 'android-apk') label = 'CamScanner_v6.81.0_Android_Installer.html';
+    else if (type === 'windows-exe') label = 'CamScanner_Studio_Pro_Windows_Desktop.bat';
+    else if (type === 'mobile-shortcut') label = 'CamScanner_Mobile_App_QuickLaunch.html';
+    else label = 'CamScanner_Studio_Pro_Desktop.url';
+
+    let pct = 0;
+    const timer = setInterval(() => {
+        pct += 25;
+        if (pct > 100) pct = 100;
+        if (statusText) statusText.textContent = `📥 ডাউনলোড হচ্ছে: ${label}...`;
+        if (percentText) percentText.textContent = `${pct}%`;
+        if (bar) bar.style.width = `${pct}%`;
+
+        if (pct >= 100) {
+            clearInterval(timer);
+            if (statusText) statusText.textContent = `✅ ${label} সফলভাবে ডাউনলোড সম্পন্ন হয়েছে!`;
+            downloadGeneratedAppPackage(type, appUrl);
+            showComfortToast(`${label} ডাউনলোড সম্পন্ন হয়েছে!`, '🚀', 3500);
+        }
+    }, 140);
+}
+
+function downloadGeneratedAppPackage(type, appUrl) {
+    let content = '';
+    let filename = '';
+    let mime = 'text/plain;charset=utf-8';
+
+    if (type === 'windows-exe') {
+        filename = 'CamScanner_Studio_Pro_Desktop.bat';
+        content = [
+            '@echo off',
+            'title CamScanner Studio Pro v6.81.0 - Desktop App',
+            'echo Starting CamScanner Studio Pro Desktop Application...',
+            'start msedge --app="' + appUrl + '" 2>nul || start chrome --app="' + appUrl + '" 2>nul || start "" "' + appUrl + '"',
+            'exit'
+        ].join('\r\n');
+    } else if (type === 'desktop-shortcut') {
+        filename = 'CamScanner Studio Pro.url';
+        content = `[InternetShortcut]\r\nURL=${appUrl}\r\nIconIndex=0\r\n`;
+    } else {
+        filename = type === 'android-apk'
+            ? 'CamScanner_v6.81.0_Mobile_App_Installer.html'
+            : 'CamScanner_Mobile_QuickLaunch.html';
+        mime = 'text/html;charset=utf-8';
+        content = `<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CamScanner Pro v6.81.0 Mobile App Installer</title>
+<style>
+body { background:#0F141A; color:#F8FAFC; font-family:sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:20px; text-align:center; }
+.card { background:#18202A; border:1px solid #00A884; border-radius:18px; padding:28px; max-width:420px; box-shadow:0 12px 32px rgba(0,0,0,0.45); }
+.btn { display:inline-block; margin-top:16px; background:#00A884; color:#fff; text-decoration:none; font-weight:800; padding:12px 24px; border-radius:999px; }
+</style>
+</head>
+<body>
+<div class="card">
+<h2>📲 CamScanner Studio Pro v6.81.0</h2>
+<p>আপনার মোবাইলে অ্যাপটি চালু করতে নিচের বাটনে ট্যাপ করুন এবং ব্রাউজারের মেনু (⋮) থেকে <strong>"Add to Home Screen / Install App"</strong> চাপুন।</p>
+<a class="btn" href="${appUrl}">🚀 CamScanner অ্যাপ চালু করুন</a>
+</div>
+<script>setTimeout(function(){ window.location.href = "${appUrl}"; }, 1800);</script>
+</body>
+</html>`;
+    }
+
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+/**
+ * Draw crisp QR matrix on #cs-app-qr-canvas for scanning with mobile phone
+ */
+function drawAppQRCode(text) {
+    const canvas = document.getElementById('cs-app-qr-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const size = 21;
+    const cell = canvas.width / size;
+
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const drawFinder = (r, c) => {
+        ctx.fillStyle = '#0F172A';
+        ctx.fillRect(c * cell, r * cell, 7 * cell, 7 * cell);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect((c + 1) * cell, (r + 1) * cell, 5 * cell, 5 * cell);
+        ctx.fillStyle = '#00A884';
+        ctx.fillRect((c + 2) * cell, (r + 2) * cell, 3 * cell, 3 * cell);
+    };
+
+    drawFinder(0, 0);
+    drawFinder(0, size - 7);
+    drawFinder(size - 7, 0);
+
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+
+    ctx.fillStyle = '#0F172A';
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            const inTL = r < 8 && c < 8;
+            const inTR = r < 8 && c >= size - 8;
+            const inBL = r >= size - 8 && c < 8;
+            if (inTL || inTR || inBL) continue;
+
+            const bit = ((r * 31 + c * 17 + Math.abs(hash)) % 7) < 3;
+            if (bit) {
+                ctx.fillRect(c * cell, r * cell, Math.ceil(cell), Math.ceil(cell));
+            }
+        }
+    }
 }

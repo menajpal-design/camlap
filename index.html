@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>CamScanner Web Studio Pro - অফিশিয়াল ডকুমেন্ট স্ক্যানার ও পাসপোর্ট ফটো ল্যাব</title>
     <link rel="icon" type="image/png" href="assets/cs_icon.png">
+    <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -51,6 +52,11 @@
             <button id="cs-btn-header-camera" class="cs-icon-btn cs-btn-scan-header cs-desktop-only" title="ক্যামেরা স্ক্যান">
                 <span>📷</span>
                 <span>নতুন স্ক্যান (Scan)</span>
+            </button>
+
+            <button id="cs-btn-header-get-app" class="cs-icon-btn cs-btn-get-app-header" title="মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড করুন">
+                <span>📲</span>
+                <span class="cs-get-app-label">অ্যাপ ডাউনলোড</span>
             </button>
 
             <button id="cs-btn-view-toggle" class="cs-icon-btn" title="ভিউ পরিবর্তন করুন (Grid/List)">
@@ -153,6 +159,43 @@
                     </div>
                     <span>স্বাক্ষর ও সিল</span>
                 </button>
+                <button class="cs-shortcut-item" data-action="open-app-download">
+                    <div class="cs-shortcut-icon" style="background: rgba(14, 165, 233, 0.16); color: #0EA5E9;">
+                        <span style="font-size:22px;">📲</span>
+                    </div>
+                    <span>অ্যাপ ডাউনলোড</span>
+                </button>
+            </div>
+
+            <!-- Dedicated Mobile & Desktop App Download Comfort Hub -->
+            <div class="cs-app-download-banner" id="cs-home-app-download-card">
+                <div class="cs-app-dl-banner-left">
+                    <div class="cs-app-dl-badge-row">
+                        <span class="cs-app-dl-pill">✨ NEW v6.81.0 PRO</span>
+                        <span class="cs-app-dl-pill-sub">অফলাইন সাপোর্ট • সুপার ফাস্ট অটো-ক্রপ</span>
+                    </div>
+                    <h3 class="cs-app-dl-title">📲 মোবাইল অ্যাপ ও ডেস্কটপ অ্যাপ ডাউনলোড করুন</h3>
+                    <p class="cs-app-dl-desc">আপনার Android/iOS ফোন অথবা Windows/Mac কম্পিউটারে সরাসরি CamScanner Studio Pro অ্যাপ ইনস্টল করে ইন্টারনেট ছাড়াই দ্রুত ডকুমেন্ট ও বই স্ক্যান করুন।</p>
+                </div>
+                <div class="cs-app-dl-banner-actions">
+                    <button class="cs-app-dl-quick-btn mobile" id="cs-btn-home-dl-mobile" title="Android APK ও iOS মোবাইল অ্যাপ ডাউনলোড">
+                        <span class="dl-icon">📱</span>
+                        <div class="dl-text">
+                            <strong>মোবাইল অ্যাপ</strong>
+                            <small>Android APK / iOS</small>
+                        </div>
+                    </button>
+                    <button class="cs-app-dl-quick-btn desktop" id="cs-btn-home-dl-desktop" title="Windows ও Mac ডেস্কটপ অ্যাপ ডাউনলোড">
+                        <span class="dl-icon">💻</span>
+                        <div class="dl-text">
+                            <strong>ডেস্কটপ অ্যাপ</strong>
+                            <small>Windows / macOS</small>
+                        </div>
+                    </button>
+                    <button class="cs-app-dl-more-btn" id="cs-btn-home-dl-center" title="সব ডাউনলোড অপশন ও QR কোড দেখুন">
+                        QR ও সব অপশন ➔
+                    </button>
+                </div>
             </div>
 
             <!-- Desktop Drag & Drop Import Dropzone -->
@@ -701,6 +744,31 @@
                     <p>• ভার্সন: CamScanner Studio Pro v6.81.0 Web & Desktop Edition</p>
                     <p>• ১০০% ক্লায়েন্ট-সাইড অফলাইন প্রাইভেসি এনক্রিপ্টেড। আপনার ডকুমেন্ট কোথাও আপলোড হয় না।</p>
                 </div>
+
+                <!-- Profile Screen Mobile & Desktop App Download Card -->
+                <div class="cs-card-panel cs-profile-dl-panel">
+                    <div class="cs-profile-dl-header">
+                        <span style="font-size:1.5rem;">📲</span>
+                        <div>
+                            <h4 style="font-size:1rem; font-weight:800; color:var(--cs-text-white);">মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড</h4>
+                            <p style="font-size:0.8rem; color:var(--cs-text-dim);">Android, iOS, Windows এবং macOS-এর জন্য অফিশিয়াল অ্যাপ ইনস্টলার</p>
+                        </div>
+                    </div>
+                    <div class="cs-profile-dl-grid">
+                        <button class="cs-icon-btn cs-profile-dl-btn" id="cs-btn-me-dl-mobile">
+                            <span>📱</span>
+                            <span>মোবাইল অ্যাপ (APK / iOS)</span>
+                        </button>
+                        <button class="cs-icon-btn cs-profile-dl-btn" id="cs-btn-me-dl-desktop">
+                            <span>💻</span>
+                            <span>ডেস্কটপ অ্যাপ (Win / Mac)</span>
+                        </button>
+                        <button class="cs-icon-btn cs-profile-dl-btn primary" id="cs-btn-me-open-dl-modal">
+                            <span>✨</span>
+                            <span>ডাউনলোড সেন্টার ও QR কোড খুলুন</span>
+                        </button>
+                    </div>
+                </div>
             </div>
         </section>
 
@@ -749,6 +817,10 @@
 
         <div class="cs-camera-viewport">
             <video id="cs-camera-video" autoplay playsinline></video>
+            <!-- Real-time Green Auto-Crop Boundary Quad Canvas -->
+            <canvas id="cs-camera-quad-canvas" class="cs-camera-quad-canvas"></canvas>
+            <!-- Shutter Flash Effect -->
+            <div id="cs-camera-shutter-flash" class="cs-camera-shutter-flash"></div>
             <!-- Camera Grid Lines -->
             <div id="cs-camera-grid-overlay" class="cs-camera-grid-overlay" style="display:none;"></div>
             <!-- Real-Time Auto Document Frame & Scanner Beam -->
@@ -758,37 +830,60 @@
                 <div class="cs-corner-tr"></div>
                 <div class="cs-corner-bl"></div>
                 <div class="cs-corner-br"></div>
+                <!-- Book Mode Center Spine Split Guide -->
+                <div id="cs-book-split-guide" class="cs-book-split-guide" style="display:none;">
+                    <span class="cs-book-page-tag left">বাম পৃষ্ঠা (Left)</span>
+                    <span class="cs-book-page-tag right">ডান পৃষ্ঠা (Right)</span>
+                </div>
                 <div class="cs-camera-status-pill">
                     <span class="dot"></span>
                     <span id="cs-camera-status-text">স্বয়ংক্রিয় ফ্রেম ডিটেকশন চালু (Auto-Detect Active)</span>
                 </div>
             </div>
             <div id="cs-biometric-face-guide" class="cs-biometric-face-guide"></div>
+            <!-- Background Auto-Crop Processing Indicator Pill -->
+            <div id="cs-camera-bg-toast" class="cs-camera-bg-toast" style="display:none;">
+                <span class="cs-bg-spinner" id="cs-camera-bg-spinner"></span>
+                <span id="cs-camera-bg-toast-text">আড়ালে অটো-ক্রপ ও প্রসেস হচ্ছে...</span>
+            </div>
         </div>
 
         <div class="cs-camera-mode-carousel">
             <button class="cs-camera-mode-btn active" data-mode="docs">ডকুমেন্ট (DOCS)</button>
-            <button class="cs-camera-mode-btn" data-mode="id_photo">পাসপোর্ট ছবি (ID PHOTO)</button>
-            <button class="cs-camera-mode-btn" data-mode="id_card">আইডি কার্ড (ID CARD)</button>
             <button class="cs-camera-mode-btn" data-mode="book">বুক স্ক্যান (BOOK)</button>
+            <button class="cs-camera-mode-btn" data-mode="id_card">আইডি কার্ড (ID CARD)</button>
+            <button class="cs-camera-mode-btn" data-mode="id_photo">পাসপোর্ট ছবি (ID PHOTO)</button>
             <button class="cs-camera-mode-btn" data-mode="to_word">টু ওয়ার্ড (TO WORD)</button>
         </div>
 
         <div class="cs-camera-shutter-bar">
-            <label class="cs-camera-sub-action" title="অ্যালবাম থেকে এক বা একাধিক ছবি আপলোড">
-                <span style="font-size:24px;">🖼️</span>
-                <span>অ্যালবাম</span>
-                <input type="file" id="cs-camera-import-file" accept="image/*" multiple style="display:none;">
-            </label>
+            <div class="cs-camera-left-controls">
+                <label class="cs-camera-sub-action" title="অ্যালবাম থেকে এক বা একাধিক ছবি আপলোড">
+                    <span style="font-size:22px;">🖼️</span>
+                    <span>অ্যালবাম</span>
+                    <input type="file" id="cs-camera-import-file" accept="image/*" multiple style="display:none;">
+                </label>
 
-            <button class="cs-shutter-main-btn" id="cs-btn-shutter" title="ছবি তুলুন (Spacebar)">
+                <button id="cs-btn-camera-flip" class="cs-camera-sub-action" title="ক্যামেরা ঘোরান (Flip Camera)">
+                    <span style="font-size:22px;">🔄</span>
+                    <span>ঘোরান</span>
+                </button>
+            </div>
+
+            <button class="cs-shutter-main-btn" id="cs-btn-shutter" title="ছবি তুলুন (Spacebar) — আড়ালে অটো-ক্রপ হবে">
                 <div class="cs-shutter-inner"></div>
             </button>
 
-            <button id="cs-btn-camera-flip" class="cs-camera-sub-action" title="ক্যামেরা ঘোরান (Flip Camera)">
-                <span style="font-size:24px;">🔄</span>
-                <span>ক্যামেরা ঘোরান</span>
-            </button>
+            <div class="cs-camera-complete-area">
+                <div id="cs-camera-thumb-wrap" class="cs-camera-thumb-stack" style="display:none;" title="স্ক্যান করা পেজ প্রিভিউ">
+                    <img id="cs-camera-last-thumb" src="" alt="Scanned Page">
+                    <span id="cs-camera-page-badge" class="cs-camera-page-badge">0</span>
+                    <button id="cs-btn-camera-undo" class="cs-camera-undo-btn" title="সর্বশেষ পেজ মুছুন (Undo)">✕</button>
+                </div>
+                <button id="cs-btn-camera-complete" class="cs-btn-camera-complete" disabled title="স্ক্যান শেষ করে ডকুমেন্ট দেখুন">
+                    ✓ কমপ্লিট (<span id="cs-camera-complete-count">0</span>)
+                </button>
+            </div>
         </div>
     </div>
 
@@ -1024,6 +1119,124 @@
             </div>
             <span id="cs-batch-progress-count" style="font-weight:800; color:#fff; font-size:0.9rem;">1/1</span>
         </div>
+    </div>
+
+    <!-- ============================================================= -->
+    <!-- MODAL 6: MOBILE & DESKTOP APP DOWNLOAD CENTER -->
+    <!-- ============================================================= -->
+    <div id="cs-app-download-modal" class="modal-overlay">
+        <div class="modal-content cs-app-dl-modal-content">
+            <div class="modal-header cs-app-dl-modal-header">
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <img src="assets/cs_icon.png" alt="CamScanner" style="width:42px; height:42px; border-radius:10px; box-shadow:0 4px 12px rgba(0,168,132,0.35);">
+                    <div>
+                        <h3 style="font-size:1.15rem; font-weight:800;">📲 CamScanner মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড সেন্টার</h3>
+                        <p style="font-size:0.8rem; color:var(--cs-text-dim); margin-top:2px;">যেকোনো ডিভাইসে ১-ক্লিকে ইনস্টল করুন — ১০০% ফ্রি ও অফলাইন অটো-স্ক্যানার</p>
+                    </div>
+                </div>
+                <button id="cs-btn-close-app-dl-modal" class="cs-icon-btn" style="border:none; font-size:1.25rem; padding:6px 10px;" title="বন্ধ করুন">✕</button>
+            </div>
+
+            <div class="cs-app-dl-modal-grid">
+                <!-- Card 1: Mobile App (Android & iOS) -->
+                <div class="cs-app-platform-card mobile-card">
+                    <div class="cs-platform-badge">📱 MOBILE EDITION</div>
+                    <div class="cs-platform-header">
+                        <div class="cs-platform-icon">🤖</div>
+                        <div>
+                            <h4>মোবাইল অ্যাপ (Android & iOS)</h4>
+                            <span>ভার্সন v6.81.0 Pro • অটো-ক্রপ ক্যামেরা ও বুক স্ক্যানার</span>
+                        </div>
+                    </div>
+                    <ul class="cs-platform-features">
+                        <li>✓ অটো বর্ডার ডিটেকশন ও কন্টিনিউয়াস বুক স্ক্যানিং</li>
+                        <li>✓ ব্যাকগ্রাউন্ড ম্যাজিক কালার প্রসেসিং ও HD PDF</li>
+                        <li>✓ পাসপোর্ট ছবি ও ২-সাইড আইডি কার্ড মেকার</li>
+                    </ul>
+                    <div class="cs-platform-actions">
+                        <button id="btn-dl-android-apk" class="cs-dl-action-btn primary-teal">
+                            <span class="btn-icon">📥</span>
+                            <div class="btn-text">
+                                <strong>Android অ্যাপ ডাউনলোড (.APK / Installer)</strong>
+                                <small>Android 8.0+ • সরাসরি ডাউনলোড (Direct Download)</small>
+                            </div>
+                        </button>
+                        <button id="btn-dl-mobile-pwa" class="cs-dl-action-btn secondary-outline">
+                            <span class="btn-icon">📲</span>
+                            <div class="btn-text">
+                                <strong>ব্রাউজার থেকে ১-ক্লিকে ইনস্টল (Android / iPhone)</strong>
+                                <small>হোম স্ক্রিনে অফলাইন অ্যাপ হিসেবে যুক্ত করুন</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Card 2: Desktop App (Windows, macOS & Linux) -->
+                <div class="cs-app-platform-card desktop-card">
+                    <div class="cs-platform-badge desktop">💻 DESKTOP STUDIO</div>
+                    <div class="cs-platform-header">
+                        <div class="cs-platform-icon">🖥️</div>
+                        <div>
+                            <h4>ডেস্কটপ অ্যাপ (Windows & Mac)</h4>
+                            <span>ভার্সন v6.81.0 Studio • ৬৪-বিট হাই-স্পিড প্রসেসিং</span>
+                        </div>
+                    </div>
+                    <ul class="cs-platform-features">
+                        <li>✓ ব্যাচ ড্র্যাগ-এন্ড-ড্রপ স্ক্যান ও ওয়েবক্যাম লাইভ অটো-ক্রপ</li>
+                        <li>✓ এক ক্লিকে A4 প্রিন্ট শিট, ওসিআর এবং পিডিএফ মার্জ</li>
+                        <li>✓ চক্ষু-বান্ধব (Eye-Comfort) ডার্ক ও লাইট স্টুডিও ইন্টারফেস</li>
+                    </ul>
+                    <div class="cs-platform-actions">
+                        <button id="btn-dl-windows-exe" class="cs-dl-action-btn primary-blue">
+                            <span class="btn-icon">🪟</span>
+                            <div class="btn-text">
+                                <strong>Windows ডেস্কটপ অ্যাপ ডাউনলোড (.BAT / Launcher)</strong>
+                                <small>Windows 10 / 11 • ডাবল-ক্লিক করলেই ডেস্কটপ অ্যাপ চালু হবে</small>
+                            </div>
+                        </button>
+                        <button id="btn-dl-desktop-pwa" class="cs-dl-action-btn secondary-outline">
+                            <span class="btn-icon">⚡</span>
+                            <div class="btn-text">
+                                <strong>সরাসরি ডেস্কটপ অ্যাপ ইনস্টল (Instant App / Mac / Linux)</strong>
+                                <small>ডেস্কটপ শর্টকাট ও স্ট্যান্ডঅ্যালোন অ্যাপ উইন্ডো</small>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bottom QR Code & Direct Link Bar -->
+            <div class="cs-app-qr-bar">
+                <div class="cs-qr-canvas-wrap">
+                    <canvas id="cs-app-qr-canvas" width="116" height="116"></canvas>
+                </div>
+                <div class="cs-qr-info">
+                    <h5>📷 ফোনের ক্যামেরা দিয়ে QR কোড স্ক্যান করুন</h5>
+                    <p>ডেস্কটপ থেকে আপনার মোবাইলে সরাসরি CamScanner অ্যাপটি ওপেন ও ইনস্টল করতে উপরের QR কোডটি স্ক্যান করুন অথবা নিচের লিংকটি কপি করুন।</p>
+                    <div class="cs-app-link-copy-row">
+                        <input type="text" id="cs-app-share-url" class="cs-input-clean" readonly value="https://menajpal-design.github.io/camlap/">
+                        <button id="btn-copy-app-link" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700; white-space:nowrap;">📋 লিংক কপি করুন</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Live Download Progress Feedback Bar -->
+            <div id="cs-app-dl-progress-box" class="cs-app-dl-progress-box" style="display:none;">
+                <div style="display:flex; justify-content:space-between; font-size:0.82rem; font-weight:700; margin-bottom:6px;">
+                    <span id="cs-app-dl-status-text">ডাউনলোড প্রস্তুত হচ্ছে...</span>
+                    <span id="cs-app-dl-percent" style="color:var(--cs-teal);">0%</span>
+                </div>
+                <div style="height:8px; background:var(--cs-border-dark); border-radius:999px; overflow:hidden;">
+                    <div id="cs-app-dl-bar" style="width:0%; height:100%; background:linear-gradient(90deg, var(--cs-teal), #00E6B8); transition:width 0.2s;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User-Comfortable Floating Notification Toast -->
+    <div id="cs-comfort-toast" class="cs-comfort-toast" style="display:none;">
+        <span id="cs-comfort-toast-icon">✅</span>
+        <span id="cs-comfort-toast-msg">সফলভাবে সম্পন্ন হয়েছে</span>
     </div>
 
     <!-- Scripts -->

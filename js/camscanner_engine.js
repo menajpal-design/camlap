@@ -160,9 +160,9 @@ class CamScannerEngine {
 
     /**
      * Fully Automatic Pipeline: Detects Corners, Crops, and Applies Auto Brightness & Magic Filter
-     * Used for batch/multi-file uploads and auto-capture!
+     * Used for batch/multi-file uploads and continuous background auto-capture!
      */
-    autoProcessAndCropImage(imageSrc, callback) {
+    autoProcessAndCropImage(imageSrc, callback, preDetectedCorners = null) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onerror = () => {
@@ -171,11 +171,13 @@ class CamScannerEngine {
         };
         img.onload = () => {
             try {
-                let corners8;
-                try {
-                    corners8 = ImageProcessor.detectDocumentCorners(img);
-                } catch (e) {
-                    console.warn('Auto corner detect failed:', e);
+                let corners8 = preDetectedCorners;
+                if (!corners8 || corners8.length < 8) {
+                    try {
+                        corners8 = ImageProcessor.detectDocumentCorners(img);
+                    } catch (e) {
+                        console.warn('Auto corner detect failed:', e);
+                    }
                 }
                 if (!corners8 || corners8.length < 8) {
                     const padX = img.width * 0.04;
@@ -438,40 +440,89 @@ class CamScannerEngine {
     }
 
     /**
-     * Book Scanner: Split 2 pages (Left & Right) from an open book scan
+     * Book Scanner: Auto-detect & perspective-crop the outer book boundary first,
+     * then split into 2 pages (Left & Right) with center spine gutter trim and Magic Color
      */
-    splitBookPages(imageSrc, callback) {
+    splitBookPages(imageSrc, callback, preDetectedCorners = null) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
         img.onload = () => {
-            const w = img.width;
-            const h = img.height;
-            const halfW = Math.round(w / 2);
+            try {
+                let corners8 = preDetectedCorners;
+                if (!corners8 || corners8.length < 8) {
+                    try {
+                        corners8 = ImageProcessor.detectDocumentCorners(img);
+                    } catch (e) {
+                        console.warn('Book auto corner detect failed:', e);
+                    }
+                }
+                if (!corners8 || corners8.length < 8) {
+                    const padX = img.width * 0.04;
+                    const padY = img.height * 0.04;
+                    corners8 = [
+                        { x: padX, y: padY, id: 'tl' },
+                        { x: img.width / 2, y: padY, id: 't' },
+                        { x: img.width - padX, y: padY, id: 'tr' },
+                        { x: img.width - padX, y: img.height / 2, id: 'r' },
+                        { x: img.width - padX, y: img.height - padY, id: 'br' },
+                        { x: img.width / 2, y: img.height - padY, id: 'b' },
+                        { x: padX, y: img.height - padY, id: 'bl' },
+                        { x: padX, y: img.height / 2, id: 'l' }
+                    ];
+                }
 
-            // Left Page
-            const leftCanvas = document.createElement('canvas');
-            leftCanvas.width = halfW;
-            leftCanvas.height = h;
-            const lCtx = leftCanvas.getContext('2d');
-            lCtx.drawImage(img, 0, 0, halfW, h, 0, 0, halfW, h);
+                const corners = [corners8[0], corners8[2], corners8[4], corners8[6]];
+                const topW = Math.hypot(corners[1].x - corners[0].x, corners[1].y - corners[0].y);
+                const btmW = Math.hypot(corners[2].x - corners[3].x, corners[2].y - corners[3].y);
+                const lftH = Math.hypot(corners[3].x - corners[0].x, corners[3].y - corners[0].y);
+                const rgtH = Math.hypot(corners[2].x - corners[1].x, corners[2].y - corners[1].y);
 
-            // Right Page
-            const rightCanvas = document.createElement('canvas');
-            rightCanvas.width = halfW;
-            rightCanvas.height = h;
-            const rCtx = rightCanvas.getContext('2d');
-            rCtx.drawImage(img, halfW, 0, halfW, h, 0, 0, halfW, h);
+                const targetW = Math.max(120, Math.round(Math.max(topW, btmW)));
+                const targetH = Math.max(120, Math.round(Math.max(lftH, rgtH)));
 
-            // Apply Magic Color to both
-            const lData = lCtx.getImageData(0, 0, halfW, h);
-            ImageProcessor.applyFilter(lData, 'magic');
-            lCtx.putImageData(lData, 0, 0);
+                const srcCanvas = document.createElement('canvas');
+                srcCanvas.width = img.width;
+                srcCanvas.height = img.height;
+                srcCanvas.getContext('2d').drawImage(img, 0, 0);
 
-            const rData = rCtx.getImageData(0, 0, halfW, h);
-            ImageProcessor.applyFilter(rData, 'magic');
-            rCtx.putImageData(rData, 0, 0);
+                // First perspective-crop the outer book boundary
+                let bookCanvas = ImageProcessor.perspectiveWarp(srcCanvas, corners, targetW, targetH);
+                if (!bookCanvas) bookCanvas = srcCanvas;
 
-            if (callback) callback(leftCanvas, rightCanvas);
+                const w = bookCanvas.width;
+                const h = bookCanvas.height;
+                const spineTrim = Math.round(w * 0.015);
+                const halfW = Math.max(50, Math.round((w / 2) - spineTrim));
+
+                // Left Page (trimmed before center spine shadow)
+                const leftCanvas = document.createElement('canvas');
+                leftCanvas.width = halfW;
+                leftCanvas.height = h;
+                const lCtx = leftCanvas.getContext('2d');
+                lCtx.drawImage(bookCanvas, 0, 0, halfW, h, 0, 0, halfW, h);
+
+                // Right Page (trimmed after center spine shadow)
+                const rightCanvas = document.createElement('canvas');
+                rightCanvas.width = halfW;
+                rightCanvas.height = h;
+                const rCtx = rightCanvas.getContext('2d');
+                rCtx.drawImage(bookCanvas, Math.round(w / 2) + spineTrim, 0, halfW, h, 0, 0, halfW, h);
+
+                // Apply Auto Brightness & Magic Color to both pages
+                const lData = lCtx.getImageData(0, 0, halfW, h);
+                ImageProcessor.autoBrightnessNormalize(lData);
+                ImageProcessor.applyFilter(lData, 'magic');
+                lCtx.putImageData(lData, 0, 0);
+
+                const rData = rCtx.getImageData(0, 0, halfW, h);
+                ImageProcessor.autoBrightnessNormalize(rData);
+                ImageProcessor.applyFilter(rData, 'magic');
+                rCtx.putImageData(rData, 0, 0);
+
+                if (callback) callback(leftCanvas, rightCanvas);
+            } catch (err) {
+                console.error('Error splitting book pages:', err);
+            }
         };
         img.src = imageSrc;
     }

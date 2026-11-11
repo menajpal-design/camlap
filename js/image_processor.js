@@ -5,17 +5,18 @@
 
 class ImageProcessor {
     /**
-     * Automatic Document Corner & Edge Detection (Auto Contour / Edge Finding)
-     * Detects 4 corners [TL, TR, BR, BL] of paper document in the image.
+     * Automatic Document & Book Corner Detection (Perspective Quad + Paper Segmentation)
+     * Uses 5x5 morphological closing (to suppress interior text strokes) + directional
+     * boundary gradient peak detection across 8 zones to find true perspective corners [TL, TR, BR, BL].
      */
-    static detectDocumentCorners(sourceImage) {
-        const w = sourceImage.width;
-        const h = sourceImage.height;
+    static detectDocumentCorners(sourceImage, withMeta = false) {
+        const w = sourceImage.width || 640;
+        const h = sourceImage.height || 480;
 
-        // Downscale to working canvas for real-time fast edge detection
+        // Downscale to working canvas for fast, accurate contour finding
         const scale = Math.min(320 / w, 240 / h, 1.0);
-        const dw = Math.round(w * scale);
-        const dh = Math.round(h * scale);
+        const dw = Math.max(64, Math.round(w * scale));
+        const dh = Math.max(48, Math.round(h * scale));
 
         const tempCanvas = document.createElement('canvas');
         tempCanvas.width = dw;
@@ -25,98 +26,196 @@ class ImageProcessor {
 
         const imgData = tCtx.getImageData(0, 0, dw, dh);
         const d = imgData.data;
+        const numPixels = dw * dh;
 
-        // 1. Convert to grayscale & compute gradients (Sobel filter approximation)
-        const gray = new Uint8Array(dw * dh);
+        // 1. Extract raw grayscale luminance and color channels
+        const gray = new Uint8Array(numPixels);
         for (let i = 0, j = 0; i < d.length; i += 4, j++) {
-            gray[j] = Math.round(0.299 * d[i] + 0.587 * d[i+1] + 0.114 * d[i+2]);
+            gray[j] = (77 * d[i] + 150 * d[i + 1] + 29 * d[i + 2]) >> 8;
         }
 
-        // 2. Compute edge magnitude map
-        const edges = new Uint8Array(dw * dh);
+        // 2. 5x5 Morphological Dilation (Local Max) to erase dark ink/text lines inside book/page
+        const dilated = new Uint8Array(numPixels);
+        for (let y = 0; y < dh; y++) {
+            const y0 = Math.max(0, y - 2);
+            const y1 = Math.min(dh - 1, y + 2);
+            for (let x = 0; x < dw; x++) {
+                const x0 = Math.max(0, x - 2);
+                const x1 = Math.min(dw - 1, x + 2);
+                let maxVal = 0;
+                for (let ny = y0; ny <= y1; ny++) {
+                    const rowOffset = ny * dw;
+                    for (let nx = x0; nx <= x1; nx++) {
+                        const v = gray[rowOffset + nx];
+                        if (v > maxVal) maxVal = v;
+                    }
+                }
+                dilated[y * dw + x] = maxVal;
+            }
+        }
+
+        // 3. Measure Center Paper Luminance vs Outer Border Luminance & Interior Text Contrast
+        let centerSum = 0, centerCount = 0;
+        let textEdgeCount = 0;
+        const cx0 = Math.round(dw * 0.28), cx1 = Math.round(dw * 0.72);
+        const cy0 = Math.round(dh * 0.28), cy1 = Math.round(dh * 0.72);
+        for (let y = cy0; y <= cy1; y++) {
+            for (let x = cx0; x <= cx1; x++) {
+                const idx = y * dw + x;
+                centerSum += dilated[idx];
+                centerCount++;
+                if (x > 1 && x < dw - 1 && y > 1 && y < dh - 1) {
+                    const rawDiff = Math.abs(gray[idx + 1] - gray[idx - 1]) + Math.abs(gray[idx + dw] - gray[idx - dw]);
+                    if (rawDiff > 38) textEdgeCount++;
+                }
+            }
+        }
+        const centerPaperLum = centerCount > 0 ? centerSum / centerCount : 180;
+        const textDensity = centerCount > 0 ? textEdgeCount / centerCount : 0;
+
+        // 4. Compute Directional Boundary Gradients on the dilated (text-free) surface
+        const gradX = new Int16Array(numPixels);
+        const gradY = new Int16Array(numPixels);
+        const edges = new Uint8Array(numPixels);
         let maxGrad = 0;
+
         for (let y = 1; y < dh - 1; y++) {
             for (let x = 1; x < dw - 1; x++) {
                 const idx = y * dw + x;
-                const gx = (gray[idx + 1] - gray[idx - 1]);
-                const gy = (gray[idx + dw] - gray[idx - dw]);
-                const grad = Math.abs(gx) + Math.abs(gy);
-                edges[idx] = grad;
-                if (grad > maxGrad) maxGrad = grad;
+                // Gradient on dilated surface (captures true paper boundary, ignores thin text)
+                const gx = dilated[idx + 1] - dilated[idx - 1];
+                const gy = dilated[idx + dw] - dilated[idx - dw];
+                // Also blend raw gradient for low-contrast colored documents
+                const rgx = (gray[idx + 1] - gray[idx - 1]) >> 1;
+                const rgy = (gray[idx + dw] - gray[idx - dw]) >> 1;
+
+                gradX[idx] = gx;
+                gradY[idx] = gy;
+                const mag = Math.min(255, Math.abs(gx) + Math.abs(gy) + ((Math.abs(rgx) + Math.abs(rgy)) >> 1));
+                edges[idx] = mag;
+                if (mag > maxGrad) maxGrad = mag;
             }
         }
 
-        const threshold = Math.max(25, maxGrad * 0.22);
+        const edgeThreshold = Math.max(18, Math.round(maxGrad * 0.18));
+        const lumSimThreshold = Math.max(22, centerPaperLum * 0.22);
 
-        // 3. Scan from 4 outer edges inward to locate candidate paper boundaries
-        let topY = Math.round(dh * 0.05);
-        let btmY = Math.round(dh * 0.95);
-        let lftX = Math.round(dw * 0.05);
-        let rgtX = Math.round(dw * 0.95);
+        // Helper: scan horizontal segment at y to score boundary transition
+        const scoreHorizBand = (y, xStart, xEnd, dirY) => {
+            let score = 0;
+            const span = Math.max(1, xEnd - xStart);
+            for (let x = xStart; x < xEnd; x++) {
+                const idx = y * dw + x;
+                const insideY = Math.min(dh - 1, Math.max(0, y + dirY * 3));
+                const outsideY = Math.min(dh - 1, Math.max(0, y - dirY * 3));
+                const inSim = Math.abs(dilated[insideY * dw + x] - centerPaperLum) < lumSimThreshold ? 1.4 : 0.6;
+                const outDiff = Math.abs(dilated[outsideY * dw + x] - centerPaperLum) > lumSimThreshold * 0.8 ? 1.5 : 0.5;
+                if (edges[idx] > edgeThreshold) {
+                    score += edges[idx] * inSim * outDiff;
+                }
+            }
+            return score / span;
+        };
 
-        // Top edge
-        for (let y = Math.round(dh * 0.04); y < dh * 0.45; y++) {
-            let edgeCount = 0;
-            for (let x = Math.round(dw * 0.15); x < dw * 0.85; x++) {
-                if (edges[y * dw + x] > threshold) edgeCount++;
+        // Helper: scan vertical segment at x to score boundary transition
+        const scoreVertBand = (x, yStart, yEnd, dirX) => {
+            let score = 0;
+            const span = Math.max(1, yEnd - yStart);
+            for (let y = yStart; y < yEnd; y++) {
+                const idx = y * dw + x;
+                const insideX = Math.min(dw - 1, Math.max(0, x + dirX * 3));
+                const outsideX = Math.min(dw - 1, Math.max(0, x - dirX * 3));
+                const inSim = Math.abs(dilated[y * dw + insideX] - centerPaperLum) < lumSimThreshold ? 1.4 : 0.6;
+                const outDiff = Math.abs(dilated[y * dw + outsideX] - centerPaperLum) > lumSimThreshold * 0.8 ? 1.5 : 0.5;
+                if (edges[idx] > edgeThreshold) {
+                    score += edges[idx] * inSim * outDiff;
+                }
             }
-            if (edgeCount > (dw * 0.15)) {
-                topY = y;
-                break;
+            return score / span;
+        };
+
+        // 5. Locate 8 Perspective Boundary Segments (allows slanted/skewed books & pages)
+        const findPeakY = (yStart, yEnd, step, x0, x1, dirY, fallbackY) => {
+            let bestY = fallbackY;
+            let bestScore = 8; // minimum confidence threshold
+            for (let y = yStart; step > 0 ? y <= yEnd : y >= yEnd; y += step) {
+                const s = scoreHorizBand(y, x0, x1, dirY);
+                if (s > bestScore) {
+                    bestScore = s;
+                    bestY = y;
+                    // Prefer outermost strong boundary edge of the page
+                    if (s > edgeThreshold * 1.15) break;
+                }
             }
+            return { pos: bestY, found: bestScore > 8 };
+        };
+
+        const findPeakX = (xStart, xEnd, step, y0, y1, dirX, fallbackX) => {
+            let bestX = fallbackX;
+            let bestScore = 8;
+            for (let x = xStart; step > 0 ? x <= xEnd : x >= xEnd; x += step) {
+                const s = scoreVertBand(x, y0, y1, dirX);
+                if (s > bestScore) {
+                    bestScore = s;
+                    bestX = x;
+                    if (s > edgeThreshold * 1.15) break;
+                }
+            }
+            return { pos: bestX, found: bestScore > 8 };
+        };
+
+        const topL = findPeakY(Math.round(dh * 0.03), Math.round(dh * 0.42), 1, Math.round(dw * 0.16), Math.round(dw * 0.48), 1, Math.round(dh * 0.06));
+        const topR = findPeakY(Math.round(dh * 0.03), Math.round(dh * 0.42), 1, Math.round(dw * 0.52), Math.round(dw * 0.84), 1, Math.round(dh * 0.06));
+
+        const btmL = findPeakY(Math.round(dh * 0.97), Math.round(dh * 0.58), -1, Math.round(dw * 0.16), Math.round(dw * 0.48), -1, Math.round(dh * 0.94));
+        const btmR = findPeakY(Math.round(dh * 0.97), Math.round(dh * 0.58), -1, Math.round(dw * 0.52), Math.round(dw * 0.84), -1, Math.round(dh * 0.94));
+
+        const lftT = findPeakX(Math.round(dw * 0.03), Math.round(dw * 0.42), 1, Math.round(dh * 0.16), Math.round(dh * 0.48), 1, Math.round(dw * 0.06));
+        const lftB = findPeakX(Math.round(dw * 0.03), Math.round(dw * 0.42), 1, Math.round(dh * 0.52), Math.round(dh * 0.84), 1, Math.round(dw * 0.06));
+
+        const rgtT = findPeakX(Math.round(dw * 0.97), Math.round(dw * 0.58), -1, Math.round(dh * 0.16), Math.round(dh * 0.48), -1, Math.round(dw * 0.94));
+        const rgtB = findPeakX(Math.round(dw * 0.97), Math.round(dw * 0.58), -1, Math.round(dh * 0.52), Math.round(dh * 0.84), -1, Math.round(dw * 0.94));
+
+        // Limit extreme slant unless supported by strong edges
+        const maxTiltY = dh * 0.14;
+        if (Math.abs(topL.pos - topR.pos) > maxTiltY) {
+            const avg = Math.round((topL.pos + topR.pos) / 2);
+            topL.pos = avg; topR.pos = avg;
+        }
+        if (Math.abs(btmL.pos - btmR.pos) > maxTiltY) {
+            const avg = Math.round((btmL.pos + btmR.pos) / 2);
+            btmL.pos = avg; btmR.pos = avg;
+        }
+        const maxTiltX = dw * 0.14;
+        if (Math.abs(lftT.pos - lftB.pos) > maxTiltX) {
+            const avg = Math.round((lftT.pos + lftB.pos) / 2);
+            lftT.pos = avg; lftB.pos = avg;
+        }
+        if (Math.abs(rgtT.pos - rgtB.pos) > maxTiltX) {
+            const avg = Math.round((rgtT.pos + rgtB.pos) / 2);
+            rgtT.pos = avg; rgtB.pos = avg;
         }
 
-        // Bottom edge
-        for (let y = Math.round(dh * 0.96); y > dh * 0.55; y--) {
-            let edgeCount = 0;
-            for (let x = Math.round(dw * 0.15); x < dw * 0.85; x++) {
-                if (edges[y * dw + x] > threshold) edgeCount++;
-            }
-            if (edgeCount > (dw * 0.15)) {
-                btmY = y;
-                break;
-            }
-        }
+        const sidesFound = (topL.found || topR.found ? 1 : 0) +
+                           (btmL.found || btmR.found ? 1 : 0) +
+                           (lftT.found || lftB.found ? 1 : 0) +
+                           (rgtT.found || rgtB.found ? 1 : 0);
 
-        // Left edge
-        for (let x = Math.round(dw * 0.04); x < dw * 0.45; x++) {
-            let edgeCount = 0;
-            for (let y = Math.round(dh * 0.15); y < dh * 0.85; y++) {
-                if (edges[y * dw + x] > threshold) edgeCount++;
-            }
-            if (edgeCount > (dh * 0.15)) {
-                lftX = x;
-                break;
-            }
-        }
-
-        // Right edge
-        for (let x = Math.round(dw * 0.96); x > dw * 0.55; x--) {
-            let edgeCount = 0;
-            for (let y = Math.round(dh * 0.15); y < dh * 0.85; y++) {
-                if (edges[y * dw + x] > threshold) edgeCount++;
-            }
-            if (edgeCount > (dh * 0.15)) {
-                rgtX = x;
-                break;
-            }
-        }
-
-        // Scale detected coordinates back to original resolution
+        // Scale detected coordinates back to original resolution (with slight inward trim to avoid desk borders)
         const invScale = 1.0 / scale;
-        const padX = w * 0.02;
-        const padY = h * 0.02;
+        const insetX = w * 0.004;
+        const insetY = h * 0.004;
 
-        const tlX = Math.max(0, lftX * invScale - padX);
-        const tlY = Math.max(0, topY * invScale - padY);
-        const trX = Math.min(w, rgtX * invScale + padX);
-        const trY = Math.max(0, topY * invScale - padY);
-        const brX = Math.min(w, rgtX * invScale + padX);
-        const brY = Math.min(h, btmY * invScale + padY);
-        const blX = Math.max(0, lftX * invScale - padX);
-        const blY = Math.min(h, btmY * invScale + padY);
+        const tlX = Math.max(0, Math.min(w, lftT.pos * invScale + insetX));
+        const tlY = Math.max(0, Math.min(h, topL.pos * invScale + insetY));
+        const trX = Math.max(0, Math.min(w, rgtT.pos * invScale - insetX));
+        const trY = Math.max(0, Math.min(h, topR.pos * invScale + insetY));
+        const brX = Math.max(0, Math.min(w, rgtB.pos * invScale - insetX));
+        const brY = Math.max(0, Math.min(h, btmR.pos * invScale - insetY));
+        const blX = Math.max(0, Math.min(w, lftB.pos * invScale + insetX));
+        const blY = Math.max(0, Math.min(h, btmL.pos * invScale - insetY));
 
-        return [
+        const corners = [
             { x: Math.round(tlX), y: Math.round(tlY), id: 'tl' },
             { x: Math.round((tlX + trX) / 2), y: Math.round((tlY + trY) / 2), id: 't' },
             { x: Math.round(trX), y: Math.round(trY), id: 'tr' },
@@ -126,6 +225,65 @@ class ImageProcessor {
             { x: Math.round(blX), y: Math.round(blY), id: 'bl' },
             { x: Math.round((tlX + blX) / 2), y: Math.round((tlY + blY) / 2), id: 'l' }
         ];
+
+        if (!withMeta) return corners;
+
+        // Determine whether a real document/book is present in the frame
+        const quadW = ((trX - tlX) + (brX - blX)) / 2;
+        const quadH = ((blY - tlY) + (brY - trY)) / 2;
+        const validSize = quadW > w * 0.25 && quadH > h * 0.25;
+        const hasDocStructure = (sidesFound >= 2 && (textDensity > 0.015 || centerPaperLum > 85)) ||
+                                (sidesFound >= 3) ||
+                                (textDensity > 0.045 && centerPaperLum > 95);
+
+        return {
+            corners,
+            detected: Boolean(validSize && hasDocStructure),
+            sidesFound,
+            textDensity,
+            grayBuffer: gray
+        };
+    }
+
+    /**
+     * Analyze live camera frame for motion stability, page change, and document boundaries
+     */
+    static analyzeLiveFrame(sourceCanvas, prevGrayBuffer = null, lastCapturedGrayBuffer = null) {
+        const meta = ImageProcessor.detectDocumentCorners(sourceCanvas, true);
+        const currGray = meta.grayBuffer;
+
+        // 1. Frame-to-frame motion score (lower = steadier camera)
+        let motionScore = 0;
+        if (prevGrayBuffer && prevGrayBuffer.length === currGray.length) {
+            let diffSum = 0;
+            let samples = 0;
+            for (let i = 0; i < currGray.length; i += 4) {
+                diffSum += Math.abs(currGray[i] - prevGrayBuffer[i]);
+                samples++;
+            }
+            motionScore = samples > 0 ? diffSum / samples : 0;
+        }
+
+        // 2. Scene difference from last captured frame (detects page turn / new document)
+        let diffFromLastCapture = 100;
+        if (lastCapturedGrayBuffer && lastCapturedGrayBuffer.length === currGray.length) {
+            let diffSum = 0;
+            let samples = 0;
+            for (let i = 0; i < currGray.length; i += 4) {
+                diffSum += Math.abs(currGray[i] - lastCapturedGrayBuffer[i]);
+                samples++;
+            }
+            diffFromLastCapture = samples > 0 ? diffSum / samples : 100;
+        }
+
+        return {
+            corners: meta.corners,
+            detected: meta.detected,
+            isSteady: motionScore < 9.5,
+            motionScore,
+            diffFromLastCapture,
+            grayBuffer: currGray
+        };
     }
 
     /**
