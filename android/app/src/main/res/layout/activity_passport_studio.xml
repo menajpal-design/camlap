@@ -1,0 +1,360 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8FAFC">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        android:padding="12dp"
+        android:gravity="center_vertical"
+        android:elevation="2dp">
+
+        <Button
+            android:id="@+id/btn_pp_back"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_btn_outline"
+            android:text="← পেছনে"
+            android:textColor="#0F172A"
+            android:textSize="12sp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="পাসপোর্ট ও A4 স্টুডিও"
+            android:textColor="#0F172A"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+
+        <Button
+            android:id="@+id/btn_pp_camera"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_marginEnd="6dp"
+            android:background="@drawable/bg_btn_primary"
+            android:paddingHorizontal="10dp"
+            android:text="📷 ক্যামেরা"
+            android:textColor="#FFFFFF"
+            android:textSize="12sp" />
+
+        <Button
+            android:id="@+id/btn_pp_gallery"
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_btn_outline"
+            android:paddingHorizontal="10dp"
+            android:text="🖼️ ছবি"
+            android:textColor="#0F172A"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="14dp">
+
+            <!-- Single Photo Preview Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="@drawable/bg_card"
+                android:padding="12dp"
+                android:orientation="vertical"
+                android:gravity="center_horizontal">
+
+                <TextView
+                    android:id="@+id/tv_pp_ai_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_chip"
+                    android:padding="8dp"
+                    android:gravity="center"
+                    android:text="ছবি তুলুন বা গ্যালারি থেকে দিন — মুখ, গলা ও কলার অটো-ক্রপ হবে"
+                    android:textColor="#00896C"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <ImageView
+                    android:id="@+id/iv_pp_single"
+                    android:layout_width="175dp"
+                    android:layout_height="225dp"
+                    android:layout_marginTop="10dp"
+                    android:background="#E2E8F0"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="Passport Photo" />
+
+                <TextView
+                    android:id="@+id/tv_pp_attire"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="পজিশন ঠিক করতে ছবি ড্র্যাগ করুন"
+                    android:textColor="#64748B"
+                    android:textSize="11sp" />
+
+                <!-- Zoom & Gender Quick Controls -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_gender_male"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_chip"
+                        android:text="👨 ছেলে"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btn_gender_female"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="👩 মেয়ে"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btn_pp_zoom_out"
+                        android:layout_width="42dp"
+                        android:layout_height="34dp"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="−"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/btn_pp_zoom_in"
+                        android:layout_width="42dp"
+                        android:layout_height="34dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="+"
+                        android:textStyle="bold" />
+                </LinearLayout>
+
+                <!-- Formal Suit Row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_suit_none"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="স্যুট ছাড়া"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_suit_black"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="ব্ল্যাক স্যুট"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_suit_navy"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="নেভি স্যুট"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_suit_female"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="ব্লেজার"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <!-- Background Color Row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_bg_white"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="সাদা BG"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_bg_sky"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="আকাশি"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_bg_blue"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="4dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="নেভি ব্লু"
+                        android:textSize="11sp" />
+
+                    <Button
+                        android:id="@+id/btn_bg_toggle"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1.2"
+                        android:background="@drawable/bg_chip"
+                        android:text="🪄 BG বদলান"
+                        android:textColor="#00896C"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Live A4 Print Sheet Arrangement Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                android:background="@drawable/bg_card"
+                android:padding="12dp"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📄 A4 পেপার সাজানো ও প্রিন্ট (Print Ready)"
+                    android:textColor="#0F172A"
+                    android:textSize="15sp"
+                    android:textStyle="bold" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="এক লাইনে ছবি:"
+                            android:textColor="#64748B"
+                            android:textSize="11sp" />
+
+                        <Spinner
+                            android:id="@+id/sp_per_row"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp" />
+                    </LinearLayout>
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:text="সারির সংখ্যা:"
+                            android:textColor="#64748B"
+                            android:textSize="11sp" />
+
+                        <Spinner
+                            android:id="@+id/sp_rows"
+                            android:layout_width="match_parent"
+                            android:layout_height="38dp" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <ImageView
+                    android:id="@+id/iv_a4_preview"
+                    android:layout_width="match_parent"
+                    android:layout_height="260dp"
+                    android:layout_marginTop="8dp"
+                    android:background="#E2E8F0"
+                    android:scaleType="fitCenter"
+                    android:contentDescription="A4 Print Preview" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:orientation="horizontal">
+
+                    <Button
+                        android:id="@+id/btn_pp_save_single"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="💾 সিঙ্গেল"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btn_pp_save_pdf"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1.1"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="📄 A4 PDF"
+                        android:textSize="12sp" />
+
+                    <Button
+                        android:id="@+id/btn_pp_print"
+                        android:layout_width="0dp"
+                        android:layout_height="42dp"
+                        android:layout_weight="1.3"
+                        android:background="@drawable/bg_btn_primary"
+                        android:text="🖨️ প্রিন্ট করুন"
+                        android:textColor="#FFFFFF"
+                        android:textStyle="bold"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

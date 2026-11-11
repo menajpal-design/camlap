@@ -10,8 +10,9 @@ android {
         applicationId "com.camscanner.webstudiopro"
         minSdk 24
         targetSdk 34
-        versionCode 1
-        versionName "6.81.0"
+        versionCode 2
+        versionName "6.82.0"
+        setProperty("archivesBaseName", "camlab")
     }
 
     buildTypes {
@@ -30,22 +31,7 @@ android {
     }
 }
 
-tasks.register('copyWebAssets', Copy) {
-    def webRoot = file('../..')
-    from(webRoot) {
-        include 'index.html'
-        include 'manifest.json'
-        include 'css/**'
-        include 'js/**'
-        include 'assets/**'
-    }
-    into file('src/main/assets/www')
-}
-
-preBuild.dependsOn(copyWebAssets)
-
 dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
-    implementation 'androidx.webkit:webkit:1.10.0'
 }
 

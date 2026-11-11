@@ -90,104 +90,53 @@
         <!-- ============================================================= -->
         <section id="screen-home" class="cs-screen active">
 
-            <!-- Clean, Fresh Hero Quick-Action Card -->
-            <div class="cs-fresh-hero">
-                <div class="cs-fresh-hero-text">
-                    <h2>দ্রুত ও পরিষ্কার ডকুমেন্ট স্ক্যান</h2>
-                    <p>পেজ বা খোলা বই ধরুন — ছবি তুললেই অটো-ক্রপ হয়ে যাবে</p>
-                </div>
-                <div class="cs-fresh-hero-cta">
-                    <button class="cs-hero-scan-btn" onclick="openCameraViewfinder('docs')">
-                        <span>📷</span> স্ক্যান শুরু করুন
-                    </button>
-                    <button class="cs-hero-book-btn" onclick="openCameraViewfinder('book')">
-                        <span>📖</span> বুক স্ক্যান
-                    </button>
-                </div>
-            </div>
-
-            <!-- Simple Minimal Feature Shortcuts -->
-            <div class="cs-quick-shortcuts">
-                <button class="cs-shortcut-item" data-action="camera-docs">
-                    <div class="cs-shortcut-icon" style="background: #E6F7F3; color: #00A884;">
-                        <img src="assets/ic_cslogo_60.webp" alt="Smart Scan">
-                    </div>
-                    <span>স্মার্ট স্ক্যান</span>
-                </button>
-                <button class="cs-shortcut-item" data-action="tool-idcard">
-                    <div class="cs-shortcut-icon" style="background: #EFF6FF; color: #3B82F6;">
-                        <img src="assets/ic_idcard_idcard_en_60px.webp" alt="ID Card">
-                    </div>
-                    <span>আইডি কার্ড</span>
-                </button>
-                <button class="cs-shortcut-item" data-action="tool-idphoto">
-                    <div class="cs-shortcut-icon" style="background: #FFFBEB; color: #D97706;">
-                        <img src="assets/ic_idcard_head.webp" alt="Passport Photo">
-                    </div>
-                    <span>পাসপোর্ট ফটো</span>
-                </button>
-                <button class="cs-shortcut-item" data-action="tool-pdfmerge">
-                    <div class="cs-shortcut-icon" style="background: #FEF2F2; color: #EF4444;">
-                        <img src="assets/icon_type_pdf.webp" alt="PDF Tools">
-                    </div>
-                    <span>পিডিএফ টুলস</span>
-                </button>
-                <button class="cs-shortcut-item" data-action="tool-ocr">
-                    <div class="cs-shortcut-icon" style="background: #F5F3FF; color: #8B5CF6;">
-                        <span style="font-size:21px;">🔤</span>
-                    </div>
-                    <span>ওসিআর টেক্সট</span>
-                </button>
-                <button class="cs-shortcut-item" data-action="tool-watermark">
-                    <div class="cs-shortcut-icon" style="background: #ECFDF5; color: #10B981;">
-                        <span style="font-size:21px;">✍️</span>
-                    </div>
-                    <span>স্বাক্ষর ও সিল</span>
-                </button>
-                <button class="cs-shortcut-item" data-action="open-app-download">
-                    <div class="cs-shortcut-icon" style="background: #E0F2FE; color: #0284C7;">
-                        <span style="font-size:21px;">📲</span>
-                    </div>
-                    <span>APK ডাউনলোড</span>
-                </button>
-            </div>
-
-            <!-- Clean Minimal App Download Bar -->
-            <div class="cs-app-download-banner cs-app-dl-always-visible" id="cs-home-app-download-card">
-                <div class="cs-app-dl-banner-left">
-                    <h3 class="cs-app-dl-title">📲 Android APK ও Desktop App ডাউনলোড</h3>
-                    <p class="cs-app-dl-desc">ফোন বা কম্পিউটারে আলাদা অ্যাপ হিসেবে চালাতে নিচের বাটনে চাপুন</p>
-                </div>
-                <div class="cs-app-dl-banner-actions">
-                    <button class="cs-app-dl-quick-btn mobile" id="cs-btn-home-dl-mobile" title="Android APK ডাউনলোড করুন">
-                        <span class="dl-icon">🤖</span>
-                        <div class="dl-text">
-                            <strong>Android APK</strong>
-                            <small>.apk সরাসরি ডাউনলোড</small>
-                        </div>
-                    </button>
-                    <button class="cs-app-dl-quick-btn desktop" id="cs-btn-home-dl-desktop" title="Desktop App ডাউনলোড করুন">
-                        <span class="dl-icon">💻</span>
-                        <div class="dl-text">
-                            <strong>Desktop App</strong>
-                            <small>Windows / Mac</small>
-                        </div>
-                    </button>
-                    <button class="cs-app-dl-more-btn" id="cs-btn-home-dl-center" title="QR ও সব অপশন">
-                        QR ও সব অপশন
-                    </button>
-                </div>
-            </div>
-
-            <!-- Compact Drag & Drop Import Strip (Desktop) -->
-            <div class="cs-desktop-dropzone" id="cs-desktop-dropzone">
-                <div class="cs-dropzone-inner">
-                    <span class="cs-dropzone-icon">📥</span>
+            <!-- Ultra-Simple Clean Workspace Header -->
+            <div class="cs-simple-home-card" id="cs-desktop-dropzone">
+                <div class="cs-simple-home-top">
                     <div>
-                        <div class="cs-dropzone-title">ছবি এখানে ড্র্যাগ ও ড্রপ করুন — অটো-ক্রপ ও ম্যাজিক কালার হবে</div>
+                        <h2>সহজ স্ক্যান ও পাসপোর্ট স্টুডিও</h2>
+                        <p>ছবি তুলুন বা ইমপোর্ট করুন — বাকি কাজ camlab করবে</p>
                     </div>
-                    <label class="cs-icon-btn cs-dropzone-btn">
-                        📂 ফাইল বেছে নিন
+                    <div class="cs-simple-dl-pills">
+                        <button class="cs-app-dl-quick-btn mobile" id="cs-btn-home-dl-mobile" title="রিয়েল Android APK ডাউনলোড">
+                            <span class="dl-icon">📱</span>
+                            <div class="dl-text">
+                                <strong>মোবাইল APK</strong>
+                                <small>camlab.apk</small>
+                            </div>
+                        </button>
+                        <button class="cs-app-dl-quick-btn desktop" id="cs-btn-home-dl-desktop" title="রিয়েল Windows Desktop App ডাউনলোড">
+                            <span class="dl-icon">💻</span>
+                            <div class="dl-text">
+                                <strong>ডেস্কটপ অ্যাপ</strong>
+                                <small>camlab.exe</small>
+                            </div>
+                        </button>
+                        <button class="cs-app-dl-more-btn" id="cs-btn-home-dl-center" title="সব ডাউনলোড অপশন">⋮</button>
+                    </div>
+                </div>
+
+                <!-- 4 Simple Core Actions -->
+                <div class="cs-simple-actions-grid">
+                    <button class="cs-simple-action primary" onclick="openCameraViewfinder('docs')">
+                        <span class="act-ico">📷</span>
+                        <strong>ডকুমেন্ট স্ক্যান</strong>
+                        <small>ক্যামেরা / PDF</small>
+                    </button>
+                    <button class="cs-simple-action cs-shortcut-item" data-action="tool-idphoto">
+                        <span class="act-ico">🪪</span>
+                        <strong>পাসপোর্ট ফটো (A4)</strong>
+                        <small>মুখ ও গলা অটো-ক্রপ</small>
+                    </button>
+                    <button class="cs-simple-action cs-shortcut-item" data-action="tool-idcard">
+                        <span class="act-ico">💳</span>
+                        <strong>আইডি কার্ড (২-সাইড)</strong>
+                        <small>A4 ১:১ সাইজ</small>
+                    </button>
+                    <label class="cs-simple-action" style="cursor:pointer;">
+                        <span class="act-ico">📁</span>
+                        <strong>ছবি ইমপোর্ট</strong>
+                        <small>গ্যালারি / ফাইল</small>
                         <input type="file" id="cs-batch-upload-dropzone" accept="image/*" multiple style="display:none;">
                     </label>
                 </div>
@@ -1261,8 +1210,8 @@
                         <button id="btn-dl-windows-exe" class="cs-dl-action-btn primary-blue">
                             <span class="btn-icon">🪟</span>
                             <div class="btn-text">
-                                <strong>Windows ডেস্কটপ অ্যাপ ডাউনলোড (.BAT / Launcher)</strong>
-                                <small>Windows 10 / 11 • ডাবল-ক্লিক করলেই ডেস্কটপ অ্যাপ চালু হবে</small>
+                                <strong>Windows Desktop App (camlab.exe)</strong>
+                                <small>Windows 10 / 11 • আসল নেটিভ .EXE অ্যাপ সরাসরি ডাউনলোড</small>
                             </div>
                         </button>
                         <button id="btn-dl-desktop-pwa" class="cs-dl-action-btn secondary-outline">

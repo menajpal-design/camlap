@@ -20,3 +20,9 @@ android/app/src/main/assets/www/
 android/local.properties
 *.apk
 
+# Desktop .NET build outputs
+desktop/bin/
+desktop/obj/
+desktop/publish/
+*.exe
+

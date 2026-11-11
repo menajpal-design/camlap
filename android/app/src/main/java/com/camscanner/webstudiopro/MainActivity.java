@@ -1,251 +1,137 @@
 package com.camscanner.webstudiopro;
 
 import android.Manifest;
-import android.annotation.SuppressLint;
-import android.app.Activity;
-import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.net.Uri;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.Environment;
-import android.provider.MediaStore;
-import android.util.Base64;
-import android.webkit.JavascriptInterface;
-import android.webkit.PermissionRequest;
-import android.webkit.URLUtil;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
-import android.webkit.WebResourceRequest;
-import android.webkit.WebResourceResponse;
-import android.webkit.WebSettings;
-import android.webkit.WebView;
-import android.webkit.WebViewClient;
+import android.view.View;
+import android.widget.LinearLayout;
+import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
-import androidx.webkit.WebViewAssetLoader;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int REQ_PERMISSIONS = 1001;
-    private static final int REQ_FILE_CHOOSER = 1002;
+    private LinearLayout savedFilesContainer;
+    private ActivityResultLauncher<String[]> permissionLauncher;
 
-    private WebView webView;
-    private ValueCallback<Uri[]> filePathCallback;
-
-    @SuppressLint({"SetJavaScriptEnabled", "JavascriptInterface"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
 
+        savedFilesContainer = findViewById(R.id.saved_files_container);
+
+        permissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestMultiplePermissions(),
+                result -> {}
+        );
         requestAppPermissions();
 
-        webView = new WebView(this);
-        setContentView(webView);
+        View docCard = findViewById(R.id.card_doc_scan);
+        docCard.setOnClickListener(v ->
+                startActivity(new Intent(this, DocScannerActivity.class))
+        );
 
-        WebSettings settings = webView.getSettings();
-        settings.setJavaScriptEnabled(true);
-        settings.setDomStorageEnabled(true);
-        settings.setDatabaseEnabled(true);
-        settings.setAllowFileAccess(true);
-        settings.setAllowContentAccess(true);
-        settings.setMediaPlaybackRequiresUserGesture(false);
-        settings.setUseWideViewPort(true);
-        settings.setLoadWithOverviewMode(true);
+        View passportCard = findViewById(R.id.card_passport_studio);
+        passportCard.setOnClickListener(v ->
+                startActivity(new Intent(this, PassportStudioActivity.class))
+        );
+    }
 
-        // Serve bundled local APK assets over https://appassets.androidplatform.net/
-        // so camera getUserMedia() works natively offline in a Secure Context!
-        final WebViewAssetLoader assetLoader = new WebViewAssetLoader.Builder()
-                .addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this))
-                .build();
-
-        webView.addJavascriptInterface(new AndroidDownloadBridge(), "AndroidDownloadBridge");
-
-        webView.setWebViewClient(new WebViewClient() {
-            @Override
-            public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
-                Uri url = request.getUrl();
-                if ("appassets.androidplatform.net".equals(url.getHost())) {
-                    return assetLoader.shouldInterceptRequest(url);
-                }
-                return super.shouldInterceptRequest(view, request);
-            }
-
-            @Override
-            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
-                String url = request.getUrl().toString();
-                if (url.startsWith("https://appassets.androidplatform.net/")) {
-                    return false;
-                }
-                if (url.startsWith("http://") || url.startsWith("https://")) {
-                    Intent intent = new Intent(Intent.ACTION_VIEW, request.getUrl());
-                    startActivity(intent);
-                    return true;
-                }
-                return false;
-            }
-        });
-
-        webView.setWebChromeClient(new WebChromeClient() {
-            @Override
-            public void onPermissionRequest(final PermissionRequest request) {
-                runOnUiThread(() -> request.grant(request.getResources()));
-            }
-
-            @Override
-            public boolean onShowFileChooser(
-                    WebView webView,
-                    ValueCallback<Uri[]> callback,
-                    FileChooserParams fileChooserParams) {
-                if (filePathCallback != null) {
-                    filePathCallback.onReceiveValue(null);
-                }
-                filePathCallback = callback;
-                Intent intent = fileChooserParams.createIntent();
-                intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-                try {
-                    startActivityForResult(intent, REQ_FILE_CHOOSER);
-                } catch (Exception e) {
-                    filePathCallback = null;
-                    return false;
-                }
-                return true;
-            }
-        });
-
-        webView.setDownloadListener((url, userAgent, contentDisposition, mimetype, contentLength) -> {
-            if (url.startsWith("data:")) {
-                String fileName = URLUtil.guessFileName(url, contentDisposition, mimetype);
-                saveBase64DataUrl(url, fileName, mimetype);
-            } else if (url.startsWith("blob:")) {
-                String safeMime = mimetype != null ? mimetype : "application/pdf";
-                String ext = safeMime.contains("pdf") ? ".pdf" : ".jpg";
-                String fileName = "CamScanner_" + System.currentTimeMillis() + ext;
-                String js = "javascript:(function(){"
-                        + "fetch('" + url + "').then(r=>r.blob()).then(b=>{"
-                        + "var rd=new FileReader();rd.onloadend=function(){"
-                        + "AndroidDownloadBridge.saveDataUrl(rd.result,'" + fileName + "','" + safeMime + "');"
-                        + "};rd.readAsDataURL(b);});})();";
-                webView.evaluateJavascript(js, null);
-            } else {
-                startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-            }
-        });
-
-        webView.loadUrl("https://appassets.androidplatform.net/assets/www/index.html");
+    @Override
+    protected void onResume() {
+        super.onResume();
+        refreshSavedFilesList();
     }
 
     private void requestAppPermissions() {
-        List<String> needed = new ArrayList<>();
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
+        java.util.List<String> needed = new java.util.ArrayList<>();
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             needed.add(Manifest.permission.CAMERA);
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES)
-                    != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
                 needed.add(Manifest.permission.READ_MEDIA_IMAGES);
             }
         } else {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 needed.add(Manifest.permission.READ_EXTERNAL_STORAGE);
-            }
-            if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.Q
-                    && ContextCompat.checkSelfPermission(this, Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                    != PackageManager.PERMISSION_GRANTED) {
-                needed.add(Manifest.permission.WRITE_EXTERNAL_STORAGE);
             }
         }
         if (!needed.isEmpty()) {
-            ActivityCompat.requestPermissions(this, needed.toArray(new String[0]), REQ_PERMISSIONS);
+            permissionLauncher.launch(needed.toArray(new String[0]));
         }
     }
 
-    private void saveBase64DataUrl(String dataUrl, String fileName, String mimeType) {
-        try {
-            int commaIdx = dataUrl.indexOf(',');
-            if (commaIdx < 0) return;
-            String base64Part = dataUrl.substring(commaIdx + 1);
-            byte[] bytes = Base64.decode(base64Part, Base64.DEFAULT);
+    private void refreshSavedFilesList() {
+        savedFilesContainer.removeAllViews();
+        File exportsDir = NativePdfUtils.getExportsDir(this);
+        File[] files = exportsDir.listFiles();
 
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ContentValues values = new ContentValues();
-                values.put(MediaStore.Downloads.DISPLAY_NAME, fileName);
-                values.put(MediaStore.Downloads.MIME_TYPE, mimeType != null ? mimeType : "application/octet-stream");
-                values.put(MediaStore.Downloads.RELATIVE_PATH, Environment.DIRECTORY_DOWNLOADS + "/CamScanner");
-                Uri uri = getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
-                if (uri != null) {
-                    try (OutputStream out = getContentResolver().openOutputStream(uri)) {
-                        if (out != null) out.write(bytes);
-                    }
+        if (files == null || files.length == 0) {
+            TextView empty = new TextView(this);
+            empty.setText("এখনো কোনো PDF বা পাসপোর্ট ফাইল তৈরি করা হয়নি।\nউপরের বাটনে ট্যাপ করে শুরু করুন।");
+            empty.setTextColor(Color.parseColor("#64748B"));
+            empty.setTextSize(13f);
+            empty.setPadding(24, 32, 24, 32);
+            empty.setBackgroundResource(R.drawable.bg_card);
+            savedFilesContainer.addView(empty);
+            return;
+        }
+
+        Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        SimpleDateFormat sdf = new SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault());
+
+        for (File file : files) {
+            LinearLayout row = new LinearLayout(this);
+            row.setOrientation(LinearLayout.VERTICAL);
+            row.setBackgroundResource(R.drawable.bg_card);
+            row.setPadding(28, 24, 28, 24);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT
+            );
+            lp.bottomMargin = 18;
+            row.setLayoutParams(lp);
+
+            TextView title = new TextView(this);
+            String icon = file.getName().endsWith(".pdf") ? "📄 " : "🖼️ ";
+            title.setText(icon + file.getName());
+            title.setTextColor(Color.parseColor("#0F172A"));
+            title.setTextSize(15f);
+            title.setTypeface(null, android.graphics.Typeface.BOLD);
+
+            TextView meta = new TextView(this);
+            long kb = Math.max(1, file.length() / 1024);
+            meta.setText(sdf.format(new Date(file.lastModified())) + "  •  " + kb + " KB  •  ট্যাপ করে শেয়ার/ওপেন করুন");
+            meta.setTextColor(Color.parseColor("#64748B"));
+            meta.setTextSize(12f);
+            meta.setPadding(0, 8, 0, 0);
+
+            row.addView(title);
+            row.addView(meta);
+            row.setOnClickListener(v -> {
+                try {
+                    String mime = file.getName().endsWith(".pdf") ? "application/pdf" : "image/*";
+                    NativePdfUtils.shareFile(this, file, mime);
+                } catch (Exception e) {
+                    Toast.makeText(this, "ফাইল খোলা যায়নি: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
-            } else {
-                File dir = new File(Environment.getExternalStoragePublicDirectory(
-                        Environment.DIRECTORY_DOWNLOADS), "CamScanner");
-                if (!dir.exists()) dir.mkdirs();
-                File outFile = new File(dir, fileName);
-                try (FileOutputStream fos = new FileOutputStream(outFile)) {
-                    fos.write(bytes);
-                }
-            }
-            runOnUiThread(() -> Toast.makeText(this, "Saved: Downloads/CamScanner/" + fileName, Toast.LENGTH_LONG).show());
-        } catch (Exception e) {
-            runOnUiThread(() -> Toast.makeText(this, "Download failed: " + e.getMessage(), Toast.LENGTH_SHORT).show());
+            });
+            savedFilesContainer.addView(row);
         }
-    }
-
-    public class AndroidDownloadBridge {
-        @JavascriptInterface
-        public void saveDataUrl(String dataUrl, String fileName, String mimeType) {
-            saveBase64DataUrl(dataUrl, fileName, mimeType);
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode == REQ_FILE_CHOOSER && filePathCallback != null) {
-            Uri[] results = null;
-            if (resultCode == Activity.RESULT_OK && data != null) {
-                if (data.getClipData() != null) {
-                    int count = data.getClipData().getItemCount();
-                    results = new Uri[count];
-                    for (int i = 0; i < count; i++) {
-                        results[i] = data.getClipData().getItemAt(i).getUri();
-                    }
-                } else if (data.getData() != null) {
-                    results = new Uri[]{data.getData()};
-                }
-            }
-            filePathCallback.onReceiveValue(results);
-            filePathCallback = null;
-        }
-    }
-
-    @Override
-    public void onBackPressed() {
-        if (webView != null && webView.canGoBack()) {
-            webView.goBack();
-        } else {
-            super.onBackPressed();
-        }
-    }
-
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 }
-

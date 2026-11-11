@@ -2957,24 +2957,29 @@ function triggerAppDownload(type) {
         ? window.location.href
         : 'https://menajpal-design.github.io/camlap/';
     const apkReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.apk';
+    const exeReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.exe';
 
-    // Direct native Android .APK download from GitHub Releases
-    if (type === 'android-apk') {
+    // Direct native Android .APK or Native Windows .EXE download from GitHub Releases
+    if (type === 'android-apk' || type === 'windows-exe') {
+        const isApk = type === 'android-apk';
+        const fileName = isApk ? 'camlab.apk' : 'camlab.exe';
+        const targetUrl = isApk ? apkReleaseUrl : exeReleaseUrl;
+
         if (statusText) {
-            statusText.innerHTML = `📦 <strong>camlab.apk</strong> ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
+            statusText.innerHTML = `📦 <strong>${fileName}</strong> (আসল নেটিভ অ্যাপ) ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
         }
         if (percentText) percentText.textContent = '100%';
         if (bar) bar.style.width = '100%';
 
         const a = document.createElement('a');
-        a.href = apkReleaseUrl;
-        a.download = 'camlab.apk';
+        a.href = targetUrl;
+        a.download = fileName;
         a.target = '_blank';
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
 
-        showComfortToast('camlab.apk ডাউনলোড শুরু হয়েছে!', '📦', 3500);
+        showComfortToast(`${fileName} ডাউনলোড শুরু হয়েছে!`, '📦', 3500);
         return;
     }
 

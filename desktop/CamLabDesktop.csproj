@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyName>camlab</AssemblyName>
+    <RootNamespace>CamLabDesktop</RootNamespace>
+    <Version>6.82.0</Version>
+    <Product>camlab</Product>
+    <Company>camlab Studio</Company>
+    <Description>camlab Native Desktop Document &amp; Passport Studio</Description>
+  </PropertyGroup>
+</Project>

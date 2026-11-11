@@ -1,4 +1,4 @@
-name: Build Android APK
+name: Build Native Mobile APK & Desktop EXE
 
 on:
   push:
@@ -36,11 +36,11 @@ jobs:
         with:
           gradle-version: '8.4'
 
-      - name: Build Debug APK (Standalone Offline WebView App)
+      - name: Build Native Android APK (Zero WebView)
         run: gradle -p android assembleDebug --no-daemon
 
       - name: Prepare Release APK
-        run: cp android/app/build/outputs/apk/debug/app-debug.apk camlab.apk
+        run: cp android/app/build/outputs/apk/debug/*.apk camlab.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -48,11 +48,55 @@ jobs:
           name: camlab-APK
           path: camlab.apk
 
-      - name: Publish APK to GitHub Releases
+  build-desktop:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Build Standalone Native Windows Desktop EXE
+        run: dotnet publish desktop/CamLabDesktop.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o desktop/publish
+
+      - name: Prepare Release EXE
+        run: Copy-Item desktop/publish/camlab.exe camlab.exe
+
+      - name: Upload Desktop EXE Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: camlab-Windows-EXE
+          path: camlab.exe
+
+  publish-release:
+    needs: [build-apk, build-desktop]
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download APK Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: camlab-APK
+          path: release-files
+
+      - name: Download Desktop EXE Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: camlab-Windows-EXE
+          path: release-files
+
+      - name: Publish APK & Desktop EXE to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: camlab v6.81.0 (Android APK)
+          name: camlab v6.82.0 (Native Mobile APK + Windows Desktop EXE)
           body: |
-            অফলাইন Android APK — ক্যামেরা অটো-ক্রপ, পাসপোর্ট ফটো স্টুডিও (A4 প্রিন্ট) ও PDF এক্সপোর্টসহ সরাসরি ফোনে ইনস্টলযোগ্য।
-          files: camlab.apk
+            - **camlab.apk**: ১০০% নেটিভ অফলাইন Android অ্যাপ (WebView ছাড়া — ডকুমেন্ট স্ক্যান, AI পাসপোর্ট ফটো, A4 প্রিন্ট)
+            - **camlab.exe**: ১০০% নেটিভ Windows Desktop অ্যাপ (Single-File .EXE — পাসপোর্ট ফটো, A4 প্রিন্ট শিট ও PDF)
+          files: |
+            release-files/camlab.apk
+            release-files/camlab.exe

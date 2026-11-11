@@ -3596,6 +3596,108 @@ body.in-doc-detail .cs-tabbar {
     .cs-a4-inline-preview-row {
         grid-template-columns: 1fr;
     }
+
+    .cs-simple-home-top {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .cs-simple-actions-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* ==========================================================================
+   ULTRA-SIMPLE HOME WORKSPACE CARD (camlab Clean Minimal Design)
+   ========================================================================== */
+.cs-simple-home-card {
+    background: var(--cs-card-dark);
+    border: 1px solid var(--cs-border-dark);
+    border-radius: 16px;
+    padding: 18px 20px;
+    margin-bottom: 18px;
+    box-shadow: 0 4px 18px rgba(15, 23, 42, 0.05);
+}
+
+.cs-simple-home-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+}
+
+.cs-simple-home-top h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    color: var(--cs-text-white);
+    margin: 0;
+}
+
+.cs-simple-home-top p {
+    font-size: 0.84rem;
+    color: var(--cs-text-dim);
+    margin: 3px 0 0 0;
+}
+
+.cs-simple-dl-pills {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.cs-simple-actions-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+}
+
+.cs-simple-action {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 3px;
+    padding: 14px 16px;
+    border-radius: 14px;
+    background: var(--cs-bg-dark);
+    border: 1px solid var(--cs-border-dark);
+    color: var(--cs-text-white);
+    cursor: pointer;
+    text-align: left;
+    transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cs-simple-action:hover {
+    transform: translateY(-2px);
+    border-color: var(--cs-teal);
+    box-shadow: 0 6px 16px rgba(0, 168, 132, 0.12);
+}
+
+.cs-simple-action.primary {
+    background: linear-gradient(135deg, #00A884 0%, #00896C 100%);
+    border-color: transparent;
+    color: #FFFFFF;
+}
+
+.cs-simple-action.primary small {
+    color: rgba(255, 255, 255, 0.88);
+}
+
+.cs-simple-action .act-ico {
+    font-size: 1.45rem;
+    margin-bottom: 2px;
+}
+
+.cs-simple-action strong {
+    font-size: 0.92rem;
+    font-weight: 700;
+}
+
+.cs-simple-action small {
+    font-size: 0.75rem;
+    color: var(--cs-text-dim);
 }
 
 
