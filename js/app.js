@@ -341,14 +341,18 @@ function setupHeaderAndSearch() {
         });
     }
 
-    // Theme toggle
+    // Theme toggle (Light default for fresh clean look; persisted in localStorage)
     const themeBtn = document.getElementById('cs-btn-theme');
+    const savedTheme = localStorage.getItem('cs_theme') || 'light';
+    document.body.setAttribute('data-theme', savedTheme);
     if (themeBtn) {
+        themeBtn.innerHTML = savedTheme === 'dark' ? '☀️ লাইট' : '🌙 ডার্ক';
         themeBtn.addEventListener('click', () => {
-            const current = document.body.getAttribute('data-theme') || 'dark';
+            const current = document.body.getAttribute('data-theme') || 'light';
             const next = current === 'dark' ? 'light' : 'dark';
             document.body.setAttribute('data-theme', next);
-            themeBtn.innerHTML = next === 'dark' ? '🌙 ডার্ক' : '☀️ লাইট';
+            localStorage.setItem('cs_theme', next);
+            themeBtn.innerHTML = next === 'dark' ? '☀️ লাইট' : '🌙 ডার্ক';
         });
     }
 
@@ -2762,10 +2766,30 @@ function triggerAppDownload(type) {
     const appUrl = (window.location.protocol.startsWith('http'))
         ? window.location.href
         : 'https://menajpal-design.github.io/camlap/';
+    const apkReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/CamScanner-Pro.apk';
+
+    // Direct native Android .APK download from GitHub Releases
+    if (type === 'android-apk') {
+        if (statusText) {
+            statusText.innerHTML = `📦 <strong>CamScanner-Pro.apk</strong> ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
+        }
+        if (percentText) percentText.textContent = '100%';
+        if (bar) bar.style.width = '100%';
+
+        const a = document.createElement('a');
+        a.href = apkReleaseUrl;
+        a.download = 'CamScanner-Pro.apk';
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        showComfortToast('CamScanner-Pro.apk ডাউনলোড শুরু হয়েছে!', '📦', 3500);
+        return;
+    }
 
     let label = 'CamScanner App';
-    if (type === 'android-apk') label = 'CamScanner_v6.81.0_Android_Installer.html';
-    else if (type === 'windows-exe') label = 'CamScanner_Studio_Pro_Windows_Desktop.bat';
+    if (type === 'windows-exe') label = 'CamScanner_Studio_Pro_Windows_Desktop.bat';
     else if (type === 'mobile-shortcut') label = 'CamScanner_Mobile_App_QuickLaunch.html';
     else label = 'CamScanner_Studio_Pro_Desktop.url';
 

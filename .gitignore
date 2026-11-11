@@ -12,3 +12,11 @@ ehthumbs_vista.db
 # Node / local logs
 *.log
 
+# Android Gradle build outputs (synced automatically by preBuild)
+android/.gradle/
+android/build/
+android/app/build/
+android/app/src/main/assets/www/
+android/local.properties
+*.apk
+

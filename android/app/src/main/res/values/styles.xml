@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CamScannerPro" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">#00A884</item>
+        <item name="colorPrimaryDark">#00896C</item>
+        <item name="colorAccent">#00A884</item>
+        <item name="android:statusBarColor">#00896C</item>
+    </style>
+</resources>
+

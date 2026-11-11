@@ -32,17 +32,17 @@
 }
 
 [data-theme="light"] {
-    --cs-bg-dark: #F3F7F6;
+    --cs-bg-dark: #F7F9FB;
     --cs-card-dark: #FFFFFF;
-    --cs-card-hover: #F8FAFC;
-    --cs-card-sub: #EBF1F0;
-    --cs-border-dark: #DCE5E4;
-    --cs-border-subtle: #E8F0EF;
-    --cs-text-white: #0F172A;
-    --cs-text-dim: #475569;
-    --cs-text-muted: #64748B;
-    --cs-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
-    --cs-shadow-sm: 0 2px 8px rgba(15, 23, 42, 0.04);
+    --cs-card-hover: #F1F5F9;
+    --cs-card-sub: #F8FAFC;
+    --cs-border-dark: #E2E8F0;
+    --cs-border-subtle: #EDF2F7;
+    --cs-text-white: #111827;
+    --cs-text-dim: #4B5563;
+    --cs-text-muted: #6B7280;
+    --cs-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    --cs-shadow-sm: 0 1px 4px rgba(15, 23, 42, 0.04);
 }
 
 * {
@@ -579,9 +579,9 @@ body {
 }
 
 .cs-btn-batch-primary {
-    background: rgba(0, 168, 132, 0.15);
-    border-color: var(--cs-teal);
-    color: #fff;
+    background: rgba(0, 168, 132, 0.10);
+    border-color: rgba(0, 168, 132, 0.35);
+    color: var(--cs-teal);
     font-weight: 700;
     cursor: pointer;
 }
@@ -2762,11 +2762,121 @@ body.in-doc-detail .cs-tabbar {
    MOBILE & DESKTOP APP DOWNLOAD HUB, MODAL, QR BOX & COMFORT UI ENHANCEMENTS
    ========================================================================== */
 
+/* Fresh Hero Quick-Start Card (Simple & Clean) */
+.cs-fresh-hero {
+    background: linear-gradient(135deg, #00A884 0%, #059669 100%);
+    color: #FFFFFF;
+    border-radius: 18px;
+    padding: 20px 24px;
+    margin-bottom: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    box-shadow: 0 8px 24px rgba(0, 168, 132, 0.18);
+}
+
+.cs-fresh-hero-text h2 {
+    font-size: 1.2rem;
+    font-weight: 800;
+    margin-bottom: 4px;
+    color: #FFFFFF;
+}
+
+.cs-fresh-hero-text p {
+    font-size: 0.86rem;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.cs-fresh-hero-cta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.cs-hero-scan-btn {
+    background: #FFFFFF;
+    color: #00896C;
+    border: none;
+    padding: 11px 20px;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 800;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transition: transform 0.18s ease, box-shadow 0.18s ease;
+    white-space: nowrap;
+}
+
+.cs-hero-scan-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+}
+
+.cs-hero-book-btn {
+    background: rgba(255, 255, 255, 0.18);
+    color: #FFFFFF;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    padding: 10px 18px;
+    border-radius: 999px;
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: background 0.18s ease;
+    white-space: nowrap;
+}
+
+.cs-hero-book-btn:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+/* Compact Desktop Drag & Drop Strip */
+.cs-desktop-dropzone {
+    background: var(--cs-card-dark);
+    border: 1.5px dashed var(--cs-border-dark);
+    border-radius: 14px;
+    padding: 12px 18px;
+    margin-bottom: 18px;
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.cs-desktop-dropzone:hover, .cs-desktop-dropzone.dragover {
+    border-color: var(--cs-teal);
+    background: rgba(0, 168, 132, 0.04);
+}
+
+.cs-dropzone-inner {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.cs-dropzone-icon {
+    font-size: 22px;
+}
+
+.cs-dropzone-title {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--cs-text-dim);
+}
+
 /* Header Get-App Button */
 .cs-btn-get-app-header {
-    background: linear-gradient(135deg, rgba(14, 165, 233, 0.18), rgba(0, 168, 132, 0.22));
-    border: 1px solid rgba(14, 165, 233, 0.45);
-    color: var(--cs-text-white);
+    background: rgba(0, 168, 132, 0.10);
+    border: 1px solid rgba(0, 168, 132, 0.35);
+    color: var(--cs-teal);
     font-weight: 700;
     border-radius: 999px;
     padding: 7px 14px;
@@ -2775,31 +2885,50 @@ body.in-doc-detail .cs-tabbar {
 
 .cs-btn-get-app-header:hover {
     transform: translateY(-1px);
-    border-color: #0EA5E9;
-    box-shadow: 0 4px 14px rgba(14, 165, 233, 0.3);
+    background: rgba(0, 168, 132, 0.16);
 }
 
-/* Home Screen App Download Banner Card */
+/* Home Screen App Download Banner Card — Simple & Fresh */
 .cs-app-download-banner {
-    background: linear-gradient(135deg, var(--cs-card-dark) 0%, rgba(0, 168, 132, 0.12) 55%, rgba(14, 165, 233, 0.14) 100%);
+    background: var(--cs-card-dark);
     border: 1px solid var(--cs-border-dark);
-    border-left: 4px solid var(--cs-teal);
-    border-radius: var(--cs-radius-lg);
-    padding: 18px 22px;
-    margin-bottom: 22px;
+    border-radius: 16px;
+    padding: 14px 20px;
+    margin-bottom: 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 20px;
+    gap: 16px;
     box-shadow: var(--cs-shadow-sm);
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: box-shadow 0.2s;
 }
 
 .cs-app-dl-always-visible {
-    border: 2px solid var(--cs-teal) !important;
-    background: linear-gradient(135deg, rgba(0,168,132,0.09) 0%, var(--cs-card-dark) 55%, rgba(14,165,233,0.09) 100%) !important;
-    box-shadow: 0 4px 20px rgba(0, 168, 132, 0.18), var(--cs-shadow-sm) !important;
-    margin-bottom: 24px;
+    border: 1px solid rgba(0, 168, 132, 0.35) !important;
+    background: var(--cs-card-dark) !important;
+    box-shadow: var(--cs-shadow-sm) !important;
+    margin-bottom: 18px;
+}
+
+@media (max-width: 767px) {
+    .cs-fresh-hero {
+        flex-direction: column;
+        align-items: flex-start;
+        padding: 16px 18px;
+    }
+
+    .cs-fresh-hero-cta {
+        width: 100%;
+    }
+
+    .cs-hero-scan-btn, .cs-hero-book-btn {
+        flex: 1;
+        justify-content: center;
+    }
+
+    .cs-desktop-dropzone {
+        display: none;
+    }
 }
 
 .cs-app-download-banner:hover {

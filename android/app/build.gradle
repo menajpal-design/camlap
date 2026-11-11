@@ -1,0 +1,51 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.camscanner.webstudiopro'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.camscanner.webstudiopro"
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName "6.81.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+        debug {
+            applicationIdSuffix ""
+            debuggable true
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+tasks.register('copyWebAssets', Copy) {
+    def webRoot = file('../..')
+    from(webRoot) {
+        include 'index.html'
+        include 'manifest.json'
+        include 'css/**'
+        include 'js/**'
+        include 'assets/**'
+    }
+    into file('src/main/assets/www')
+}
+
+preBuild.dependsOn(copyWebAssets)
+
+dependencies {
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+    implementation 'androidx.webkit:webkit:1.10.0'
+}
+

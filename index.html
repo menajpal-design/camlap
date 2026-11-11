@@ -1,12 +1,12 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <meta name="theme-color" content="#121417">
+    <meta name="theme-color" content="#FFFFFF">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>CamScanner Web Studio Pro - অফিশিয়াল ডকুমেন্ট স্ক্যানার ও পাসপোর্ট ফটো ল্যাব</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <title>CamScanner — Smart Document & Book Scanner</title>
     <link rel="icon" type="image/png" href="assets/cs_icon.png">
     <link rel="manifest" href="manifest.json">
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -17,55 +17,49 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
-<body data-theme="dark">
+<body data-theme="light">
 
-    <!-- Top App Header (Desktop & Mobile Adaptive) -->
+    <!-- Clean Minimal App Header -->
     <header class="cs-header">
         <div class="cs-header-left">
             <div class="cs-brand" id="cs-brand-home" title="CamScanner Home">
                 <img src="assets/cs_icon.png" alt="CamScanner" class="cs-logo-img">
                 <div class="cs-brand-text">
-                    <h1>CamScanner <span class="cs-vip-badge">VIP PRO</span></h1>
-                    <span class="cs-sync-badge"><span class="cs-sync-dot"></span> ক্লাউড ভল্ট সক্রিয় (Synced)</span>
+                    <h1>CamScanner</h1>
+                    <span class="cs-sync-badge">স্মার্ট স্ক্যানার</span>
                 </div>
             </div>
         </div>
 
-        <!-- Center Search Bar (Desktop) -->
+        <!-- Clean Center Search Bar (Desktop) -->
         <div class="cs-search-box">
             <span class="cs-search-icon">🔍</span>
-            <input type="text" id="cs-doc-search" class="cs-search-input" placeholder="ডকুমেন্ট, ট্যাগ বা OCR টেক্সট খুঁজুন (Search)...">
+            <input type="text" id="cs-doc-search" class="cs-search-input" placeholder="ডকুমেন্ট খুঁজুন...">
             <button id="cs-search-clear" class="cs-search-clear" style="display:none;" title="ক্লিয়ার করুন">✕</button>
-            <span class="cs-search-shortcut-badge">Ctrl+F</span>
         </div>
 
-        <!-- Right Header Actions (Desktop & Mobile) -->
+        <!-- Clean Minimal Header Actions -->
         <div class="cs-header-actions">
             <button id="cs-btn-search-mobile-toggle" class="cs-icon-btn cs-mobile-only" title="খুঁজুন">🔍</button>
 
-            <label class="cs-icon-btn cs-btn-batch-header cs-desktop-only" title="একাধিক ছবি আপলোড">
+            <button id="cs-btn-header-get-app" class="cs-icon-btn cs-btn-get-app-header" title="Android APK ও Desktop App ডাউনলোড">
+                <span>📲</span>
+                <span class="cs-get-app-label">APK / অ্যাপ</span>
+            </button>
+
+            <label class="cs-icon-btn cs-desktop-only" title="ছবি আপলোড করুন" style="cursor:pointer;">
                 <span>📂</span>
-                <span>ছবি আপলোড (Import)</span>
+                <span>আপলোড</span>
                 <input type="file" id="cs-batch-upload-header" accept="image/*" multiple style="display:none;">
             </label>
 
-            <button id="cs-btn-header-camera" class="cs-icon-btn cs-btn-scan-header cs-desktop-only" title="ক্যামেরা স্ক্যান">
+            <button id="cs-btn-header-camera" class="cs-icon-btn cs-btn-scan-header cs-desktop-only" title="নতুন স্ক্যান করুন">
                 <span>📷</span>
-                <span>নতুন স্ক্যান (Scan)</span>
+                <span>নতুন স্ক্যান</span>
             </button>
 
-            <button id="cs-btn-header-get-app" class="cs-icon-btn cs-btn-get-app-header" title="মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড করুন">
-                <span>📲</span>
-                <span class="cs-get-app-label">অ্যাপ ডাউনলোড</span>
-            </button>
-
-            <button id="cs-btn-view-toggle" class="cs-icon-btn" title="ভিউ পরিবর্তন করুন (Grid/List)">
-                <span id="cs-view-toggle-icon">📋</span>
-                <span class="cs-desktop-only" id="cs-view-toggle-text">লিস্ট ভিউ</span>
-            </button>
-
-            <button id="cs-btn-lang" class="cs-icon-btn" title="ভাষা পরিবর্তন">🌐 English</button>
-            <button id="cs-btn-theme" class="cs-icon-btn" title="থিম পরিবর্তন">🌙 ডার্ক</button>
+            <button id="cs-btn-lang" class="cs-icon-btn cs-desktop-only" title="ভাষা পরিবর্তন">🌐 বাংলা</button>
+            <button id="cs-btn-theme" class="cs-icon-btn" title="ডার্ক / লাইট থিম">🌙 ডার্ক</button>
         </div>
     </header>
 
@@ -92,120 +86,108 @@
     <main class="cs-main">
 
         <!-- ============================================================= -->
-        <!-- SCREEN 1: HOME (DOCUMENT GALLERY / LIBRARY) -->
+        <!-- SCREEN 1: HOME (SIMPLE & FRESH CLEAN WORKSPACE) -->
         <!-- ============================================================= -->
         <section id="screen-home" class="cs-screen active">
 
-            <!-- Authentic CamScanner VIP Promo Carousel -->
-            <div class="cs-banner-slider-container">
-                <div class="cs-banner-slider" id="cs-banner-slider">
-                    <div class="cs-banner-slide active" data-action="banner-vip">
-                        <img src="assets/banner_vip.webp" alt="CamScanner VIP Pro">
-                    </div>
-                    <div class="cs-banner-slide" data-action="banner-idcard">
-                        <img src="assets/banner_vip_id.webp" alt="ID Card 2-Sided Scanner">
-                    </div>
-                    <div class="cs-banner-slide" data-action="banner-pdf">
-                        <img src="assets/banner_vip_pdf.webp" alt="PDF Tools Pro">
-                    </div>
-                    <div class="cs-banner-slide" data-action="banner-compress">
-                        <img src="assets/banner_vip_compress.webp" alt="Smart PDF Compression">
-                    </div>
+            <!-- Clean, Fresh Hero Quick-Action Card -->
+            <div class="cs-fresh-hero">
+                <div class="cs-fresh-hero-text">
+                    <h2>দ্রুত ও পরিষ্কার ডকুমেন্ট স্ক্যান</h2>
+                    <p>পেজ বা খোলা বই ধরুন — ছবি তুললেই অটো-ক্রপ হয়ে যাবে</p>
                 </div>
-                <!-- Banner Dot Indicators -->
-                <div class="cs-banner-dots" id="cs-banner-dots">
-                    <span class="cs-banner-dot active" data-idx="0"></span>
-                    <span class="cs-banner-dot" data-idx="1"></span>
-                    <span class="cs-banner-dot" data-idx="2"></span>
-                    <span class="cs-banner-dot" data-idx="3"></span>
+                <div class="cs-fresh-hero-cta">
+                    <button class="cs-hero-scan-btn" onclick="openCameraViewfinder('docs')">
+                        <span>📷</span> স্ক্যান শুরু করুন
+                    </button>
+                    <button class="cs-hero-book-btn" onclick="openCameraViewfinder('book')">
+                        <span>📖</span> বুক স্ক্যান
+                    </button>
                 </div>
             </div>
 
-            <!-- CamScanner Quick Feature Shortcuts (App Style) -->
+            <!-- Simple Minimal Feature Shortcuts -->
             <div class="cs-quick-shortcuts">
                 <button class="cs-shortcut-item" data-action="camera-docs">
-                    <div class="cs-shortcut-icon" style="background: rgba(0, 168, 132, 0.15); color: #00A884;">
+                    <div class="cs-shortcut-icon" style="background: #E6F7F3; color: #00A884;">
                         <img src="assets/ic_cslogo_60.webp" alt="Smart Scan">
                     </div>
                     <span>স্মার্ট স্ক্যান</span>
                 </button>
                 <button class="cs-shortcut-item" data-action="tool-idcard">
-                    <div class="cs-shortcut-icon" style="background: rgba(59, 130, 246, 0.15); color: #3B82F6;">
+                    <div class="cs-shortcut-icon" style="background: #EFF6FF; color: #3B82F6;">
                         <img src="assets/ic_idcard_idcard_en_60px.webp" alt="ID Card">
                     </div>
                     <span>আইডি কার্ড</span>
                 </button>
                 <button class="cs-shortcut-item" data-action="tool-idphoto">
-                    <div class="cs-shortcut-icon" style="background: rgba(245, 158, 11, 0.15); color: #F59E0B;">
+                    <div class="cs-shortcut-icon" style="background: #FFFBEB; color: #D97706;">
                         <img src="assets/ic_idcard_head.webp" alt="Passport Photo">
                     </div>
                     <span>পাসপোর্ট ফটো</span>
                 </button>
                 <button class="cs-shortcut-item" data-action="tool-pdfmerge">
-                    <div class="cs-shortcut-icon" style="background: rgba(239, 68, 68, 0.15); color: #EF4444;">
+                    <div class="cs-shortcut-icon" style="background: #FEF2F2; color: #EF4444;">
                         <img src="assets/icon_type_pdf.webp" alt="PDF Tools">
                     </div>
                     <span>পিডিএফ টুলস</span>
                 </button>
                 <button class="cs-shortcut-item" data-action="tool-ocr">
-                    <div class="cs-shortcut-icon" style="background: rgba(168, 85, 247, 0.15); color: #A855F7;">
-                        <span style="font-size:22px;">🔤</span>
+                    <div class="cs-shortcut-icon" style="background: #F5F3FF; color: #8B5CF6;">
+                        <span style="font-size:21px;">🔤</span>
                     </div>
                     <span>ওসিআর টেক্সট</span>
                 </button>
                 <button class="cs-shortcut-item" data-action="tool-watermark">
-                    <div class="cs-shortcut-icon" style="background: rgba(16, 185, 129, 0.15); color: #10B981;">
-                        <span style="font-size:22px;">✍️</span>
+                    <div class="cs-shortcut-icon" style="background: #ECFDF5; color: #10B981;">
+                        <span style="font-size:21px;">✍️</span>
                     </div>
                     <span>স্বাক্ষর ও সিল</span>
                 </button>
                 <button class="cs-shortcut-item" data-action="open-app-download">
-                    <div class="cs-shortcut-icon" style="background: rgba(14, 165, 233, 0.16); color: #0EA5E9;">
-                        <span style="font-size:22px;">📲</span>
+                    <div class="cs-shortcut-icon" style="background: #E0F2FE; color: #0284C7;">
+                        <span style="font-size:21px;">📲</span>
                     </div>
-                    <span>অ্যাপ ডাউনলোড</span>
+                    <span>APK ডাউনলোড</span>
                 </button>
             </div>
 
-            <!-- Dedicated Mobile & Desktop App Download Comfort Hub -->
+            <!-- Clean Minimal App Download Bar -->
             <div class="cs-app-download-banner cs-app-dl-always-visible" id="cs-home-app-download-card">
                 <div class="cs-app-dl-banner-left">
-                    <div class="cs-app-dl-badge-row">
-                        <span class="cs-app-dl-pill">✨ v6.81.0 PRO</span>
-                        <span class="cs-app-dl-pill-sub">অফলাইন সাপোর্ট • ফাস্ট অটো-ক্রপ</span>
-                    </div>
-                    <h3 class="cs-app-dl-title">📲 মোবাইল অ্যাপ ও ডেস্কটপ অ্যাপ ডাউনলোড</h3>
-                    <p class="cs-app-dl-desc">আপনার Android/iOS ফোন অথবা Windows/Mac কম্পিউটারে সরাসরি CamScanner Studio Pro অ্যাপ ইনস্টল করে ইন্টারনেট ছাড়াই দ্রুত ডকুমেন্ট ও বই স্ক্যান করুন।</p>
+                    <h3 class="cs-app-dl-title">📲 Android APK ও Desktop App ডাউনলোড</h3>
+                    <p class="cs-app-dl-desc">ফোন বা কম্পিউটারে আলাদা অ্যাপ হিসেবে চালাতে নিচের বাটনে চাপুন</p>
                 </div>
                 <div class="cs-app-dl-banner-actions">
-                    <button class="cs-app-dl-quick-btn mobile" id="cs-btn-home-dl-mobile" title="Android APK ও iOS মোবাইল অ্যাপ ডাউনলোড">
-                        <span class="dl-icon">📱</span>
+                    <button class="cs-app-dl-quick-btn mobile" id="cs-btn-home-dl-mobile" title="Android APK ডাউনলোড করুন">
+                        <span class="dl-icon">🤖</span>
                         <div class="dl-text">
-                            <strong>মোবাইল অ্যাপ</strong>
-                            <small>Android APK / iOS</small>
+                            <strong>Android APK</strong>
+                            <small>.apk সরাসরি ডাউনলোড</small>
                         </div>
                     </button>
-                    <button class="cs-app-dl-quick-btn desktop" id="cs-btn-home-dl-desktop" title="Windows ও Mac ডেস্কটপ অ্যাপ ডাউনলোড">
+                    <button class="cs-app-dl-quick-btn desktop" id="cs-btn-home-dl-desktop" title="Desktop App ডাউনলোড করুন">
                         <span class="dl-icon">💻</span>
                         <div class="dl-text">
-                            <strong>ডেস্কটপ অ্যাপ</strong>
-                            <small>Windows / macOS</small>
+                            <strong>Desktop App</strong>
+                            <small>Windows / Mac</small>
                         </div>
                     </button>
-                    <button class="cs-app-dl-more-btn" id="cs-btn-home-dl-center" title="সব ডাউনলোড অপশন ও QR কোড দেখুন">
-                        🔗 QR ও আরো অপশন
+                    <button class="cs-app-dl-more-btn" id="cs-btn-home-dl-center" title="QR ও সব অপশন">
+                        QR ও সব অপশন
                     </button>
                 </div>
             </div>
 
-            <!-- Desktop Drag & Drop Import Dropzone -->
+            <!-- Compact Drag & Drop Import Strip (Desktop) -->
             <div class="cs-desktop-dropzone" id="cs-desktop-dropzone">
                 <div class="cs-dropzone-inner">
                     <span class="cs-dropzone-icon">📥</span>
-                    <div class="cs-dropzone-title">ফাইল এখানে ড্র্যাগ ও ড্রপ করুন (Drag & Drop Images or PDF)</div>
-                    <div class="cs-dropzone-sub">স্বয়ংক্রিয়ভাবে বর্ডার ডিটেক্ট, পারস্পেক্টিভ ক্রপ ও ম্যাজিক কালার ফিল্টার হবে</div>
+                    <div>
+                        <div class="cs-dropzone-title">ছবি এখানে ড্র্যাগ ও ড্রপ করুন — অটো-ক্রপ ও ম্যাজিক কালার হবে</div>
+                    </div>
                     <label class="cs-icon-btn cs-dropzone-btn">
-                        📂 কম্পিউটার থেকে ফাইল বেছে নিন
+                        📂 ফাইল বেছে নিন
                         <input type="file" id="cs-batch-upload-dropzone" accept="image/*" multiple style="display:none;">
                     </label>
                 </div>
@@ -214,34 +196,39 @@
             <!-- Library Header & Controls Toolbar -->
             <div class="cs-library-toolbar">
                 <div class="cs-library-title-wrap">
-                    <h2 class="cs-library-title">সংরক্ষিত ডকুমেন্টসমূহ (My Documents)</h2>
-                    <span id="cs-library-count" class="cs-library-count">১ টি ডকুমেন্ট</span>
+                    <h2 class="cs-library-title">আমার ডকুমেন্ট</h2>
+                    <span id="cs-library-count" class="cs-library-count">১ টি</span>
                 </div>
 
                 <div class="cs-library-actions">
+                    <button id="cs-btn-view-toggle" class="cs-icon-btn" title="ভিউ পরিবর্তন করুন (Grid/List)">
+                        <span id="cs-view-toggle-icon">📋</span>
+                        <span id="cs-view-toggle-text">লিস্ট</span>
+                    </button>
+
                     <!-- Batch Select Button -->
                     <button id="cs-btn-toggle-select-mode" class="cs-icon-btn" title="একাধিক ফাইল নির্বাচন করুন">
                         <span>☑️</span>
-                        <span>সিলেক্ট করুন</span>
+                        <span>সিলেক্ট</span>
                     </button>
 
                     <!-- Sort Dropdown -->
                     <select id="cs-doc-sort-select" class="cs-select-clean" title="সাজান">
-                        <option value="newest">🕒 সর্বশেষ স্ক্যান</option>
-                        <option value="oldest">🕰️ পুরনো ফাইল</option>
-                        <option value="name_asc">🔤 নাম (A - Z)</option>
-                        <option value="name_desc">🔡 নাম (Z - A)</option>
+                        <option value="newest">🕒 নতুন</option>
+                        <option value="oldest">🕰️ পুরনো</option>
+                        <option value="name_asc">🔤 A - Z</option>
+                        <option value="name_desc">🔡 Z - A</option>
                     </select>
 
-                    <label class="cs-icon-btn cs-btn-batch-primary" title="একসাথে একাধিক ছবি স্ক্যান বা আপলোড করুন">
+                    <label class="cs-icon-btn cs-btn-batch-primary" title="একসাথে একাধিক ছবি আপলোড করুন">
                         <span>📂</span>
-                        <span>ব্যাচ আপলোড</span>
+                        <span>আপলোড</span>
                         <input type="file" id="cs-batch-upload-home" accept="image/*" multiple style="display:none;">
                     </label>
 
                     <button id="cs-btn-home-camera" class="cs-icon-btn cs-btn-cam-primary">
                         <span>📷</span>
-                        <span>ক্যামেরা স্ক্যান</span>
+                        <span>স্ক্যান</span>
                     </button>
                 </div>
             </div>
@@ -1155,17 +1142,17 @@
                     </ul>
                     <div class="cs-platform-actions">
                         <button id="btn-dl-android-apk" class="cs-dl-action-btn primary-teal">
-                            <span class="btn-icon">📥</span>
+                            <span class="btn-icon">📦</span>
                             <div class="btn-text">
-                                <strong>Android অ্যাপ ডাউনলোড (.APK / Installer)</strong>
-                                <small>Android 8.0+ • সরাসরি ডাউনলোড (Direct Download)</small>
+                                <strong>Android APK ডাউনলোড (CamScanner-Pro.apk)</strong>
+                                <small>Android 7.0+ • অফিশিয়াল বিল্ড (.apk) সরাসরি ডাউনলোড</small>
                             </div>
                         </button>
                         <button id="btn-dl-mobile-pwa" class="cs-dl-action-btn secondary-outline">
                             <span class="btn-icon">📲</span>
                             <div class="btn-text">
-                                <strong>ব্রাউজার থেকে ১-ক্লিকে ইনস্টল (Android / iPhone)</strong>
-                                <small>হোম স্ক্রিনে অফলাইন অ্যাপ হিসেবে যুক্ত করুন</small>
+                                <strong>ব্রাউজার থেকে ইনস্টল (PWA — Android / iPhone)</strong>
+                                <small>হোম স্ক্রিনে ইনস্ট্যান্ট অ্যাপ শর্টকাট</small>
                             </div>
                         </button>
                     </div>
