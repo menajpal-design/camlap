@@ -3700,5 +3700,15 @@ body.in-doc-detail .cs-tabbar {
     color: var(--cs-text-dim);
 }
 
+/* Hide app download prompts when opened inside an installed/standalone app */
+@media (display-mode: standalone) {
+    #cs-btn-header-get-app,
+    .cs-simple-dl-pills,
+    #cs-tab-btn-download,
+    .cs-profile-dl-panel {
+        display: none !important;
+    }
+}
+
 
 

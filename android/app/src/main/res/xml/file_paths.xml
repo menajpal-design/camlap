@@ -3,3 +3,4 @@
     <cache-path name="camera_cache" path="." />
     <files-path name="app_exports" path="exports/" />
 </paths>
+

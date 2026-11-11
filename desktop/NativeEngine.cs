@@ -538,3 +538,4 @@ public static class NativeEngine
         bmp.UnlockBits(data);
     }
 }
+

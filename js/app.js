@@ -2891,10 +2891,18 @@ function setupAppDownloadCenter() {
         document.getElementById('cs-app-download-modal')?.classList.remove('active');
     });
 
-    document.getElementById('btn-dl-android-apk')?.addEventListener('click', () => triggerAppDownload('android-apk'));
-    document.getElementById('btn-dl-mobile-pwa')?.addEventListener('click', () => triggerPWAInstall('mobile'));
-    document.getElementById('btn-dl-windows-exe')?.addEventListener('click', () => triggerAppDownload('windows-exe'));
-    document.getElementById('btn-dl-desktop-pwa')?.addEventListener('click', () => triggerPWAInstall('desktop'));
+    // Modal internal action feedback for real APK / EXE downloads
+    document.getElementById('btn-dl-android-apk')?.addEventListener('click', () => showAppDownloadFeedback('android-apk'));
+    document.getElementById('btn-dl-windows-exe')?.addEventListener('click', () => showAppDownloadFeedback('windows-exe'));
+
+    // Hide all app download prompts if opened inside standalone / WebView / installed app
+    const isStandaloneApp = window.matchMedia?.('(display-mode: standalone)')?.matches ||
+        window.navigator.standalone === true ||
+        /;\s*wv\)/i.test(navigator.userAgent);
+    if (isStandaloneApp) {
+        document.querySelectorAll('#cs-btn-header-get-app, .cs-simple-dl-pills, #cs-tab-btn-download, .cs-profile-dl-panel')
+            .forEach(el => { el.style.display = 'none'; });
+    }
 
     // Copy Link button
     document.getElementById('btn-copy-app-link')?.addEventListener('click', () => {
@@ -2926,139 +2934,41 @@ function openAppDownloadModal() {
     drawAppQRCode(liveUrl);
 }
 
-function triggerPWAInstall(platformType = 'desktop') {
-    if (deferredInstallPrompt) {
-        deferredInstallPrompt.prompt();
-        deferredInstallPrompt.userChoice.then((choice) => {
-            if (choice.outcome === 'accepted') {
-                showComfortToast('camlab অ্যাপ সফলভাবে ইনস্টল হচ্ছে!', '🎉');
-            }
-            deferredInstallPrompt = null;
-        });
-        return;
-    }
-
-    if (platformType === 'mobile') {
-        triggerAppDownload('mobile-shortcut');
-    } else {
-        triggerAppDownload('desktop-shortcut');
-    }
-}
-
-function triggerAppDownload(type) {
+function showAppDownloadFeedback(type) {
     const progressBox = document.getElementById('cs-app-dl-progress-box');
     const statusText = document.getElementById('cs-app-dl-status-text');
     const percentText = document.getElementById('cs-app-dl-percent');
     const bar = document.getElementById('cs-app-dl-bar');
 
+    const isApk = type === 'android-apk';
+    const fileName = isApk ? 'camlab.apk' : 'camlab.exe';
+
     if (progressBox) progressBox.style.display = 'block';
-
-    const appUrl = (window.location.protocol.startsWith('http'))
-        ? window.location.href
-        : 'https://menajpal-design.github.io/camlap/';
-    const apkReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.apk';
-    const exeReleaseUrl = 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.exe';
-
-    // Direct native Android .APK or Native Windows .EXE download from GitHub Releases
-    if (type === 'android-apk' || type === 'windows-exe') {
-        const isApk = type === 'android-apk';
-        const fileName = isApk ? 'camlab.apk' : 'camlab.exe';
-        const targetUrl = isApk ? apkReleaseUrl : exeReleaseUrl;
-
-        if (statusText) {
-            statusText.innerHTML = `📦 <strong>${fileName}</strong> (আসল নেটিভ অ্যাপ) ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
-        }
-        if (percentText) percentText.textContent = '100%';
-        if (bar) bar.style.width = '100%';
-
-        const a = document.createElement('a');
-        a.href = targetUrl;
-        a.download = fileName;
-        a.target = '_blank';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-
-        showComfortToast(`${fileName} ডাউনলোড শুরু হয়েছে!`, '📦', 3500);
-        return;
+    if (statusText) {
+        statusText.innerHTML = `📦 সর্বশেষ <strong>${fileName}</strong> ডাউনলোড শুরু হচ্ছে... (<a href="https://github.com/menajpal-design/camlap/releases/latest" target="_blank" style="color:var(--cs-teal); text-decoration:underline;">GitHub Releases</a>)`;
     }
+    if (percentText) percentText.textContent = '100%';
+    if (bar) bar.style.width = '100%';
 
-    let label = 'camlab App';
-    if (type === 'windows-exe') label = 'camlab_Studio_Windows_Desktop.bat';
-    else if (type === 'mobile-shortcut') label = 'camlab_Mobile_QuickLaunch.html';
-    else label = 'camlab_Studio_Desktop.url';
-
-    let pct = 0;
-    const timer = setInterval(() => {
-        pct += 25;
-        if (pct > 100) pct = 100;
-        if (statusText) statusText.textContent = `📥 ডাউনলোড হচ্ছে: ${label}...`;
-        if (percentText) percentText.textContent = `${pct}%`;
-        if (bar) bar.style.width = `${pct}%`;
-
-        if (pct >= 100) {
-            clearInterval(timer);
-            if (statusText) statusText.textContent = `✅ ${label} সফলভাবে ডাউনলোড সম্পন্ন হয়েছে!`;
-            downloadGeneratedAppPackage(type, appUrl);
-            showComfortToast(`${label} ডাউনলোড সম্পন্ন হয়েছে!`, '🚀', 3500);
-        }
-    }, 140);
+    showComfortToast(`${fileName} ডাউনলোড শুরু হয়েছে!`, '📦', 3500);
 }
 
-function downloadGeneratedAppPackage(type, appUrl) {
-    let content = '';
-    let filename = '';
-    let mime = 'text/plain;charset=utf-8';
+function triggerAppDownload(type) {
+    const isApk = type === 'android-apk';
+    const fileName = isApk ? 'camlab.apk' : 'camlab.exe';
+    const targetUrl = isApk
+        ? 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.apk'
+        : 'https://github.com/menajpal-design/camlap/releases/latest/download/camlab.exe';
 
-    if (type === 'windows-exe') {
-        filename = 'camlab_Studio_Desktop.bat';
-        content = [
-            '@echo off',
-            'title camlab Studio Pro v6.81.0 - Desktop App',
-            'echo Starting camlab Studio Pro Desktop Application...',
-            'start msedge --app="' + appUrl + '" 2>nul || start chrome --app="' + appUrl + '" 2>nul || start "" "' + appUrl + '"',
-            'exit'
-        ].join('\r\n');
-    } else if (type === 'desktop-shortcut') {
-        filename = 'camlab Studio.url';
-        content = `[InternetShortcut]\r\nURL=${appUrl}\r\nIconIndex=0\r\n`;
-    } else {
-        filename = type === 'android-apk'
-            ? 'camlab_v6.81.0_Mobile_App_Installer.html'
-            : 'camlab_Mobile_QuickLaunch.html';
-        mime = 'text/html;charset=utf-8';
-        content = `<!DOCTYPE html>
-<html lang="bn">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>camlab v6.81.0 Mobile App Installer</title>
-<style>
-body { background:#0F141A; color:#F8FAFC; font-family:sans-serif; display:flex; align-items:center; justify-content:center; min-height:100vh; margin:0; padding:20px; text-align:center; }
-.card { background:#18202A; border:1px solid #00A884; border-radius:18px; padding:28px; max-width:420px; box-shadow:0 12px 32px rgba(0,0,0,0.45); }
-.btn { display:inline-block; margin-top:16px; background:#00A884; color:#fff; text-decoration:none; font-weight:800; padding:12px 24px; border-radius:999px; }
-</style>
-</head>
-<body>
-<div class="card">
-<h2>📲 camlab Studio Pro v6.81.0</h2>
-<p>আপনার মোবাইলে অ্যাপটি চালু করতে নিচের বাটনে ট্যাপ করুন এবং ব্রাউজারের মেনু (⋮) থেকে <strong>"Add to Home Screen / Install App"</strong> চাপুন।</p>
-<a class="btn" href="${appUrl}">🚀 camlab অ্যাপ চালু করুন</a>
-</div>
-<script>setTimeout(function(){ window.location.href = "${appUrl}"; }, 1800);</script>
-</body>
-</html>`;
-    }
+    showAppDownloadFeedback(isApk ? 'android-apk' : 'windows-exe');
 
-    const blob = new Blob([content], { type: mime });
-    const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
+    a.href = targetUrl;
+    a.download = fileName;
+    a.target = '_blank';
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 /**

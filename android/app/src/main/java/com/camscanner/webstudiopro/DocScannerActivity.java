@@ -174,3 +174,4 @@ public class DocScannerActivity extends AppCompatActivity {
         executor.shutdown();
     }
 }
+
