@@ -107,17 +107,39 @@
                 android:background="@drawable/bg_btn_outline"
                 android:text="🖼️ গ্যালারি"
                 android:textColor="#0F172A"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_doc_autocrop"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="10dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="✂️ ক্রপ"
+                android:textColor="#0F172A"
+                android:textSize="12sp" />
 
             <Button
                 android:id="@+id/btn_doc_rotate"
                 android:layout_width="wrap_content"
                 android:layout_height="40dp"
-                android:paddingHorizontal="12dp"
+                android:layout_marginEnd="6dp"
+                android:paddingHorizontal="10dp"
                 android:background="@drawable/bg_btn_outline"
                 android:text="↻ ৯০°"
                 android:textColor="#0F172A"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
+
+            <Button
+                android:id="@+id/btn_doc_ocr"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:paddingHorizontal="10dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="🔤 OCR"
+                android:textColor="#0F172A"
+                android:textSize="12sp" />
         </LinearLayout>
 
         <LinearLayout

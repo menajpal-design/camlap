@@ -1,6 +1,9 @@
 package com.camscanner.webstudiopro;
 
 import android.Manifest;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -12,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
+import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
@@ -69,7 +73,9 @@ public class DocScannerActivity extends AppCompatActivity {
         findViewById(R.id.btn_doc_camera).setOnClickListener(v -> checkCameraAndLaunch());
         findViewById(R.id.btn_doc_gallery).setOnClickListener(v -> galleryLauncher.launch("image/*"));
 
+        findViewById(R.id.btn_doc_autocrop).setOnClickListener(v -> autoCropLastPage());
         findViewById(R.id.btn_doc_rotate).setOnClickListener(v -> rotateLastPage());
+        findViewById(R.id.btn_doc_ocr).setOnClickListener(v -> runOcrOnLastPage());
         findViewById(R.id.btn_filter_orig).setOnClickListener(v -> setFilter(0));
         findViewById(R.id.btn_filter_magic).setOnClickListener(v -> setFilter(1));
         findViewById(R.id.btn_filter_bw).setOnClickListener(v -> setFilter(2));
@@ -100,11 +106,53 @@ public class DocScannerActivity extends AppCompatActivity {
         executor.execute(() -> {
             Bitmap bmp = NativeImageUtils.loadBitmapSafe(this, uri, 1600);
             if (bmp == null) return;
-            Bitmap proc = NativeImageUtils.applyDocFilter(bmp, currentFilterMode);
+            Bitmap cropped = NativeImageUtils.autoPerspectiveCropDoc(bmp);
+            Bitmap proc = NativeImageUtils.applyDocFilter(cropped, currentFilterMode);
             runOnUiThread(() -> {
-                rawPages.add(bmp);
+                rawPages.add(cropped);
                 filteredPages.add(proc);
                 refreshPreview();
+            });
+        });
+    }
+
+    private void autoCropLastPage() {
+        if (rawPages.isEmpty()) return;
+        executor.execute(() -> {
+            int last = rawPages.size() - 1;
+            Bitmap cropped = NativeImageUtils.autoPerspectiveCropDoc(rawPages.get(last));
+            Bitmap proc = NativeImageUtils.applyDocFilter(cropped, currentFilterMode);
+            runOnUiThread(() -> {
+                rawPages.set(last, cropped);
+                filteredPages.set(last, proc);
+                refreshPreview();
+                Toast.makeText(this, "✂️ অটো বর্ডার ক্রপ সম্পন্ন!", Toast.LENGTH_SHORT).show();
+            });
+        });
+    }
+
+    private void runOcrOnLastPage() {
+        if (filteredPages.isEmpty()) {
+            Toast.makeText(this, "প্রথমে একটি ডকুমেন্ট ছবি নিন!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Toast.makeText(this, "🔤 অফলাইন OCR টেক্সট পড়া হচ্ছে...", Toast.LENGTH_SHORT).show();
+        executor.execute(() -> {
+            String txt = NativeImageUtils.extractTextOCR(filteredPages.get(filteredPages.size() - 1));
+            runOnUiThread(() -> {
+                String msg = txt.trim().isEmpty() ? "কোনো স্পষ্ট লেখা পাওয়া যায়নি।" : txt.trim();
+                new AlertDialog.Builder(this)
+                        .setTitle("🔤 OCR প্রাপ্ত লেখা")
+                        .setMessage(msg)
+                        .setPositiveButton("📋 কপি করুন", (d, w) -> {
+                            ClipboardManager cm = (ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                            if (cm != null) {
+                                cm.setPrimaryClip(ClipData.newPlainText("camlab OCR", msg));
+                                Toast.makeText(this, "টেক্সট কপি করা হয়েছে!", Toast.LENGTH_SHORT).show();
+                            }
+                        })
+                        .setNegativeButton("বন্ধ", null)
+                        .show();
             });
         });
     }

@@ -30,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        NativeImageUtils.ensureOpenCV();
         setContentView(R.layout.activity_main);
 
         savedFilesContainer = findViewById(R.id.saved_files_container);

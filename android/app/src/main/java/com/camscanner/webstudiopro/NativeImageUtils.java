@@ -5,24 +5,67 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
 import android.graphics.Color;
-import android.graphics.ColorMatrix;
-import android.graphics.ColorMatrixColorFilter;
 import android.graphics.DashPathEffect;
 import android.graphics.Matrix;
 import android.graphics.Paint;
 import android.graphics.Path;
 import android.graphics.PointF;
+import android.graphics.Rect;
 import android.graphics.RectF;
 import android.media.ExifInterface;
-import android.media.FaceDetector;
 import android.net.Uri;
 
+import com.google.android.gms.tasks.Tasks;
+import com.google.mlkit.vision.common.InputImage;
+import com.google.mlkit.vision.face.Face;
+import com.google.mlkit.vision.face.FaceDetection;
+import com.google.mlkit.vision.face.FaceDetector;
+import com.google.mlkit.vision.face.FaceDetectorOptions;
+import com.google.mlkit.vision.face.FaceLandmark;
+import com.google.mlkit.vision.segmentation.Segmentation;
+import com.google.mlkit.vision.segmentation.SegmentationMask;
+import com.google.mlkit.vision.segmentation.Segmenter;
+import com.google.mlkit.vision.segmentation.selfie.SelfieSegmenterOptions;
+import com.google.mlkit.vision.text.Text;
+import com.google.mlkit.vision.text.TextRecognition;
+import com.google.mlkit.vision.text.TextRecognizer;
+import com.google.mlkit.vision.text.latin.TextRecognizerOptions;
+
+import org.opencv.android.OpenCVLoader;
+import org.opencv.android.Utils;
+import org.opencv.core.Core;
+import org.opencv.core.CvType;
+import org.opencv.core.Mat;
+import org.opencv.core.MatOfPoint;
+import org.opencv.core.MatOfPoint2f;
+import org.opencv.core.Point;
+import org.opencv.core.Size;
+import org.opencv.imgproc.Imgproc;
+
 import java.io.InputStream;
+import java.nio.ByteBuffer;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 
 public final class NativeImageUtils {
 
+    private static volatile boolean openCvReady = false;
+
     private NativeImageUtils() {}
+
+    public static synchronized boolean ensureOpenCV() {
+        if (!openCvReady) {
+            try {
+                openCvReady = OpenCVLoader.initLocal();
+            } catch (Throwable ignored) {
+                openCvReady = false;
+            }
+        }
+        return openCvReady;
+    }
 
     public static final class PortraitInfo {
         public boolean faceDetected;
@@ -30,6 +73,7 @@ public final class NativeImageUtils {
         public float crownY;
         public float chinY;
         public float faceWidth;
+        public float tiltDeg;
         public boolean isFemale;
         public String genderLabelBn = "ছেলে / পুরুষ";
         public String attireLabelBn = "সাধারণ পোশাক (স্যুট দিন)";
@@ -37,7 +81,7 @@ public final class NativeImageUtils {
     }
 
     /**
-     * Load image safely from Uri with EXIF rotation applied and OOM protection.
+     * Load image safely from Uri with EXIF orientation applied and OOM protection.
      */
     public static Bitmap loadBitmapSafe(Context ctx, Uri uri, int maxDim) {
         try {
@@ -90,97 +134,100 @@ public final class NativeImageUtils {
         }
     }
 
-    public static Bitmap rotateBitmap(Bitmap src, int degrees) {
-        if (src == null || degrees % 360 == 0) return src;
+    public static Bitmap rotateBitmap(Bitmap src, float degrees) {
+        if (src == null || Math.abs(degrees % 360f) < 0.2f) return src;
         Matrix m = new Matrix();
         m.postRotate(degrees);
         return Bitmap.createBitmap(src, 0, 0, src.getWidth(), src.getHeight(), m, true);
     }
 
     /**
-     * Native Biometric Analyzer:
-     * Uses Android FaceDetector (eyes midpoint + eye distance) + Skin fallback to determine
-     * Crown of head, Chin, Center X, Male/Female hair cues, and Attire colors.
+     * AI Biometric Analyzer backed by Bundled Google ML Kit Neural Face Detector:
+     * Accurately locates face bounding box, eyes, chin, head tilt, Male/Female hair cues, and attire.
      */
     public static PortraitInfo analyzePortrait(Bitmap src) {
         PortraitInfo info = new PortraitInfo();
         if (src == null) return info;
 
-        int maxW = 360;
-        float scale = Math.min(1f, (float) maxW / Math.max(src.getWidth(), src.getHeight()));
-        int sw = Math.max(40, Math.round(src.getWidth() * scale));
-        if (sw % 2 != 0) sw--; // FaceDetector requires even width
-        int sh = Math.max(40, Math.round(src.getHeight() * scale));
+        int w = src.getWidth();
+        int h = src.getHeight();
+        float cx = w * 0.5f;
+        float top = h * 0.16f;
+        float bot = h * 0.62f;
+        float faceW = w * 0.38f;
 
-        Bitmap rgb565 = Bitmap.createBitmap(sw, sh, Bitmap.Config.RGB_565);
-        Canvas c = new Canvas(rgb565);
-        c.drawBitmap(src, null, new RectF(0, 0, sw, sh), new Paint(Paint.FILTER_BITMAP_FLAG));
+        try {
+            FaceDetectorOptions opts = new FaceDetectorOptions.Builder()
+                    .setPerformanceMode(FaceDetectorOptions.PERFORMANCE_MODE_ACCURATE)
+                    .setLandmarkMode(FaceDetectorOptions.LANDMARK_MODE_ALL)
+                    .setMinFaceSize(0.12f)
+                    .build();
+            FaceDetector detector = FaceDetection.getClient(opts);
+            InputImage image = InputImage.fromBitmap(src, 0);
+            List<Face> faces = Tasks.await(detector.process(image));
+            detector.close();
 
-        FaceDetector detector = new FaceDetector(sw, sh, 1);
-        FaceDetector.Face[] faces = new FaceDetector.Face[1];
-        int count = detector.findFaces(rgb565, faces);
-
-        float cx = sw * 0.5f;
-        float eyeDist = sw * 0.22f;
-        float eyeY = sh * 0.36f;
-
-        if (count > 0 && faces[0] != null) {
-            PointF mid = new PointF();
-            faces[0].getMidPoint(mid);
-            float ed = faces[0].eyesDistance();
-            if (ed > sw * 0.06f) {
+            if (faces != null && !faces.isEmpty()) {
+                Face best = faces.get(0);
+                Rect bb = best.getBoundingBox();
                 info.faceDetected = true;
-                cx = mid.x;
-                eyeY = mid.y;
-                eyeDist = ed;
+                faceW = Math.max(40f, bb.width());
+                cx = bb.exactCenterX();
+
+                FaceLandmark leftEye = best.getLandmark(FaceLandmark.LEFT_EYE);
+                FaceLandmark rightEye = best.getLandmark(FaceLandmark.RIGHT_EYE);
+                if (leftEye != null && rightEye != null) {
+                    cx = (leftEye.getPosition().x + rightEye.getPosition().x) * 0.5f;
+                }
+
+                // Neural box top is forehead/brow level; lift cleanly above hair crown (~28% of face height)
+                float boxH = Math.max(40f, bb.height());
+                top = Math.max(0f, bb.top - boxH * 0.26f);
+                bot = Math.min(h, bb.bottom + boxH * 0.05f);
+                info.tiltDeg = best.getHeadEulerAngleZ();
             }
-        }
+        } catch (Exception ignored) {}
 
-        // Convert to full-res coordinates using biometric human proportions
-        float inv = 1f / scale;
-        float faceW = Math.max(sw * 0.28f, eyeDist * 2.15f);
-        float crown = Math.max(0f, eyeY - faceW * 0.68f);
-        float chin = Math.min(sh, eyeY + faceW * 0.72f);
+        // Analyze downscaled copy for Male/Female side hair & Attire chest colors
+        int sw = 240;
+        float s = Math.min(1f, (float) sw / Math.max(w, h));
+        int dw = Math.max(40, Math.round(w * s));
+        int dh = Math.max(40, Math.round(h * s));
+        Bitmap small = Bitmap.createScaledBitmap(src, dw, dh, true);
+        int[] px = new int[dw * dh];
+        small.getPixels(px, 0, dw, 0, 0, dw, dh);
 
-        // Estimate Male vs Female via side hair beside jaw/neck
-        int[] px = new int[sw * sh];
-        Bitmap argbSmall = Bitmap.createScaledBitmap(src, sw, sh, true);
-        argbSmall.getPixels(px, 0, sw, 0, 0, sw, sh);
-
-        int bg = px[2 * sw + 2];
+        int bg = px[2 * dw + 2];
         int bgR = Color.red(bg), bgG = Color.green(bg), bgB = Color.blue(bg);
 
+        float scx = cx * s, sfW = faceW * s, sTop = top * s, sChin = bot * s;
         int hairSide = 0, hairTot = 0;
-        int sy1 = Math.max(0, Math.round(eyeY + faceW * 0.12f));
-        int sy2 = Math.min(sh - 1, Math.round(chin + faceW * 0.30f));
-        int lx1 = Math.max(0, Math.round(cx - faceW * 0.85f));
-        int lx2 = Math.max(0, Math.round(cx - faceW * 0.50f));
-        int rx1 = Math.min(sw - 1, Math.round(cx + faceW * 0.50f));
-        int rx2 = Math.min(sw - 1, Math.round(cx + faceW * 0.85f));
+        int sy1 = Math.max(0, Math.round(sTop + (sChin - sTop) * 0.45f));
+        int sy2 = Math.min(dh - 1, Math.round(sChin + sfW * 0.34f));
+        int lx1 = Math.max(0, Math.round(scx - sfW * 0.90f));
+        int lx2 = Math.max(0, Math.round(scx - sfW * 0.50f));
+        int rx1 = Math.min(dw - 1, Math.round(scx + sfW * 0.50f));
+        int rx2 = Math.min(dw - 1, Math.round(scx + sfW * 0.90f));
 
         for (int y = sy1; y <= sy2; y += 2) {
             for (int x = lx1; x <= lx2; x += 2) {
                 hairTot++;
-                int col = px[y * sw + x];
-                if (isDarkNonBg(col, bgR, bgG, bgB)) hairSide++;
+                if (isDarkNonBg(px[y * dw + x], bgR, bgG, bgB)) hairSide++;
             }
             for (int x = rx1; x <= rx2; x += 2) {
                 hairTot++;
-                int col = px[y * sw + x];
-                if (isDarkNonBg(col, bgR, bgG, bgB)) hairSide++;
+                if (isDarkNonBg(px[y * dw + x], bgR, bgG, bgB)) hairSide++;
             }
         }
-        float hairRatio = hairSide / Math.max(1f, (float) hairTot);
-        info.isFemale = hairRatio > 0.34f;
+        info.isFemale = (hairSide / Math.max(1f, (float) hairTot)) > 0.32f;
         info.genderLabelBn = info.isFemale ? "মেয়ে / নারী" : "ছেলে / পুরুষ";
 
-        // Attire check below chin
-        int chestY1 = Math.min(sh - 2, Math.round(chin + faceW * 0.18f));
-        int chestY2 = Math.min(sh - 1, Math.round(chin + faceW * 0.65f));
+        int chestY1 = Math.min(dh - 2, Math.round(sChin + sfW * 0.16f));
+        int chestY2 = Math.min(dh - 1, Math.round(sChin + sfW * 0.65f));
         int darkChest = 0, brightChest = 0, chestTot = 0;
         for (int y = chestY1; y <= chestY2; y += 2) {
-            for (int x = Math.max(0, Math.round(cx - faceW * 0.7f)); x <= Math.min(sw - 1, Math.round(cx + faceW * 0.7f)); x += 2) {
-                int col = px[y * sw + x];
+            for (int x = Math.max(0, Math.round(scx - sfW * 0.7f)); x <= Math.min(dw - 1, Math.round(scx + sfW * 0.7f)); x += 2) {
+                int col = px[y * dw + x];
                 int lum = (Color.red(col) * 299 + Color.green(col) * 587 + Color.blue(col) * 114) / 1000;
                 chestTot++;
                 if (lum < 75) darkChest++;
@@ -198,10 +245,10 @@ public final class NativeImageUtils {
             info.needsSuit = true;
         }
 
-        info.centerX = cx * inv;
-        info.crownY = crown * inv;
-        info.chinY = chin * inv;
-        info.faceWidth = faceW * inv;
+        info.centerX = cx;
+        info.crownY = top;
+        info.chinY = bot;
+        info.faceWidth = faceW;
         return info;
     }
 
@@ -210,6 +257,98 @@ public final class NativeImageUtils {
         double lum = 0.299 * r + 0.587 * g + 0.114 * b;
         double distBg = Math.hypot(r - bgR, Math.hypot(g - bgG, b - bgB));
         return lum < 115 && distBg > 28;
+    }
+
+    /**
+     * Neural AI Selfie Segmentation Background Replacement (with smooth edge feathering).
+     */
+    public static Bitmap replaceBackgroundAI(Bitmap src, int targetColor) {
+        if (src == null) return null;
+        try {
+            SelfieSegmenterOptions opts = new SelfieSegmenterOptions.Builder()
+                    .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
+                    .build();
+            Segmenter segmenter = Segmentation.getClient(opts);
+            SegmentationMask mask = Tasks.await(segmenter.process(InputImage.fromBitmap(src, 0)));
+            segmenter.close();
+
+            int mw = mask.getWidth();
+            int mh = mask.getHeight();
+            ByteBuffer buf = mask.getBuffer();
+            buf.rewind();
+            float[] conf = new float[mw * mh];
+            buf.asFloatBuffer().get(conf);
+
+            int w = src.getWidth();
+            int h = src.getHeight();
+            int[] pixels = new int[w * h];
+            src.getPixels(pixels, 0, w, 0, 0, w, h);
+
+            int bgR = Color.red(targetColor);
+            int bgG = Color.green(targetColor);
+            int bgB = Color.blue(targetColor);
+
+            for (int y = 0; y < h; y++) {
+                int my = Math.min(mh - 1, (y * mh) / h);
+                for (int x = 0; x < w; x++) {
+                    int mx = Math.min(mw - 1, (x * mw) / w);
+                    float c = conf[my * mw + mx];
+                    if (c >= 0.72f) continue;
+
+                    int idx = y * w + x;
+                    if (c <= 0.25f) {
+                        pixels[idx] = targetColor;
+                    } else {
+                        float alpha = (c - 0.25f) / 0.47f;
+                        int pCol = pixels[idx];
+                        int r = Math.round(Color.red(pCol) * alpha + bgR * (1f - alpha));
+                        int g = Math.round(Color.green(pCol) * alpha + bgG * (1f - alpha));
+                        int b = Math.round(Color.blue(pCol) * alpha + bgB * (1f - alpha));
+                        pixels[idx] = Color.rgb(r, g, b);
+                    }
+                }
+            }
+
+            Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+            out.setPixels(pixels, 0, w, 0, 0, w, h);
+            return out;
+        } catch (Exception e) {
+            return replaceBackgroundFallback(src, targetColor, 36);
+        }
+    }
+
+    private static Bitmap replaceBackgroundFallback(Bitmap src, int targetColor, int tolerance) {
+        int w = src.getWidth(), h = src.getHeight();
+        int[] pixels = new int[w * h];
+        src.getPixels(pixels, 0, w, 0, 0, w, h);
+        int bg = pixels[2 * w + 2];
+        int bgR = Color.red(bg), bgG = Color.green(bg), bgB = Color.blue(bg);
+        float tolSq = tolerance * tolerance * 3.2f;
+
+        boolean[] visited = new boolean[w * h];
+        ArrayDeque<Integer> q = new ArrayDeque<>();
+        for (int x = 0; x < w; x += 2) { q.add(x); visited[x] = true; }
+        for (int y = 0; y < h; y += 2) {
+            int l = y * w, r = y * w + (w - 1);
+            if (!visited[l]) { q.add(l); visited[l] = true; }
+            if (!visited[r]) { q.add(r); visited[r] = true; }
+        }
+
+        while (!q.isEmpty()) {
+            int idx = q.poll();
+            int x = idx % w, y = idx / w;
+            if (Math.hypot((x - w * 0.5f) / (w * 0.24f), (y - h * 0.44f) / (h * 0.30f)) < 1.0) continue;
+            int col = pixels[idx];
+            int dr = Color.red(col) - bgR, dg = Color.green(col) - bgG, db = Color.blue(col) - bgB;
+            if (dr * dr + dg * dg + db * db > tolSq) continue;
+            pixels[idx] = targetColor;
+            for (int n : new int[]{idx - 1, idx + 1, idx - w, idx + w}) {
+                if (n >= 0 && n < pixels.length && !visited[n]) { visited[n] = true; q.add(n); }
+            }
+        }
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        out.setPixels(pixels, 0, w, 0, 0, w, h);
+        return out;
     }
 
     /**
@@ -229,10 +368,7 @@ public final class NativeImageUtils {
     ) {
         if (src == null) return null;
 
-        Bitmap working = src;
-        if (doReplaceBg) {
-            working = replaceBackground(src, bgColor, 36);
-        }
+        Bitmap working = doReplaceBg ? replaceBackgroundAI(src, bgColor) : src;
 
         Bitmap out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
@@ -253,7 +389,6 @@ public final class NativeImageUtils {
         canvas.drawBitmap(working, 0f, 0f, new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG));
         canvas.restore();
 
-        // Draw crisp Native Formal Suit Overlay anchored to Chin/Neck
         if (suitMode > 0) {
             float renderedChinY = (info.chinY * finalScale) + offsetY;
             float neckY = Math.max(targetH * 0.58f, Math.min(targetH * 0.78f, renderedChinY + targetH * 0.045f));
@@ -264,30 +399,24 @@ public final class NativeImageUtils {
     }
 
     private static void drawFormalSuit(Canvas c, int w, int h, float neckY, int suitMode) {
-        int suitColor = Color.parseColor("#111827");
-        int tieColor = Color.parseColor("#991B1B");
-        if (suitMode == 2) {
-            suitColor = Color.parseColor("#1E3A8A");
-            tieColor = Color.parseColor("#B91C1C");
-        } else if (suitMode == 3) {
-            suitColor = Color.parseColor("#1F2937"); // Women's dark blazer
-        }
+        int suitColor = suitMode == 2 ? Color.parseColor("#1E3A8A")
+                : (suitMode == 3 ? Color.parseColor("#1F2937") : Color.parseColor("#111827"));
+        int tieColor = suitMode == 2 ? Color.parseColor("#B91C1C") : Color.parseColor("#991B1B");
 
         Paint shirtPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         shirtPaint.setColor(Color.WHITE);
-
         Paint suitPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         suitPaint.setColor(suitColor);
-
         Paint lapelPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
         lapelPaint.setColor(Color.parseColor("#0B0F19"));
+        lapelPaint.setStyle(Paint.Style.STROKE);
+        lapelPaint.setStrokeWidth(Math.max(2f, w * 0.008f));
 
         float cx = w * 0.5f;
         float collarHalf = w * 0.16f;
         float shoulderW = w * 0.52f;
         float dropY = h * 1.05f;
 
-        // Inner White V-Shirt
         Path shirt = new Path();
         shirt.moveTo(cx - collarHalf * 0.9f, neckY);
         shirt.lineTo(cx + collarHalf * 0.9f, neckY);
@@ -296,7 +425,6 @@ public final class NativeImageUtils {
         shirt.close();
         c.drawPath(shirt, shirtPaint);
 
-        // Tie for Mens Suits (modes 1 & 2)
         if (suitMode == 1 || suitMode == 2) {
             Paint tiePaint = new Paint(Paint.ANTI_ALIAS_FLAG);
             tiePaint.setColor(tieColor);
@@ -309,7 +437,6 @@ public final class NativeImageUtils {
             c.drawPath(tie, tiePaint);
         }
 
-        // Left & Right Suit Jackets + Shoulders
         Path leftJacket = new Path();
         leftJacket.moveTo(cx - collarHalf, neckY - h * 0.01f);
         leftJacket.quadTo(cx - shoulderW * 0.72f, neckY + h * 0.04f, -w * 0.05f, h * 0.88f);
@@ -326,83 +453,147 @@ public final class NativeImageUtils {
         rightJacket.close();
         c.drawPath(rightJacket, suitPaint);
 
-        // Clean collar lapel highlight
-        lapelPaint.setStyle(Paint.Style.STROKE);
-        lapelPaint.setStrokeWidth(Math.max(2f, w * 0.008f));
         c.drawLine(cx - collarHalf, neckY, cx - w * 0.03f, h * 0.94f, lapelPaint);
         c.drawLine(cx + collarHalf, neckY, cx + w * 0.03f, h * 0.94f, lapelPaint);
     }
 
     /**
-     * Border flood-fill background replacement protecting central face + chest oval.
+     * Real OpenCV C++ 4-Corner Document Edge Detection & Perspective Warp.
      */
-    public static Bitmap replaceBackground(Bitmap src, int targetColor, int tolerance) {
-        int w = src.getWidth();
-        int h = src.getHeight();
-        int[] pixels = new int[w * h];
-        src.getPixels(pixels, 0, w, 0, 0, w, h);
+    public static Bitmap autoPerspectiveCropDoc(Bitmap src) {
+        if (src == null || !ensureOpenCV()) return src;
+        try {
+            Mat rgba = new Mat();
+            Utils.bitmapToMat(src, rgba);
 
-        int[] cornerIdx = new int[]{
-                2 * w + 2,
-                2 * w + Math.max(2, w - 3),
-                Math.round(h * 0.25f) * w + 2,
-                Math.round(h * 0.25f) * w + Math.max(2, w - 3)
-        };
-        int sumR = 0, sumG = 0, sumB = 0;
-        for (int ci : cornerIdx) {
-            int col = pixels[Math.max(0, Math.min(pixels.length - 1, ci))];
-            sumR += Color.red(col);
-            sumG += Color.green(col);
-            sumB += Color.blue(col);
-        }
-        int bgR = sumR / 4, bgG = sumG / 4, bgB = sumB / 4;
-        float tolSq = tolerance * tolerance * 3.2f;
+            double procW = 600.0;
+            double ratio = Math.max(1.0, rgba.width() / procW);
+            Mat small = new Mat();
+            Imgproc.resize(rgba, small, new Size(rgba.width() / ratio, rgba.height() / ratio));
 
-        boolean[] visited = new boolean[w * h];
-        ArrayDeque<Integer> q = new ArrayDeque<>();
-        for (int x = 0; x < w; x += 2) {
-            q.add(x);
-            visited[x] = true;
-        }
-        for (int y = 0; y < h; y += 2) {
-            int l = y * w;
-            int r = y * w + (w - 1);
-            if (!visited[l]) { q.add(l); visited[l] = true; }
-            if (!visited[r]) { q.add(r); visited[r] = true; }
-        }
+            Mat gray = new Mat();
+            Imgproc.cvtColor(small, gray, Imgproc.COLOR_RGBA2GRAY);
+            Imgproc.GaussianBlur(gray, gray, new Size(5, 5), 0);
 
-        float pCx = w * 0.5f, pCy = h * 0.44f;
-        float pRx = w * 0.24f, pRy = h * 0.30f;
+            Mat edges = new Mat();
+            Imgproc.Canny(gray, edges, 60, 180);
+            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
+            Imgproc.dilate(edges, edges, kernel);
 
-        while (!q.isEmpty()) {
-            int idx = q.poll();
-            int x = idx % w;
-            int y = idx / w;
+            List<MatOfPoint> contours = new ArrayList<>();
+            Imgproc.findContours(edges, contours, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
+            contours.sort((a, b) -> Double.compare(Imgproc.contourArea(b), Imgproc.contourArea(a)));
 
-            double ndx = (x - pCx) / pRx;
-            double ndy = (y - pCy) / pRy;
-            if (ndx * ndx + ndy * ndy < 1.0) continue;
+            double minArea = small.width() * small.height() * 0.18;
+            Point[] bestQuad = null;
 
-            int col = pixels[idx];
-            int dr = Color.red(col) - bgR;
-            int dg = Color.green(col) - bgG;
-            int db = Color.blue(col) - bgB;
-            if (dr * dr + dg * dg + db * db > tolSq) continue;
-
-            pixels[idx] = targetColor;
-
-            int[] nb = new int[]{idx - 1, idx + 1, idx - w, idx + w};
-            for (int n : nb) {
-                if (n >= 0 && n < pixels.length && !visited[n]) {
-                    visited[n] = true;
-                    q.add(n);
+            for (int i = 0; i < Math.min(8, contours.size()); i++) {
+                MatOfPoint2f c2f = new MatOfPoint2f(contours.get(i).toArray());
+                double peri = Imgproc.arcLength(c2f, true);
+                MatOfPoint2f approx = new MatOfPoint2f();
+                Imgproc.approxPolyDP(c2f, approx, 0.02 * peri, true);
+                if (approx.total() == 4 && Imgproc.contourArea(contours.get(i)) > minArea) {
+                    Point[] pts = approx.toArray();
+                    for (Point p : pts) { p.x *= ratio; p.y *= ratio; }
+                    bestQuad = orderQuadPoints(pts);
+                    break;
                 }
             }
-        }
 
-        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-        out.setPixels(pixels, 0, w, 0, 0, w, h);
-        return out;
+            if (bestQuad == null) return src;
+
+            double wTop = Math.hypot(bestQuad[1].x - bestQuad[0].x, bestQuad[1].y - bestQuad[0].y);
+            double wBot = Math.hypot(bestQuad[2].x - bestQuad[3].x, bestQuad[2].y - bestQuad[3].y);
+            int targetW = Math.max(200, (int) Math.round(Math.max(wTop, wBot)));
+
+            double hLeft = Math.hypot(bestQuad[3].x - bestQuad[0].x, bestQuad[3].y - bestQuad[0].y);
+            double hRight = Math.hypot(bestQuad[2].x - bestQuad[1].x, bestQuad[2].y - bestQuad[1].y);
+            int targetH = Math.max(200, (int) Math.round(Math.max(hLeft, hRight)));
+
+            MatOfPoint2f srcMat = new MatOfPoint2f(bestQuad);
+            MatOfPoint2f dstMat = new MatOfPoint2f(
+                    new Point(0, 0),
+                    new Point(targetW - 1, 0),
+                    new Point(targetW - 1, targetH - 1),
+                    new Point(0, targetH - 1)
+            );
+
+            Mat perspective = Imgproc.getPerspectiveTransform(srcMat, dstMat);
+            Mat warped = new Mat();
+            Imgproc.warpPerspective(rgba, warped, perspective, new Size(targetW, targetH));
+
+            Bitmap out = Bitmap.createBitmap(warped.cols(), warped.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(warped, out);
+            return out;
+        } catch (Exception e) {
+            return src;
+        }
+    }
+
+    private static Point[] orderQuadPoints(Point[] pts) {
+        Point[] sorted = new Point[4];
+        Arrays.sort(pts, Comparator.comparingDouble(p -> p.x + p.y));
+        sorted[0] = pts[0]; // Top-Left
+        sorted[2] = pts[3]; // Bottom-Right
+        Arrays.sort(pts, Comparator.comparingDouble(p -> p.y - p.x));
+        sorted[1] = pts[0]; // Top-Right
+        sorted[3] = pts[3]; // Bottom-Left
+        return sorted;
+    }
+
+    /**
+     * Real OpenCV Document Filters: 0=Original, 1=Magic Color, 2=Adaptive B&W
+     */
+    public static Bitmap applyDocFilter(Bitmap src, int mode) {
+        if (src == null || mode == 0) return src;
+        if (!ensureOpenCV()) return src;
+
+        try {
+            Mat rgba = new Mat();
+            Utils.bitmapToMat(src, rgba);
+            Mat dst = new Mat();
+
+            if (mode == 2) {
+                Mat gray = new Mat();
+                Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY);
+                Imgproc.adaptiveThreshold(gray, dst, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 25, 14);
+                Imgproc.cvtColor(dst, dst, Imgproc.COLOR_GRAY2RGBA);
+            } else {
+                // Magic Color: enhance local lighting & text contrast cleanly
+                Mat rgb = new Mat();
+                Imgproc.cvtColor(rgba, rgb, Imgproc.COLOR_RGBA2RGB);
+                Mat lab = new Mat();
+                Imgproc.cvtColor(rgb, lab, Imgproc.COLOR_RGB2Lab);
+                List<Mat> channels = new ArrayList<>();
+                Core.split(lab, channels);
+                Imgproc.createCLAHE(2.4, new Size(8, 8)).apply(channels.get(0), channels.get(0));
+                Core.merge(channels, lab);
+                Imgproc.cvtColor(lab, rgb, Imgproc.COLOR_Lab2RGB);
+                rgb.convertTo(rgb, CvType.CV_8UC3, 1.15, 12);
+                Imgproc.cvtColor(rgb, dst, Imgproc.COLOR_RGB2RGBA);
+            }
+
+            Bitmap out = Bitmap.createBitmap(dst.cols(), dst.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(dst, out);
+            return out;
+        } catch (Exception e) {
+            return src;
+        }
+    }
+
+    /**
+     * Offline Bundled ML Kit OCR Text Extraction.
+     */
+    public static String extractTextOCR(Bitmap src) {
+        if (src == null) return "";
+        try {
+            TextRecognizer recognizer = TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS);
+            Text result = Tasks.await(recognizer.process(InputImage.fromBitmap(src, 0)));
+            recognizer.close();
+            return result != null ? result.getText() : "";
+        } catch (Exception e) {
+            return "";
+        }
     }
 
     /**
@@ -491,48 +682,4 @@ public final class NativeImageUtils {
         c.drawText("camlab Print Studio | " + cols + " Photos/Row • " + count + " Total", margin, sheetH - dpi * 0.14f, footerPaint);
         return sheet;
     }
-
-    /**
-     * Document filter & optional border trim: 0=Original, 1=Magic Color, 2=B&W
-     */
-    public static Bitmap applyDocFilter(Bitmap src, int mode) {
-        if (src == null) return null;
-        if (mode == 0) return src;
-
-        Bitmap out = Bitmap.createBitmap(src.getWidth(), src.getHeight(), Bitmap.Config.ARGB_8888);
-        Canvas c = new Canvas(out);
-        Paint p = new Paint();
-        ColorMatrix cm = new ColorMatrix();
-
-        if (mode == 2) {
-            // Crisp Black & White Document
-            cm.setSaturation(0f);
-            float contrast = 1.65f;
-            float shift = (-0.5f * contrast + 0.5f) * 255f + 18f;
-            ColorMatrix cMat = new ColorMatrix(new float[]{
-                    contrast, 0, 0, 0, shift,
-                    0, contrast, 0, 0, shift,
-                    0, 0, contrast, 0, shift,
-                    0, 0, 0, 1, 0
-            });
-            cm.postConcat(cMat);
-        } else {
-            // Magic Color: boost brightness & contrast for crisp white paper look
-            cm.setSaturation(1.18f);
-            float contrast = 1.32f;
-            float shift = (-0.5f * contrast + 0.5f) * 255f + 22f;
-            ColorMatrix cMat = new ColorMatrix(new float[]{
-                    contrast, 0, 0, 0, shift,
-                    0, contrast, 0, 0, shift,
-                    0, 0, contrast, 0, shift,
-                    0, 0, 0, 1, 0
-            });
-            cm.postConcat(cMat);
-        }
-
-        p.setColorFilter(new ColorMatrixColorFilter(cm));
-        c.drawBitmap(src, 0, 0, p);
-        return out;
-    }
 }
-
