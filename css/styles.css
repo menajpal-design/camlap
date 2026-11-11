@@ -2795,6 +2795,13 @@ body.in-doc-detail .cs-tabbar {
     transition: transform 0.2s, box-shadow 0.2s;
 }
 
+.cs-app-dl-always-visible {
+    border: 2px solid var(--cs-teal) !important;
+    background: linear-gradient(135deg, rgba(0,168,132,0.09) 0%, var(--cs-card-dark) 55%, rgba(14,165,233,0.09) 100%) !important;
+    box-shadow: 0 4px 20px rgba(0, 168, 132, 0.18), var(--cs-shadow-sm) !important;
+    margin-bottom: 24px;
+}
+
 .cs-app-download-banner:hover {
     box-shadow: var(--cs-shadow);
 }
@@ -3201,6 +3208,25 @@ body.in-doc-detail .cs-tabbar {
 /* Extra User Comfort Refinements across Mobile & Desktop */
 .cs-quick-shortcuts {
     grid-template-columns: repeat(7, 1fr);
+}
+
+/* Tab Download Button — always prominent */
+.cs-tab-download-btn {
+    color: var(--cs-teal) !important;
+    font-weight: 700;
+    position: relative;
+}
+
+.cs-tab-download-btn::before {
+    content: "";
+    position: absolute;
+    top: 4px;
+    right: 10px;
+    width: 8px;
+    height: 8px;
+    background: #00E6B8;
+    border-radius: 50%;
+    animation: csPulse 1.8s ease-in-out infinite;
 }
 
 .cs-doc-card {

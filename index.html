@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="bn">
 <head>
     <meta charset="UTF-8">
@@ -168,13 +168,13 @@
             </div>
 
             <!-- Dedicated Mobile & Desktop App Download Comfort Hub -->
-            <div class="cs-app-download-banner" id="cs-home-app-download-card">
+            <div class="cs-app-download-banner cs-app-dl-always-visible" id="cs-home-app-download-card">
                 <div class="cs-app-dl-banner-left">
                     <div class="cs-app-dl-badge-row">
-                        <span class="cs-app-dl-pill">✨ NEW v6.81.0 PRO</span>
-                        <span class="cs-app-dl-pill-sub">অফলাইন সাপোর্ট • সুপার ফাস্ট অটো-ক্রপ</span>
+                        <span class="cs-app-dl-pill">✨ v6.81.0 PRO</span>
+                        <span class="cs-app-dl-pill-sub">অফলাইন সাপোর্ট • ফাস্ট অটো-ক্রপ</span>
                     </div>
-                    <h3 class="cs-app-dl-title">📲 মোবাইল অ্যাপ ও ডেস্কটপ অ্যাপ ডাউনলোড করুন</h3>
+                    <h3 class="cs-app-dl-title">📲 মোবাইল অ্যাপ ও ডেস্কটপ অ্যাপ ডাউনলোড</h3>
                     <p class="cs-app-dl-desc">আপনার Android/iOS ফোন অথবা Windows/Mac কম্পিউটারে সরাসরি CamScanner Studio Pro অ্যাপ ইনস্টল করে ইন্টারনেট ছাড়াই দ্রুত ডকুমেন্ট ও বই স্ক্যান করুন।</p>
                 </div>
                 <div class="cs-app-dl-banner-actions">
@@ -193,7 +193,7 @@
                         </div>
                     </button>
                     <button class="cs-app-dl-more-btn" id="cs-btn-home-dl-center" title="সব ডাউনলোড অপশন ও QR কোড দেখুন">
-                        QR ও সব অপশন ➔
+                        🔗 QR ও আরো অপশন
                     </button>
                 </div>
             </div>
@@ -780,18 +780,18 @@
             <img src="assets/cs_ic_tabbar_home_normal.webp" alt="Home">
             <span>ডকুমেন্টস</span>
         </button>
-        <button class="cs-tab-item" data-screen="screen-home">
-            <img src="assets/cs_ic_tabbar_files_normal.webp" alt="Files">
-            <span>ফাইলস</span>
+        <button class="cs-tab-item" data-screen="screen-tools">
+            <img src="assets/cs_ic_tabbar_tools_normal.webp" alt="Tools">
+            <span>টুলস</span>
         </button>
 
         <button class="cs-fab-shutter" id="cs-fab-camera" title="স্ক্যান করুন">
             <img src="assets/cs_ic_tabbar_cs_logo.webp" alt="Camera">
         </button>
 
-        <button class="cs-tab-item" data-screen="screen-tools">
-            <img src="assets/cs_ic_tabbar_tools_normal.webp" alt="Tools">
-            <span>টুলস</span>
+        <button class="cs-tab-item cs-tab-download-btn" id="cs-tab-btn-download" title="মোবাইল ও ডেস্কটপ অ্যাপ ডাউনলোড করুন">
+            <span style="font-size:22px; line-height:1;">📲</span>
+            <span>অ্যাপ ডাউনলোড</span>
         </button>
         <button class="cs-tab-item" data-screen="screen-me">
             <img src="assets/cs_ic_tabbar_me_normal.webp" alt="Me">
@@ -805,8 +805,8 @@
     <div id="cs-camera-overlay" class="cs-camera-overlay">
         <div class="cs-camera-topbar">
             <button id="cs-btn-close-camera" class="cs-camera-top-btn" title="বন্ধ করুন">✕</button>
-            <button id="cs-btn-toggle-autocapture" class="cs-pill active" title="অটো ক্যাপচার টগল">
-                ⚡ অটো-ক্যাপচার: চালু (ON)
+            <button id="cs-btn-toggle-autocapture" class="cs-pill" title="অটো ক্যাপচার চালু করুন">
+                ⚡ অটো-ক্যাপচার: বন্ধ (OFF)
             </button>
             <div style="display:flex; align-items:center; gap:12px;">
                 <button id="cs-btn-camera-torch" class="cs-camera-top-btn" title="ফ্ল্যাশ / টর্চ">⚡</button>

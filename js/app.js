@@ -1229,7 +1229,7 @@ function updateIDCardA4Preview() {
  */
 let cameraDetectTimer = null;
 let consecutiveDetections = 0;
-let autoCaptureActive = true;
+let autoCaptureActive = false; // OFF by default — user presses shutter; auto-crop still happens
 
 // Continuous Scanning & Background Auto-Crop Session State
 let cameraSessionPages = [];
@@ -1297,8 +1297,13 @@ function setupCameraViewfinder() {
         });
     }
 
-    // Auto-capture toggle
+    // Auto-capture toggle — default OFF; user presses shutter; auto-crop still happens on capture
     if (autoCapBtn) {
+        // Sync button visual state with the default OFF
+        autoCapBtn.classList.remove('active');
+        autoCapBtn.textContent = '⚡ অটো-ক্যাপচার: বন্ধ (OFF)';
+        autoCapBtn.style.background = 'rgba(255,255,255,0.1)';
+
         autoCapBtn.addEventListener('click', () => {
             autoCaptureActive = !autoCaptureActive;
             autoCapBtn.classList.toggle('active', autoCaptureActive);
@@ -2666,6 +2671,8 @@ function setupAppDownloadCenter() {
     document.getElementById('cs-btn-header-get-app')?.addEventListener('click', () => openAppDownloadModal());
     document.getElementById('cs-btn-home-dl-center')?.addEventListener('click', () => openAppDownloadModal());
     document.getElementById('cs-btn-me-open-dl-modal')?.addEventListener('click', () => openAppDownloadModal());
+    // Tab bar download button
+    document.getElementById('cs-tab-btn-download')?.addEventListener('click', () => openAppDownloadModal());
 
     // Quick Home & Profile Mobile/Desktop Download Buttons
     document.getElementById('cs-btn-home-dl-mobile')?.addEventListener('click', () => {
