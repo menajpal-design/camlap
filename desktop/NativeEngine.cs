@@ -542,7 +542,7 @@ public static class NativeEngine
 
         using var f = new Font("Segoe UI", Math.Max(10, dpi * 0.036f), FontStyle.Bold);
         using var b = new SolidBrush(Color.FromArgb(100, 116, 139));
-        g.DrawString($"camlab Desktop Print Studio | {paperSize} | {cols} Photos/Row • {total} Total • 300 DPI", f, b, margin, sheetH - dpi * 0.16f);
+        g.DrawString($"camlab Desktop Print Studio | {Math.Round(sheetMmW)}x{Math.Round(sheetMmH)}mm | {cols} Photos/Row • {total} Total • {dpi} DPI", f, b, margin, sheetH - dpi * 0.16f);
 
         return sheet;
     }
