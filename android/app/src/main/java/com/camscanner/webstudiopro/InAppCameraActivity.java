@@ -233,3 +233,4 @@ public class InAppCameraActivity extends AppCompatActivity {
         );
     }
 }
+
