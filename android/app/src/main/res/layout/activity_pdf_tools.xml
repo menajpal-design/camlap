@@ -99,12 +99,25 @@
 
                 <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
                     <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_pdf_camera"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="📷 ক্যামেরা"
+                        android:textAllCaps="false"
+                        android:textColor="#0F172A"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/bg_btn_outline" />
+
+                    <androidx.appcompat.widget.AppCompatButton
                         android:id="@+id/btn_pdf_import"
                         android:layout_width="0dp"
                         android:layout_height="44dp"
                         android:layout_weight="1"
-                        android:layout_marginEnd="8dp"
-                        android:text="📂 ছবি ইমপোর্ট (একাধিক)"
+                        android:layout_marginEnd="6dp"
+                        android:text="📂 ইমপোর্ট"
                         android:textAllCaps="false"
                         android:textColor="#FFFFFF"
                         android:textSize="13sp"
@@ -115,8 +128,8 @@
                         android:id="@+id/btn_pdf_clear"
                         android:layout_width="wrap_content"
                         android:layout_height="44dp"
-                        android:paddingHorizontal="12dp"
-                        android:text="🗑️ সব মুছুন"
+                        android:paddingHorizontal="10dp"
+                        android:text="🗑️ মুছুন"
                         android:textAllCaps="false"
                         android:textColor="#EF4444"
                         android:textSize="13sp"
@@ -245,3 +258,4 @@
         </LinearLayout>
     </ScrollView>
 </LinearLayout>
+

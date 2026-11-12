@@ -14,7 +14,7 @@ namespace CamLabDesktop;
 /// </summary>
 public static class SimplePdfWriter
 {
-    public static void SaveBitmapsAsPdf(IReadOnlyList<Bitmap> pages, string outputPath, double pageWidthMm, double pageHeightMm)
+    public static void SaveBitmapsAsPdf(IReadOnlyList<Bitmap> pages, string outputPath, double pageWidthMm, double pageHeightMm, long jpegQuality = 95L)
     {
         if (pages == null || pages.Count == 0)
             throw new ArgumentException("No pages to export.");
@@ -43,7 +43,7 @@ public static class SimplePdfWriter
         WriteAscii(ms, $"2 0 obj\n<< /Type /Pages /Kids [ {kidRefs}] /Count {pageCount} >>\nendobj\n");
 
         EncoderParameters jpgParams = new(1);
-        jpgParams.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, 95L);
+        jpgParams.Param[0] = new EncoderParameter(System.Drawing.Imaging.Encoder.Quality, Math.Clamp(jpegQuality, 10L, 100L));
         ImageCodecInfo jpgCodec = ImageCodecInfo.GetImageEncoders().First(c => c.FormatID == ImageFormat.Jpeg.Guid);
 
         for (int i = 0; i < pageCount; i++)

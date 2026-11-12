@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -36,10 +37,9 @@ public class DocScannerActivity extends AppCompatActivity {
     private TextView tvEmpty;
     private TextView tvCount;
 
-    private Uri pendingCameraUri;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    private ActivityResultLauncher<Uri> cameraLauncher;
+    private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<String> cameraPermLauncher;
 
@@ -52,9 +52,9 @@ public class DocScannerActivity extends AppCompatActivity {
         tvEmpty = findViewById(R.id.tv_doc_empty);
         tvCount = findViewById(R.id.tv_doc_count);
 
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), ok -> {
-            if (ok && pendingCameraUri != null) {
-                loadUriPage(pendingCameraUri);
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), res -> {
+            if (res.getResultCode() == RESULT_OK && res.getData() != null && res.getData().getData() != null) {
+                loadUriPage(res.getData().getData());
             }
         });
 
@@ -93,13 +93,9 @@ public class DocScannerActivity extends AppCompatActivity {
     }
 
     private void launchNativeCamera() {
-        try {
-            File tmp = new File(getCacheDir(), "doc_" + System.currentTimeMillis() + ".jpg");
-            pendingCameraUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", tmp);
-            cameraLauncher.launch(pendingCameraUri);
-        } catch (Exception e) {
-            Toast.makeText(this, "ক্যামেরা চালু করা যায়নি", Toast.LENGTH_SHORT).show();
-        }
+        Intent intent = new Intent(this, InAppCameraActivity.class);
+        intent.putExtra(InAppCameraActivity.EXTRA_SCAN_MODE, "doc");
+        cameraLauncher.launch(intent);
     }
 
     private void loadUriPage(Uri uri) {

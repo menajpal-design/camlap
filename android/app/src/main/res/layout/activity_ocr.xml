@@ -145,7 +145,7 @@
             android:textColor="#0F172A"
             android:background="@drawable/bg_card"
             android:padding="10dp"
-            android:verticalScrollbarAlwaysDrawVerticalTrack="true"
+            android:scrollbarAlwaysDrawVerticalTrack="true"
             android:scrollbars="vertical"
             android:overScrollMode="always"
             android:inputType="textMultiLine"
@@ -244,3 +244,4 @@
             android:background="@drawable/bg_btn_outline" />
     </LinearLayout>
 </LinearLayout>
+

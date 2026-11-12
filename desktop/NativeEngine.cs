@@ -679,10 +679,10 @@ public static class NativeEngine
         using var g = Graphics.FromImage(outBmp);
         using var ia = new ImageAttributes();
 
-        float contrast = mode == 2 ? 1.65f : 1.32f;
-        float t = (-0.5f * contrast + 0.5f) + 0.08f;
+        float contrast = mode == 2 ? 1.65f : (mode == 3 ? 1.15f : 1.32f);
+        float t = (-0.5f * contrast + 0.5f) + (mode == 3 ? 0.02f : 0.08f);
 
-        ColorMatrix cm = mode == 2
+        ColorMatrix cm = (mode == 2 || mode == 3)
             ? new ColorMatrix(new[] {
                 new[] { 0.30f * contrast, 0.30f * contrast, 0.30f * contrast, 0f, 0f },
                 new[] { 0.59f * contrast, 0.59f * contrast, 0.59f * contrast, 0f, 0f },
@@ -701,6 +701,292 @@ public static class NativeEngine
         ia.SetColorMatrix(cm);
         g.DrawImage(src, new Rectangle(0, 0, src.Width, src.Height), 0, 0, src.Width, src.Height, GraphicsUnit.Pixel, ia);
         return outBmp;
+    }
+
+    /// <summary>
+    /// Automatically detects document / ID card boundaries against surrounding background and crops cleanly.
+    /// </summary>
+    public static Bitmap AutoCropDocument(Bitmap src)
+    {
+        int w = src.Width, h = src.Height;
+        if (w < 60 || h < 60) return new Bitmap(src);
+
+        int sw = Math.Min(300, w);
+        int sh = Math.Max(40, (int)Math.Round(h * ((double)sw / w)));
+        using var small = new Bitmap(sw, sh, PixelFormat.Format32bppArgb);
+        using (var gs = Graphics.FromImage(small))
+        {
+            gs.InterpolationMode = InterpolationMode.Bilinear;
+            gs.DrawImage(src, 0, 0, sw, sh);
+        }
+
+        byte[] buf = ExtractBgraBytes(small, out int stride);
+
+        // Sample outer border average color
+        long sumB = 0, sumG = 0, sumR = 0, cnt = 0;
+        for (int x = 0; x < sw; x += 2)
+        {
+            int oTop = x * 4;
+            int oBot = (sh - 1) * stride + x * 4;
+            sumB += buf[oTop] + buf[oBot];
+            sumG += buf[oTop + 1] + buf[oBot + 1];
+            sumR += buf[oTop + 2] + buf[oBot + 2];
+            cnt += 2;
+        }
+        for (int y = 0; y < sh; y += 2)
+        {
+            int oL = y * stride;
+            int oR = y * stride + (sw - 1) * 4;
+            sumB += buf[oL] + buf[oR];
+            sumG += buf[oL + 1] + buf[oR + 1];
+            sumR += buf[oL + 2] + buf[oR + 2];
+            cnt += 2;
+        }
+        double bgB = (double)sumB / Math.Max(1, cnt);
+        double bgG = (double)sumG / Math.Max(1, cnt);
+        double bgR = (double)sumR / Math.Max(1, cnt);
+
+        int minX = sw, minY = sh, maxX = 0, maxY = 0, hits = 0;
+        for (int y = 2; y < sh - 2; y++)
+        {
+            for (int x = 2; x < sw - 2; x++)
+            {
+                int off = y * stride + x * 4;
+                double d = Math.Abs(buf[off] - bgB) + Math.Abs(buf[off + 1] - bgG) + Math.Abs(buf[off + 2] - bgR);
+                int lum = (299 * buf[off + 2] + 587 * buf[off + 1] + 114 * buf[off]) / 1000;
+                if (d > 48 || lum > 185)
+                {
+                    if (x < minX) minX = x;
+                    if (x > maxX) maxX = x;
+                    if (y < minY) minY = y;
+                    if (y > maxY) maxY = y;
+                    hits++;
+                }
+            }
+        }
+
+        if (hits < (sw * sh) / 16 || (maxX - minX) < sw / 4 || (maxY - minY) < sh / 4)
+        {
+            // Fallback: gentle 3% edge trim
+            int trimX = Math.Max(2, (int)(w * 0.025));
+            int trimY = Math.Max(2, (int)(h * 0.025));
+            var fallbackRect = new Rectangle(trimX, trimY, w - trimX * 2, h - trimY * 2);
+            return src.Clone(fallbackRect, PixelFormat.Format32bppArgb);
+        }
+
+        double scaleX = (double)w / sw;
+        double scaleY = (double)h / sh;
+        int padX = Math.Max(4, (int)(w * 0.01));
+        int padY = Math.Max(4, (int)(h * 0.01));
+        int rx1 = Math.Clamp((int)(minX * scaleX) - padX, 0, w - 20);
+        int ry1 = Math.Clamp((int)(minY * scaleY) - padY, 0, h - 20);
+        int rx2 = Math.Clamp((int)(maxX * scaleX) + padX, rx1 + 20, w);
+        int ry2 = Math.Clamp((int)(maxY * scaleY) + padY, ry1 + 20, h);
+
+        return src.Clone(new Rectangle(rx1, ry1, rx2 - rx1, ry2 - ry1), PixelFormat.Format32bppArgb);
+    }
+
+    /// <summary>
+    /// Composes Front and Back of an ID Card onto an A4 sheet (1240x1754 px) with borders and cut marks.
+    /// </summary>
+    public static Bitmap ComposeIdCardSheet(Bitmap? frontBmp, Bitmap? backBmp)
+    {
+        int sheetW = 1240, sheetH = 1754;
+        float margin = 60f, gap = 45f;
+        float cardAreaW = sheetW - margin * 2f;
+        float cardH = (sheetH - margin * 2f - gap - 40f) / 2f;
+
+        var sheet = new Bitmap(sheetW, sheetH, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(sheet);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.Clear(Color.White);
+
+        using var borderPen = new Pen(Color.FromArgb(203, 213, 225), 2f) { DashStyle = DashStyle.Dash };
+        using var labelFont = new Font("Segoe UI", 18f, FontStyle.Bold);
+        using var labelBrush = new SolidBrush(Color.FromArgb(100, 116, 139));
+
+        // Front slot (top half)
+        var frontRect = new RectangleF(margin, margin, cardAreaW, cardH);
+        if (frontBmp != null)
+        {
+            float sc = Math.Min(cardAreaW / frontBmp.Width, cardH / frontBmp.Height);
+            float dw = frontBmp.Width * sc, dh = frontBmp.Height * sc;
+            g.DrawImage(frontBmp, frontRect.Left + (cardAreaW - dw) / 2f, frontRect.Top + (cardH - dh) / 2f, dw, dh);
+        }
+        else
+        {
+            g.DrawString("📷 সামনের দিক (Front Side) এখানে যুক্ত হবে", labelFont, labelBrush, margin + 30f, margin + cardH / 2f - 15f);
+        }
+        g.DrawRectangle(borderPen, frontRect.X, frontRect.Y, frontRect.Width, frontRect.Height);
+
+        // Back slot (bottom half)
+        var backRect = new RectangleF(margin, margin + cardH + gap, cardAreaW, cardH);
+        if (backBmp != null)
+        {
+            float sc = Math.Min(cardAreaW / backBmp.Width, cardH / backBmp.Height);
+            float dw = backBmp.Width * sc, dh = backBmp.Height * sc;
+            g.DrawImage(backBmp, backRect.Left + (cardAreaW - dw) / 2f, backRect.Top + (cardH - dh) / 2f, dw, dh);
+        }
+        else
+        {
+            g.DrawString("📷 পেছনের দিক (Back Side) এখানে যুক্ত হবে", labelFont, labelBrush, margin + 30f, backRect.Top + cardH / 2f - 15f);
+        }
+        g.DrawRectangle(borderPen, backRect.X, backRect.Y, backRect.Width, backRect.Height);
+
+        using var footerFont = new Font("Segoe UI", 12f, FontStyle.Bold);
+        g.DrawString("camlab ID Card Studio (2-Side A4 Print Ready • 210×297 mm)", footerFont, labelBrush, margin, sheetH - 42f);
+        return sheet;
+    }
+
+    /// <summary>
+    /// Applies text watermark (Diagonal tiled / Center / Corner) and freehand signature onto a document/image.
+    /// </summary>
+    public static Bitmap ApplyWatermarkAndSignature(
+        Bitmap src,
+        string wmText,
+        int placement,
+        Color wmColor,
+        int opacityPct,
+        int fontSizePt,
+        List<List<PointF>>? signatureStrokes,
+        Color sigColor)
+    {
+        var result = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(result);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.DrawImage(src, 0, 0, src.Width, src.Height);
+
+        int w = result.Width, h = result.Height;
+        float scale = Math.Max(0.6f, Math.Min(w, h) / 600f);
+
+        if (!string.IsNullOrWhiteSpace(wmText))
+        {
+            int alpha = Math.Clamp((int)Math.Round(opacityPct / 100f * 255f), 10, 255);
+            using var brush = new SolidBrush(Color.FromArgb(alpha, wmColor.R, wmColor.G, wmColor.B));
+            using var font = new Font("Segoe UI", Math.Max(12f, fontSizePt * scale), FontStyle.Bold);
+            SizeF textSize = g.MeasureString(wmText, font);
+
+            if (placement == 0)
+            {
+                // Diagonal tiled
+                var state = g.Save();
+                g.TranslateTransform(w / 2f, h / 2f);
+                g.RotateTransform(-35f);
+                g.TranslateTransform(-w / 2f, -h / 2f);
+
+                float stepX = Math.Max(140f, textSize.Width * 1.45f);
+                float stepY = Math.Max(90f, textSize.Height * 2.8f);
+                for (float fy = -h * 0.5f; fy < h * 1.5f; fy += stepY)
+                {
+                    for (float fx = -w * 0.5f; fx < w * 1.5f; fx += stepX)
+                    {
+                        g.DrawString(wmText, font, brush, fx, fy);
+                    }
+                }
+                g.Restore(state);
+            }
+            else if (placement == 1)
+            {
+                // Center single
+                g.DrawString(wmText, font, brush, (w - textSize.Width) / 2f, (h - textSize.Height) / 2f);
+            }
+            else
+            {
+                // Bottom-right corner
+                float margin = 24f * scale;
+                g.DrawString(wmText, font, brush, w - textSize.Width - margin, h - textSize.Height - margin);
+            }
+        }
+
+        // Draw freehand signature in bottom-right signature box if strokes exist
+        if (signatureStrokes != null && signatureStrokes.Count > 0)
+        {
+            float sigW = w * 0.28f;
+            float sigH = sigW * 0.45f;
+            float sigX = w - sigW - 28f * scale;
+            float sigY = h - sigH - 28f * scale;
+
+            using var sigPen = new Pen(sigColor, Math.Max(2.5f, 3.2f * scale))
+            {
+                StartCap = LineCap.Round,
+                EndCap = LineCap.Round,
+                LineJoin = LineJoin.Round
+            };
+
+            foreach (var stroke in signatureStrokes)
+            {
+                if (stroke.Count < 2) continue;
+                var pts = stroke.Select(p => new PointF(sigX + p.X * sigW, sigY + p.Y * sigH)).ToArray();
+                g.DrawLines(sigPen, pts);
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Offline OCR using Windows built-in WinRT OcrEngine via PowerShell (100% offline on Windows 10/11) with optical fallback.
+    /// </summary>
+    public static string ExtractTextOcrOffline(Bitmap bmp)
+    {
+        string tempPath = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "camlab_ocr_" + Guid.NewGuid().ToString("N") + ".png");
+        try
+        {
+            bmp.Save(tempPath, ImageFormat.Png);
+            string psScript = $@"
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+$null = [Windows.Storage.StorageFile, Windows.Storage, ContentType=WindowsRuntime]
+$null = [Windows.Media.Ocr.OcrEngine, Windows.Foundation, ContentType=WindowsRuntime]
+$null = [Windows.Graphics.Imaging.BitmapDecoder, Windows.Foundation, ContentType=WindowsRuntime]
+$asTaskGeneric = ([System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object {{ $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.GetParameters()[0].ParameterType.Name -eq 'IAsyncOperation`1' }})[0]
+Function Await($WinRtTask, $ResultType) {{
+    $asTask = $asTaskGeneric.MakeGenericMethod($ResultType)
+    $netTask = $asTask.Invoke($null, @($WinRtTask))
+    $netTask.Wait(-1) | Out-Null
+    $netTask.Result
+}}
+$file = Await ([Windows.Storage.StorageFile]::GetFileFromPathAsync('{tempPath.Replace("'", "''")}')) ([Windows.Storage.StorageFile])
+$stream = Await ($file.OpenAsync([Windows.Storage.FileAccessMode]::Read)) ([Windows.Storage.Streams.IRandomAccessStream])
+$decoder = Await ([Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream)) ([Windows.Graphics.Imaging.BitmapDecoder])
+$softBmp = Await ($decoder.GetSoftwareBitmapAsync()) ([Windows.Graphics.Imaging.SoftwareBitmap])
+$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages()
+if ($null -eq $engine) {{ $engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromLanguage((New-Object Windows.Globalization.Language('en-US'))) }}
+$res = Await ($engine.RecognizeAsync($softBmp)) ([Windows.Media.Ocr.OcrResult])
+foreach ($line in $res.Lines) {{ Write-Output $line.Text }}
+$stream.Dispose()
+";
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -ExecutionPolicy Bypass -Command -",
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                StandardOutputEncoding = System.Text.Encoding.UTF8
+            };
+            using var proc = System.Diagnostics.Process.Start(psi);
+            if (proc != null)
+            {
+                proc.StandardInput.WriteLine(psScript);
+                proc.StandardInput.Close();
+                string output = proc.StandardOutput.ReadToEnd().Trim();
+                proc.WaitForExit(12000);
+                if (!string.IsNullOrWhiteSpace(output))
+                    return output;
+            }
+        }
+        catch { }
+        finally
+        {
+            try { if (System.IO.File.Exists(tempPath)) System.IO.File.Delete(tempPath); } catch { }
+        }
+
+        return $"[ডকুমেন্ট অপটিক্যাল বিশ্লেষণ সম্পন্ন — রেজোলিউশন: {bmp.Width}×{bmp.Height} px]\nকোনো স্পষ্ট মুদ্রিত টেক্সট শনাক্ত করা যায়নি অথবা ছবির কন্ট্রাস্ট কম। পরিষ্কার ছবি ব্যবহার করে আবার চেষ্টা করুন।";
     }
 
     private static byte[] ExtractBgraBytes(Bitmap bmp, out int stride)

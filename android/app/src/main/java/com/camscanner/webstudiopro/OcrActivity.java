@@ -4,6 +4,7 @@ import android.Manifest;
 import android.content.ClipData;
 import android.content.ClipboardManager;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.net.Uri;
@@ -50,10 +51,9 @@ public class OcrActivity extends AppCompatActivity {
     private TextView tvOcrStatus, tvWordCount;
     private Button btnHighlightSearch;
 
-    private Uri pendingCameraUri;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    private ActivityResultLauncher<Uri> cameraLauncher;
+    private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<String> cameraPermLauncher;
 
@@ -70,8 +70,10 @@ public class OcrActivity extends AppCompatActivity {
         tvWordCount = findViewById(R.id.tv_ocr_word_count);
         btnHighlightSearch = findViewById(R.id.btn_ocr_highlight);
 
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), ok -> {
-            if (ok && pendingCameraUri != null) loadUriForOcr(pendingCameraUri);
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), res -> {
+            if (res.getResultCode() == RESULT_OK && res.getData() != null && res.getData().getData() != null) {
+                loadUriForOcr(res.getData().getData());
+            }
         });
         galleryLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) loadUriForOcr(uri);
@@ -101,13 +103,9 @@ public class OcrActivity extends AppCompatActivity {
     }
 
     private void launchCamera() {
-        try {
-            File tmp = new File(getCacheDir(), "ocr_" + System.currentTimeMillis() + ".jpg");
-            pendingCameraUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", tmp);
-            cameraLauncher.launch(pendingCameraUri);
-        } catch (Exception e) {
-            Toast.makeText(this, "ক্যামেরা চালু করা যায়নি", Toast.LENGTH_SHORT).show();
-        }
+        Intent intent = new Intent(this, InAppCameraActivity.class);
+        intent.putExtra(InAppCameraActivity.EXTRA_SCAN_MODE, "ocr");
+        cameraLauncher.launch(intent);
     }
 
     private void loadUriForOcr(Uri uri) {
@@ -194,15 +192,17 @@ public class OcrActivity extends AppCompatActivity {
                     fw.write(text);
                 }
                 // Also try to copy to Downloads
-                android.content.ContentValues cv = new android.content.ContentValues();
-                cv.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
-                cv.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain");
-                cv.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/camlab");
                 try {
-                    android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
-                    if (uri != null) {
-                        try (java.io.OutputStream os = getContentResolver().openOutputStream(uri)) {
-                            if (os != null) os.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+                        android.content.ContentValues cv = new android.content.ContentValues();
+                        cv.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
+                        cv.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain");
+                        cv.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/camlab");
+                        android.net.Uri uri = getContentResolver().insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, cv);
+                        if (uri != null) {
+                            try (java.io.OutputStream os = getContentResolver().openOutputStream(uri)) {
+                                if (os != null) os.write(text.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                            }
                         }
                     }
                 } catch (Exception ignored) {}
@@ -248,3 +248,4 @@ public class OcrActivity extends AppCompatActivity {
         findViewById(R.id.btn_ocr_run).setEnabled(!loading);
     }
 }
+

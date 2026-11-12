@@ -1,6 +1,7 @@
 package com.camscanner.webstudiopro;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -51,10 +52,9 @@ public class WatermarkActivity extends AppCompatActivity {
     private int opacity = 55;   // 0–100
     private int fontSize = 36; // sp-equivalent
 
-    private Uri pendingCameraUri;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    private ActivityResultLauncher<Uri> cameraLauncher;
+    private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<String> cameraPermLauncher;
 
@@ -78,8 +78,10 @@ public class WatermarkActivity extends AppCompatActivity {
         btnColorRed = findViewById(R.id.btn_wm_color_red);
         btnColorBlue = findViewById(R.id.btn_wm_color_blue);
 
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), ok -> {
-            if (ok && pendingCameraUri != null) loadUri(pendingCameraUri);
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), res -> {
+            if (res.getResultCode() == RESULT_OK && res.getData() != null && res.getData().getData() != null) {
+                loadUri(res.getData().getData());
+            }
         });
         galleryLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) loadUri(uri);
@@ -146,13 +148,9 @@ public class WatermarkActivity extends AppCompatActivity {
     }
 
     private void launchCamera() {
-        try {
-            File tmp = new File(getCacheDir(), "wm_" + System.currentTimeMillis() + ".jpg");
-            pendingCameraUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", tmp);
-            cameraLauncher.launch(pendingCameraUri);
-        } catch (Exception e) {
-            Toast.makeText(this, "ক্যামেরা চালু করা যায়নি", Toast.LENGTH_SHORT).show();
-        }
+        Intent intent = new Intent(this, InAppCameraActivity.class);
+        intent.putExtra(InAppCameraActivity.EXTRA_SCAN_MODE, "watermark");
+        cameraLauncher.launch(intent);
     }
 
     private void loadUri(Uri uri) {
@@ -282,3 +280,4 @@ public class WatermarkActivity extends AppCompatActivity {
         NativePdfUtils.printBitmap(this, processedBitmap, "camlab Watermark Print", true);
     }
 }
+

@@ -43,6 +43,7 @@ public class PdfToolsActivity extends AppCompatActivity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private ActivityResultLauncher<String[]> multiGalleryLauncher;
+    private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String> cameraPermLauncher;
 
     @Override
@@ -66,7 +67,23 @@ public class PdfToolsActivity extends AppCompatActivity {
                     if (uris != null && !uris.isEmpty()) loadMultipleUris(uris);
                 }
         );
-        cameraPermLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {});
+        cameraLauncher = registerForActivityResult(
+                new ActivityResultContracts.StartActivityForResult(),
+                res -> {
+                    if (res.getResultCode() == RESULT_OK && res.getData() != null && res.getData().getData() != null) {
+                        java.util.List<Uri> single = new ArrayList<>();
+                        single.add(res.getData().getData());
+                        loadMultipleUris(single);
+                    }
+                }
+        );
+        cameraPermLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
+            if (granted) {
+                Intent intent = new Intent(this, InAppCameraActivity.class);
+                intent.putExtra(InAppCameraActivity.EXTRA_SCAN_MODE, "doc");
+                cameraLauncher.launch(intent);
+            }
+        });
 
         sbQuality.setMax(85);
         sbQuality.setProgress(60); // Default 70% quality
@@ -80,6 +97,16 @@ public class PdfToolsActivity extends AppCompatActivity {
         });
 
         findViewById(R.id.btn_pdf_back).setOnClickListener(v -> finish());
+
+        findViewById(R.id.btn_pdf_camera).setOnClickListener(v -> {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                Intent intent = new Intent(this, InAppCameraActivity.class);
+                intent.putExtra(InAppCameraActivity.EXTRA_SCAN_MODE, "doc");
+                cameraLauncher.launch(intent);
+            } else {
+                cameraPermLauncher.launch(Manifest.permission.CAMERA);
+            }
+        });
 
         btnImport.setOnClickListener(v -> {
             multiGalleryLauncher.launch(new String[]{"image/*", "application/pdf"});
@@ -231,3 +258,4 @@ public class PdfToolsActivity extends AppCompatActivity {
         btnCompressPdf.setEnabled(!loading && !importedPages.isEmpty());
     }
 }
+

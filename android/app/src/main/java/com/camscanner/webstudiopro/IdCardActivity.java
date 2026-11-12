@@ -1,6 +1,7 @@
 package com.camscanner.webstudiopro;
 
 import android.Manifest;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.Canvas;
@@ -44,10 +45,9 @@ public class IdCardActivity extends AppCompatActivity {
     private Button btnAutoCropFront, btnAutoCropBack, btnGenerateSheet;
 
     private boolean capturingFront = true;
-    private Uri pendingCameraUri;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    private ActivityResultLauncher<Uri> cameraLauncher;
+    private ActivityResultLauncher<Intent> cameraLauncher;
     private ActivityResultLauncher<String> galleryLauncher;
     private ActivityResultLauncher<String> cameraPermLauncher;
 
@@ -70,8 +70,10 @@ public class IdCardActivity extends AppCompatActivity {
         btnAutoCropBack = findViewById(R.id.btn_id_autocrop_back);
         btnGenerateSheet = findViewById(R.id.btn_id_generate_sheet);
 
-        cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), ok -> {
-            if (ok && pendingCameraUri != null) loadUriAsCard(pendingCameraUri, capturingFront);
+        cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), res -> {
+            if (res.getResultCode() == RESULT_OK && res.getData() != null && res.getData().getData() != null) {
+                loadUriAsCard(res.getData().getData(), capturingFront);
+            }
         });
         galleryLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) loadUriAsCard(uri, capturingFront);
@@ -128,13 +130,9 @@ public class IdCardActivity extends AppCompatActivity {
     }
 
     private void launchCamera() {
-        try {
-            File tmp = new File(getCacheDir(), "idcard_" + System.currentTimeMillis() + ".jpg");
-            pendingCameraUri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", tmp);
-            cameraLauncher.launch(pendingCameraUri);
-        } catch (Exception e) {
-            Toast.makeText(this, "ক্যামেরা চালু করা যায়নি", Toast.LENGTH_SHORT).show();
-        }
+        Intent intent = new Intent(this, InAppCameraActivity.class);
+        intent.putExtra(InAppCameraActivity.EXTRA_SCAN_MODE, capturingFront ? "id_front" : "id_back");
+        cameraLauncher.launch(intent);
     }
 
     private void loadUriAsCard(Uri uri, boolean isFront) {
@@ -262,3 +260,4 @@ public class IdCardActivity extends AppCompatActivity {
         NativePdfUtils.printBitmap(this, sheetBitmap, "camlab ID Card", true);
     }
 }
+
