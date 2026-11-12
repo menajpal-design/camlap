@@ -25,6 +25,7 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
 
     private LinearLayout savedFilesContainer;
+    private TextView tvFileCount;
     private ActivityResultLauncher<String[]> permissionLauncher;
 
     @Override
@@ -34,6 +35,7 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         savedFilesContainer = findViewById(R.id.saved_files_container);
+        tvFileCount = findViewById(R.id.tv_file_count);
 
         permissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestMultiplePermissions(),
@@ -41,15 +43,33 @@ public class MainActivity extends AppCompatActivity {
         );
         requestAppPermissions();
 
-        View docCard = findViewById(R.id.card_doc_scan);
-        docCard.setOnClickListener(v ->
+        // === 6 Main Feature Cards ===
+        findViewById(R.id.card_doc_scan).setOnClickListener(v ->
                 startActivity(new Intent(this, DocScannerActivity.class))
         );
-
-        View passportCard = findViewById(R.id.card_passport_studio);
-        passportCard.setOnClickListener(v ->
+        findViewById(R.id.card_passport_studio).setOnClickListener(v ->
                 startActivity(new Intent(this, PassportStudioActivity.class))
         );
+        findViewById(R.id.card_id_card).setOnClickListener(v ->
+                startActivity(new Intent(this, IdCardActivity.class))
+        );
+        findViewById(R.id.card_watermark).setOnClickListener(v ->
+                startActivity(new Intent(this, WatermarkActivity.class))
+        );
+        findViewById(R.id.card_ocr).setOnClickListener(v ->
+                startActivity(new Intent(this, OcrActivity.class))
+        );
+        findViewById(R.id.card_pdf_tools).setOnClickListener(v ->
+                startActivity(new Intent(this, PdfToolsActivity.class))
+        );
+
+        // Search button — quick launch DocScanner
+        View searchBtn = findViewById(R.id.btn_search);
+        if (searchBtn != null) {
+            searchBtn.setOnClickListener(v ->
+                    startActivity(new Intent(this, DocScannerActivity.class))
+            );
+        }
     }
 
     @Override
@@ -82,9 +102,13 @@ public class MainActivity extends AppCompatActivity {
         File exportsDir = NativePdfUtils.getExportsDir(this);
         File[] files = exportsDir.listFiles();
 
+        if (tvFileCount != null) {
+            tvFileCount.setText(files != null ? String.valueOf(files.length) : "0");
+        }
+
         if (files == null || files.length == 0) {
             TextView empty = new TextView(this);
-            empty.setText("এখনো কোনো PDF বা পাসপোর্ট ফাইল তৈরি করা হয়নি।\nউপরের বাটনে ট্যাপ করে শুরু করুন।");
+            empty.setText("এখনো কোনো ফাইল তৈরি করা হয়নি।\nউপরের যেকোনো ফিচার ব্যবহার করুন।");
             empty.setTextColor(Color.parseColor("#64748B"));
             empty.setTextSize(13f);
             empty.setPadding(24, 32, 24, 32);
@@ -96,43 +120,79 @@ public class MainActivity extends AppCompatActivity {
         Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault());
 
-        for (File file : files) {
+        // Show at most 20 recent files
+        int shown = Math.min(files.length, 20);
+        for (int i = 0; i < shown; i++) {
+            File file = files[i];
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.VERTICAL);
             row.setBackgroundResource(R.drawable.bg_card);
-            row.setPadding(28, 24, 28, 24);
+            row.setPadding(28, 20, 28, 20);
             LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
             );
-            lp.bottomMargin = 18;
+            lp.bottomMargin = 14;
             row.setLayoutParams(lp);
 
+            String name = file.getName();
+            String icon;
+            if (name.endsWith(".pdf")) icon = "📄 ";
+            else if (name.endsWith(".txt")) icon = "📝 ";
+            else icon = "🖼️ ";
+
             TextView title = new TextView(this);
-            String icon = file.getName().endsWith(".pdf") ? "📄 " : "🖼️ ";
-            title.setText(icon + file.getName());
+            title.setText(icon + name);
             title.setTextColor(Color.parseColor("#0F172A"));
-            title.setTextSize(15f);
+            title.setTextSize(14f);
             title.setTypeface(null, android.graphics.Typeface.BOLD);
+            title.setMaxLines(1);
+            title.setEllipsize(android.text.TextUtils.TruncateAt.END);
 
             TextView meta = new TextView(this);
             long kb = Math.max(1, file.length() / 1024);
-            meta.setText(sdf.format(new Date(file.lastModified())) + "  •  " + kb + " KB  •  ট্যাপ করে শেয়ার/ওপেন করুন");
+            meta.setText(sdf.format(new Date(file.lastModified())) + "  •  " + kb + " KB  •  টাপ করে খুলুন");
             meta.setTextColor(Color.parseColor("#64748B"));
-            meta.setTextSize(12f);
-            meta.setPadding(0, 8, 0, 0);
+            meta.setTextSize(11f);
+            meta.setPadding(0, 6, 0, 0);
 
             row.addView(title);
             row.addView(meta);
             row.setOnClickListener(v -> {
                 try {
-                    String mime = file.getName().endsWith(".pdf") ? "application/pdf" : "image/*";
+                    String mime;
+                    if (name.endsWith(".pdf")) mime = "application/pdf";
+                    else if (name.endsWith(".txt")) mime = "text/plain";
+                    else mime = "image/*";
                     NativePdfUtils.shareFile(this, file, mime);
                 } catch (Exception e) {
-                    Toast.makeText(this, "ফাইল খোলা যায়নি: " + e.getMessage(), Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "ফাইল খোলা যায়নি: " + e.getMessage(), Toast.LENGTH_SHORT).show();
                 }
             });
+            row.setOnLongClickListener(v -> {
+                // Long press to delete
+                new androidx.appcompat.app.AlertDialog.Builder(this)
+                        .setTitle("ফাইল মুছুন?")
+                        .setMessage(name + " মুছে ফেলতে চান?")
+                        .setPositiveButton("মুছুন", (d, w) -> {
+                            file.delete();
+                            refreshSavedFilesList();
+                            Toast.makeText(this, "✅ ফাইল মুছে গেছে", Toast.LENGTH_SHORT).show();
+                        })
+                        .setNegativeButton("বাতিল", null)
+                        .show();
+                return true;
+            });
             savedFilesContainer.addView(row);
+        }
+
+        if (files.length > 20) {
+            TextView more = new TextView(this);
+            more.setText("…আরও " + (files.length - 20) + "টি ফাইল আছে");
+            more.setTextColor(Color.parseColor("#64748B"));
+            more.setTextSize(12f);
+            more.setPadding(24, 8, 24, 16);
+            savedFilesContainer.addView(more);
         }
     }
 }

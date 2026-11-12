@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#F8FAFC"
+    android:fitsSystemWindows="true">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="#FFFFFF"
+        android:paddingHorizontal="12dp"
+        android:paddingVertical="10dp"
+        android:gravity="center_vertical"
+        android:elevation="2dp">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_pdf_back"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:paddingHorizontal="12dp"
+            android:text="← পেছনে"
+            android:textAllCaps="false"
+            android:background="@drawable/bg_btn_outline"
+            android:textColor="#0F172A"
+            android:textSize="13sp" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginStart="10dp"
+            android:text="📑 PDF টুলস"
+            android:textColor="#0F172A"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/tv_pdf_page_count"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_chip"
+            android:paddingHorizontal="10dp"
+            android:paddingVertical="4dp"
+            android:text="0 টি পেজ"
+            android:textColor="#00896C"
+            android:textStyle="bold"
+            android:textSize="12sp" />
+    </LinearLayout>
+
+    <!-- Progress -->
+    <ProgressBar
+        android:id="@+id/pb_pdf_tools"
+        android:layout_width="match_parent"
+        android:layout_height="4dp"
+        style="?android:attr/progressBarStyleHorizontal"
+        android:visibility="gone"
+        android:indeterminate="true"
+        android:progressTint="#00896C" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="12dp">
+
+            <!-- Import Section -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📂 ছবি / PDF ইমপোর্ট করুন"
+                    android:textColor="#0F172A"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="একাধিক ছবি নির্বাচন করুন — সব পেজ একসাথে PDF-এ রূপান্তরিত হবে"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="10dp" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_pdf_import"
+                        android:layout_width="0dp"
+                        android:layout_height="44dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="8dp"
+                        android:text="📂 ছবি ইমপোর্ট (একাধিক)"
+                        android:textAllCaps="false"
+                        android:textColor="#FFFFFF"
+                        android:textSize="13sp"
+                        android:textStyle="bold"
+                        android:background="@drawable/bg_btn_primary" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_pdf_clear"
+                        android:layout_width="wrap_content"
+                        android:layout_height="44dp"
+                        android:paddingHorizontal="12dp"
+                        android:text="🗑️ সব মুছুন"
+                        android:textAllCaps="false"
+                        android:textColor="#EF4444"
+                        android:textSize="13sp"
+                        android:background="@drawable/bg_btn_outline" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Status Card -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="14dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:id="@+id/tv_pdf_status"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="ছবি ইমপোর্ট করুন তারপর নিচের যেকোনো অপশন ব্যবহার করুন"
+                    android:textColor="#64748B"
+                    android:textSize="13sp" />
+            </LinearLayout>
+
+            <!-- Merge PDF -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="📑 একত্রিত PDF তৈরি করুন"
+                    android:textColor="#0F172A"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="সব ইমপোর্ট করা ছবি একটি পরিষ্কার A4 PDF-এ মার্জ করুন"
+                    android:textColor="#64748B"
+                    android:textSize="12sp"
+                    android:layout_marginBottom="10dp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_pdf_merge"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:text="📑 মার্জ করে PDF সংরক্ষণ করুন"
+                    android:textAllCaps="false"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_btn_primary"
+                    android:enabled="false" />
+            </LinearLayout>
+
+            <!-- Compress PDF -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="🗜️ PDF কম্প্রেস করুন (সাইজ ছোট করুন)"
+                    android:textColor="#0F172A"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="6dp">
+                    <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="গুণমান:" android:textColor="#334155" android:textSize="13sp" />
+                    <TextView android:id="@+id/tv_pdf_quality_val" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="৭০%" android:textColor="#00896C" android:textStyle="bold" android:textSize="13sp" />
+                </LinearLayout>
+
+                <SeekBar
+                    android:id="@+id/sb_pdf_quality"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="10dp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_pdf_compress"
+                    android:layout_width="match_parent"
+                    android:layout_height="44dp"
+                    android:text="🗜️ কম্প্রেস করে PDF সংরক্ষণ করুন"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="14sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_btn_outline"
+                    android:enabled="false" />
+            </LinearLayout>
+
+            <!-- Share Last Export -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="14dp"
+                android:layout_marginBottom="24dp">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_pdf_share_last"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:text="📤 শেষ PDF শেয়ার করুন"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="13sp"
+                    android:background="@drawable/bg_btn_outline" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

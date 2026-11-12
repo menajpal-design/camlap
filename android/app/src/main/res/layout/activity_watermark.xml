@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F8FAFC"
+    android:fitsSystemWindows="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#FFFFFF"
+            android:paddingHorizontal="12dp"
+            android:paddingVertical="10dp"
+            android:gravity="center_vertical"
+            android:elevation="2dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_wm_back"
+                android:layout_width="wrap_content"
+                android:layout_height="38dp"
+                android:paddingHorizontal="12dp"
+                android:text="← পেছনে"
+                android:textAllCaps="false"
+                android:background="@drawable/bg_btn_outline"
+                android:textColor="#0F172A"
+                android:textSize="13sp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:layout_marginStart="10dp"
+                android:text="✍️ ওয়াটারমার্ক ও সিগনেচার"
+                android:textColor="#0F172A"
+                android:textSize="17sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <!-- Import Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="12dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_wm_camera"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="📷 ক্যামেরা"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:textColor="#0F172A"
+                android:background="@drawable/bg_btn_outline" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_wm_gallery"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1"
+                android:text="🖼️ গ্যালারি"
+                android:textAllCaps="false"
+                android:textSize="13sp"
+                android:textColor="#0F172A"
+                android:background="@drawable/bg_btn_outline" />
+        </LinearLayout>
+
+        <!-- Preview -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="220dp"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_card">
+
+            <ImageView
+                android:id="@+id/iv_wm_preview"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="fitCenter"
+                android:padding="4dp"
+                android:contentDescription="Watermark Preview" />
+
+            <TextView
+                android:id="@+id/tv_wm_status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="bottom|start"
+                android:padding="8dp"
+                android:text="ছবি ইমপোর্ট করুন"
+                android:textColor="#64748B"
+                android:textSize="12sp" />
+        </FrameLayout>
+
+        <!-- Watermark Text -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="ওয়াটারমার্কের টেক্সট"
+                android:textColor="#334155"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginBottom="6dp" />
+
+            <EditText
+                android:id="@+id/et_wm_text"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:hint="যেমন: CONFIDENTIAL বা camlab"
+                android:textSize="14sp"
+                android:textColor="#0F172A"
+                android:background="@drawable/bg_btn_outline"
+                android:paddingHorizontal="12dp"
+                android:imeOptions="actionDone"
+                android:inputType="text"
+                android:text="camlab" />
+        </LinearLayout>
+
+        <!-- Placement -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="📍 অবস্থান"
+                android:textColor="#334155"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_diag"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="↗ তির্যক"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#00896C"
+                    android:background="@drawable/bg_chip" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_center"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="⊕ মাঝখানে"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_corner"
+                    android:layout_width="0dp"
+                    android:layout_height="38dp"
+                    android:layout_weight="1"
+                    android:text="↘ কোণে"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Color -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🎨 রং"
+                android:textColor="#334155"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_color_white"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="5dp"
+                    android:text="⬜ সাদা"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#00896C"
+                    android:background="@drawable/bg_chip" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_color_black"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="5dp"
+                    android:text="⬛ কালো"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_color_red"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="5dp"
+                    android:text="🔴 লাল"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_color_blue"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="🔵 নীল"
+                    android:textAllCaps="false"
+                    android:textSize="12sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Opacity & Font -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="14dp">
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="অস্বচ্ছতা (Opacity):" android:textColor="#334155" android:textSize="12sp" />
+                <TextView android:id="@+id/tv_wm_opacity_val" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="55%" android:textColor="#00896C" android:textStyle="bold" android:textSize="12sp" />
+            </LinearLayout>
+            <SeekBar android:id="@+id/sb_wm_opacity" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginBottom="10dp" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="ফন্ট সাইজ:" android:textColor="#334155" android:textSize="12sp" />
+                <TextView android:id="@+id/tv_wm_font_val" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="36sp" android:textColor="#00896C" android:textStyle="bold" android:textSize="12sp" />
+            </LinearLayout>
+            <SeekBar android:id="@+id/sb_wm_font" android:layout_width="match_parent" android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <!-- Action Buttons -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="24dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_wm_apply"
+                android:layout_width="match_parent"
+                android:layout_height="46dp"
+                android:layout_marginBottom="8dp"
+                android:text="🪄 ওয়াটারমার্ক প্রযুক্ত করুন"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:background="@drawable/bg_btn_primary" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_save_jpg"
+                    android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="🖼️ JPG" android:textAllCaps="false" android:textSize="13sp"
+                    android:textColor="#0F172A" android:background="@drawable/bg_btn_outline" />
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_save_pdf"
+                    android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="📄 PDF" android:textAllCaps="false" android:textSize="13sp"
+                    android:textColor="#0F172A" android:background="@drawable/bg_btn_outline" />
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_print"
+                    android:layout_width="0dp" android:layout_height="40dp" android:layout_weight="1"
+                    android:text="🖨️ প্রিন্ট" android:textAllCaps="false" android:textSize="13sp"
+                    android:textColor="#0F172A" android:background="@drawable/bg_btn_outline" />
+            </LinearLayout>
+        </LinearLayout>
+    </LinearLayout>
+</ScrollView>
