@@ -1,5 +1,5 @@
 /**
- * CamScanner Web - PDF Exporter & File Downloader
+ * CAMLAB Web - PDF Exporter & File Downloader
  * Generates multi-page high-resolution PDFs from canvas elements.
  * Features built-in standalone PDF generator fallback so it works 100% offline!
  */

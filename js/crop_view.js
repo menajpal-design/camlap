@@ -1,6 +1,6 @@
 /**
- * CamScanner Web - 8-Point Intelligent Crop View with Live Magnifier Loupe
- * Replicates the authentic CamScanner boundary adjustment experience.
+ * CAMLAB Web - 8-Point Intelligent Crop View with Live Magnifier Loupe
+ * Replicates the authentic CAMLAB boundary adjustment experience.
  */
 
 class CropView {
@@ -61,7 +61,7 @@ class CropView {
 
         // 3. Draw glowing green connecting lines
         this.ctx.save();
-        this.ctx.strokeStyle = '#00a884'; // CamScanner teal green
+        this.ctx.strokeStyle = '#00a884'; // CAMLAB teal green
         this.ctx.lineWidth = 2.5;
         this.ctx.beginPath();
         this.ctx.moveTo(pts[0].x * scale, pts[0].y * scale);

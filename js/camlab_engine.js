@@ -1,6 +1,6 @@
 /**
- * CamScanner Web Studio Pro - Core Application Engine
- * Implements full authentic CamScanner functionality:
+ * CAMLAB Web Studio Pro - Core Application Engine
+ * Implements full authentic CAMLAB functionality:
  * - Document Library with LocalStorage persistence
  * - 8-Point Intelligent Crop with Real-time Loupe / Magnifier
  * - Camera Viewfinder with Mode Carousel (Docs, ID Photo, ID Card, Book, To Word, QR Code)
@@ -8,7 +8,7 @@
  * - Tools Hub with PDF Tools, Compression, QR Scanner, Book Split, Watermark, Signature
  */
 
-class CamScannerEngine {
+class CamLabEngine {
     constructor() {
         this.documents = [];
         this.currentDocId = null;
@@ -334,7 +334,7 @@ class CamScannerEngine {
     }
 
     /**
-     * Apply signature CamScanner filters (magic, bw, bw2, grayscale, lighten, original)
+     * Apply signature CAMLAB filters (magic, bw, bw2, grayscale, lighten, original)
      */
     applyFilter(filterName) {
         if (!this.processedCanvas) return;

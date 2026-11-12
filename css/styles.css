@@ -1,7 +1,7 @@
 /* ==========================================================================
-   CamScanner Web Studio Pro - Master Multi-Device Responsive Stylesheet
+   CAMLAB Web Studio Pro - Master Multi-Device Responsive Stylesheet
    Supports Mobile (<768px), Tablet (768-1023px), and Desktop (>=1024px)
-   Theme: Official CamScanner Teal (#00A884), Obsidian (#0E1114), Slate (#181C21)
+   Theme: Official CAMLAB Teal (#00A884), Obsidian (#0E1114), Slate (#181C21)
    ========================================================================== */
 
 :root {
@@ -351,7 +351,7 @@ body {
 }
 
 /* ==========================================================================
-   OFFICIAL CAMSCANNER PROMO BANNER CAROUSEL
+   OFFICIAL CAMLAB PROMO BANNER CAROUSEL
    ========================================================================== */
 .cs-banner-slider-container {
     width: 100%;
@@ -423,7 +423,7 @@ body {
 }
 
 /* ==========================================================================
-   CAMSCANNER QUICK SHORTCUTS ROW (App Style)
+   CAMLAB QUICK SHORTCUTS ROW (App Style)
    ========================================================================== */
 .cs-quick-shortcuts {
     display: grid;
@@ -1591,7 +1591,7 @@ body {
 }
 
 /* ==========================================================================
-   BOTTOM TAB BAR (Authentic CamScanner Mobile Bottom Bar)
+   BOTTOM TAB BAR (Authentic CAMLAB Mobile Bottom Bar)
    ========================================================================== */
 .cs-tabbar {
     position: fixed;

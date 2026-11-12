@@ -1,4 +1,4 @@
-package com.camscanner.webstudiopro;
+package com.camlab.studio;
 
 import android.app.Activity;
 import android.content.ContentValues;

@@ -9,13 +9,13 @@
   "orientation": "any",
   "icons": [
     {
-      "src": "assets/cs_icon.png",
+      "src": "assets/camlab_icon.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "assets/cs_icon.png",
+      "src": "assets/camlab_icon.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"

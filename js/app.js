@@ -1,6 +1,6 @@
 /**
- * CamScanner Web Studio Pro - Master Application Controller
- * Replicates the authentic CamScanner mobile, web & desktop interface and full functionality:
+ * CAMLAB Web Studio Pro - Master Application Controller
+ * Replicates the authentic CAMLAB mobile, web & desktop interface and full functionality:
  * - Multi-device responsive design (Mobile, Tablet, Desktop)
  * - 8-Point intelligent quad crop with real-time magnifying loupe
  * - Authentic camera viewfinder with mode carousel, camera flip & torch
@@ -15,7 +15,7 @@
  */
 
 // Global Module Instances
-const csEngine = new CamScannerEngine();
+const csEngine = new CamLabEngine();
 const passportStudio = new PassportStudio();
 const idCardScanner = new IDCardScanner();
 const watermarkStudio = new WatermarkSignatureStudio();
@@ -40,10 +40,10 @@ let bannerInterval = null;
 let currentBannerIdx = 0;
 
 document.addEventListener('DOMContentLoaded', () => {
-    initCamScannerApp();
+    initCamLabApp();
 });
 
-function initCamScannerApp() {
+function initCamLabApp() {
     setupTabNavigation();
     setupHeaderAndSearch();
     setupCategoryPills();
@@ -80,7 +80,7 @@ function initCamScannerApp() {
  * Automatically processes multiple images:
  * - Sobel edge detection & auto quad crop
  * - Auto brightness & shadow lifting
- * - CamScanner signature Magic Color filter
+ * - CAMLAB signature Magic Color filter
  * - Appends to target document or creates a new multi-page document
  * -------------------------------------------------------------------------
  */
@@ -394,7 +394,7 @@ function setupCategoryPills() {
 
 /**
  * -------------------------------------------------------------------------
- * 3. AUTHENTIC CAMSCANNER PROMO BANNER CAROUSEL
+ * 3. AUTHENTIC CAMLAB PROMO BANNER CAROUSEL
  * -------------------------------------------------------------------------
  */
 function setupBannerSlider() {
@@ -457,7 +457,7 @@ function setupBannerSlider() {
 
 /**
  * -------------------------------------------------------------------------
- * 4. CAMSCANNER QUICK SHORTCUTS ROW
+ * 4. CAMLAB QUICK SHORTCUTS ROW
  * -------------------------------------------------------------------------
  */
 function setupQuickShortcuts() {
@@ -980,7 +980,7 @@ function openDocumentDetail(docId) {
 
 /**
  * -------------------------------------------------------------------------
- * 10. DEDICATED CAMSCANNER PDF EXPORT MODAL
+ * 10. DEDICATED CAMLAB PDF EXPORT MODAL
  * -------------------------------------------------------------------------
  */
 function setupPDFExportModal() {
@@ -2005,7 +2005,7 @@ function closeCropScreen() {
 
 /**
  * -------------------------------------------------------------------------
- * 14. FILTER & ENHANCEMENT SCREEN (Exact CamScanner Signature Filters)
+ * 14. FILTER & ENHANCEMENT SCREEN (Exact CAMLAB Signature Filters)
  * -------------------------------------------------------------------------
  */
 function setupFilterScreen() {
@@ -2858,7 +2858,7 @@ function setupOCR() {
 
 /**
  * -------------------------------------------------------------------------
- * 18. TOOLS HUB (25+ CamScanner Features)
+ * 18. TOOLS HUB (25+ CAMLAB Features)
  * -------------------------------------------------------------------------
  */
 function setupToolsHub() {

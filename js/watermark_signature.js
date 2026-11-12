@@ -1,5 +1,5 @@
 /**
- * CamScanner Web - Watermark & Digital Signature Studio
+ * CAMLAB Web - Watermark & Digital Signature Studio
  * Adds secure anti-counterfeit watermarks, signature drawing pad, and signature overlay.
  */
 

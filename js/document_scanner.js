@@ -1,5 +1,5 @@
 /**
- * CamScanner Web - Document Scanner & Multi-page Binder
+ * CAMLAB Web - Document Scanner & Multi-page Binder
  * Interactive 4-point quad perspective warp, signature magic filters, and multi-page management.
  */
 
@@ -109,7 +109,7 @@ class DocumentScanner {
             warpedCanvas = ImageProcessor.perspectiveWarp(srcCanvas, page.corners, targetW, targetH);
         }
 
-        // 3. Apply CamScanner signature filters
+        // 3. Apply CAMLAB signature filters
         const finalCtx = warpedCanvas.getContext('2d');
         let imgData = finalCtx.getImageData(0, 0, targetW, targetH);
 

@@ -1,4 +1,4 @@
-package com.camscanner.webstudiopro;
+package com.camlab.studio;
 
 import android.Manifest;
 import android.content.ClipData;

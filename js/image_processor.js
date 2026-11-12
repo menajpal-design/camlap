@@ -1,6 +1,6 @@
 /**
- * CamScanner Web - Image Processor & Filter Engine
- * Implements CamScanner's signature filters, perspective warping, and passport image processing.
+ * CAMLAB Web - Image Processor & Filter Engine
+ * Implements CAMLAB's signature filters, perspective warping, and passport image processing.
  */
 
 class ImageProcessor {
@@ -330,7 +330,7 @@ class ImageProcessor {
     }
 
     /**
-     * Apply signature CamScanner filters
+     * Apply signature CAMLAB filters
      */
     static applyFilter(imageData, filterType, options = {}) {
         const d = imageData.data;

@@ -93,10 +93,19 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: camlab v6.82.0 (Native Mobile APK + Windows Desktop EXE)
+          name: camlab v6.83.0 (Native Mobile APK + Windows Desktop EXE)
           body: |
-            - **camlab.apk**: ১০০% নেটিভ অফলাইন Android অ্যাপ (WebView ছাড়া — ডকুমেন্ট স্ক্যান, AI পাসপোর্ট ফটো, A4 প্রিন্ট)
-            - **camlab.exe**: ১০০% নেটিভ Windows Desktop অ্যাপ (Single-File .EXE — পাসপোর্ট ফটো, A4 প্রিন্ট শিট ও PDF)
+            - **camlab.apk**: ১০০% নেটিভ অফলাইন Android অ্যাপ (WebView ছাড়া — ইন-অ্যাপ ক্যামেরা স্ক্যানার, ডকুমেন্ট স্ক্যান, AI পাসপোর্ট ফটো, আইডি কার্ড, ওয়াটারমার্ক, OCR ও PDF টুলস)
+            - **camlab.exe**: ১০০% নেটিভ Windows Desktop অ্যাপ (Single-File .EXE — সম্পূর্ণ ৬টি ফিচার ও A4 প্রিন্ট স্টুডিও)
           files: |
             release-files/camlab.apk
             release-files/camlab.exe
+
+      - name: Remove Legacy Release Assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          OLD_ID=$(gh api repos/${{ github.repository }}/releases/tags/latest --jq '.assets[] | select(.name != "camlab.apk" and .name != "camlab.exe") | .id' || true)
+          for id in $OLD_ID; do
+            gh api -X DELETE repos/${{ github.repository }}/releases/assets/$id || true
+          done

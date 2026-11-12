@@ -1,6 +1,6 @@
 /**
- * CamScanner Web - Authentic ID Card 2-Sided Scanner
- * Replicates CamScanner's exact ID Card scanning workflow:
+ * CAMLAB Web - Authentic ID Card 2-Sided Scanner
+ * Replicates CAMLAB's exact ID Card scanning workflow:
  * - Card Templates: National ID / NID, Driver's License, Passport
  * - Step 1: Scan Front Side with interactive card guide
  * - Step 2: Scan Back Side with flip guide
@@ -93,7 +93,7 @@ class IDCardScanner {
     }
 
     /**
-     * Crop image to exact aspect ratio and apply CamScanner enhancement
+     * Crop image to exact aspect ratio and apply CAMLAB enhancement
      */
     processCardImage(img) {
         const t = this.getCardDimensions();
@@ -127,7 +127,7 @@ class IDCardScanner {
 
         ctx.drawImage(img, sx, sy, sw, sh, 0, 0, targetW, targetH);
 
-        // Apply CamScanner filter
+        // Apply CAMLAB filter
         if (this.filterMode !== 'original') {
             const imgData = ctx.getImageData(0, 0, targetW, targetH);
             ImageProcessor.applyFilter(imgData, this.filterMode);
@@ -168,7 +168,7 @@ class IDCardScanner {
         const labelFont = `${Math.round(this.dpi * 0.042)}px sans-serif`;
 
         if (this.layout === 'vertical') {
-            // Stacked vertically in center (CamScanner default for ID Cards)
+            // Stacked vertically in center (CAMLAB default for ID Cards)
             const startX = (a4W - cardW) / 2;
             const frontY = Math.round(a4H * 0.22);
             const backY = Math.round(a4H * 0.54);
@@ -235,7 +235,7 @@ class IDCardScanner {
             this.drawCardBorder(ctx, startX, startY, cardW, cardH);
         }
 
-        // Apply CamScanner Anti-theft watermark if enabled
+        // Apply CAMLAB Anti-theft watermark if enabled
         if (this.watermarkEnabled && this.antiTheftWatermark && this.antiTheftWatermark.trim() !== '') {
             this.applyAntiTheftWatermark(ctx, a4W, a4H);
         }
@@ -243,7 +243,7 @@ class IDCardScanner {
         // Footer note with scale guarantee
         ctx.fillStyle = '#94a3b8';
         ctx.font = `${Math.round(this.dpi * 0.035)}px sans-serif`;
-        ctx.fillText('CamScanner ID Card Studio • 100% 1:1 Scale Certified A4 Print • All Rights Reserved', a4W / 2, a4H - Math.round(this.dpi * 0.2));
+        ctx.fillText('CAMLAB ID Card Studio • 100% 1:1 Scale Certified A4 Print • All Rights Reserved', a4W / 2, a4H - Math.round(this.dpi * 0.2));
 
         return canvas;
     }

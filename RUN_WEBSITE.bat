@@ -1,7 +1,7 @@
 @echo off
-title CamScanner Web Studio Pro
+title camlab Studio
 echo ========================================================
-echo   CamScanner Web Studio Pro চালু হচ্ছে...
+echo   camlab Studio চালু হচ্ছে...
 echo ========================================================
 start "" "%~dp0index.html"
 exit

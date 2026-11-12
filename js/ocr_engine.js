@@ -1,5 +1,5 @@
 /**
- * CamScanner Web - OCR Engine
+ * CAMLAB Web - OCR Engine
  * Extracts text from scanned documents using Tesseract.js with client-side offline fallbacks.
  */
 
@@ -53,7 +53,7 @@ class OCREngine {
 
         const textDensity = ((darkPixels / total) * 100).toFixed(1);
 
-        return `[CamScanner OCR ফলাফল]\n\n` +
+        return `[CAMLAB OCR ফলাফল]\n\n` +
             `ডকুমেন্ট রেজোলিউশন: ${canvas.width} x ${canvas.height} px\n` +
             `টেক্সট ঘনত্ব: ${textDensity}%\n\n` +
             `ইন্টারনেট সংযোগ থাকলে Tesseract.js সরাসরি বাংলা ও ইংরেজি পূর্ণাঙ্গ টেক্সট রিকগনিশন সম্পন্ন করবে।\n` +
