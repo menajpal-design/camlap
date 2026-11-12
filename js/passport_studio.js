@@ -134,10 +134,17 @@ class PassportStudio {
             needsFormalSuit: false
         };
 
-        // Print Sheet State (Custom Sheet Size + Portrait/Landscape + Photos-Per-Row)
+        // Background cutout cache for instant studio color switching
+        this.cutoutCanvas = null;
+        this.bgCutoutEnabled = false;
+        this.bgCutoutTolerance = 45;
+        this.bgCutoutMethod = '';
+
+        // Print Sheet State (Custom Sheet Size + Portrait/Landscape + Tile Rotation + Photos-Per-Row)
         this.printState = {
             paperSize: 'A4',            // 'A4', '4x6', '5x7', 'legal', 'custom'
             sheetOrientation: 'portrait', // 'portrait' | 'landscape'
+            tileLandscapeOnSheet: false,  // Rotate finished portrait passport 90 deg on sheet (4/row on Portrait A4)
             customSheetWidthMm: 210,
             customSheetHeightMm: 297,
             photosPerRow: 5,
@@ -158,12 +165,41 @@ class PassportStudio {
         img.crossOrigin = 'anonymous';
         img.onload = async () => {
             this.rawImage = img;
+            this.cutoutCanvas = null;
+            this.bgCutoutEnabled = false;
+            this.bgCutoutMethod = '';
             await this.analyzePortraitFeatures();
             this.autoFrameHeadNeckChest();
             this.renderCroppedPhoto();
             if (callback) callback(this.analysis);
         };
         img.src = src;
+    }
+
+    /**
+     * Extract AI + Offline Graph foreground cutout once and apply chosen solid background color.
+     */
+    async applyAiBackgroundCutout(targetColorHex = null, tolerance = 45, forceRecompute = false) {
+        if (!this.rawImage) return null;
+        if (targetColorHex) this.state.bgColor = targetColorHex;
+        const tolChanged = Math.abs((this.bgCutoutTolerance || 45) - tolerance) >= 1;
+        if (!this.cutoutCanvas || forceRecompute || tolChanged) {
+            this.bgCutoutTolerance = tolerance;
+            this.cutoutCanvas = await ImageProcessor.extractForegroundCutoutAI(
+                this.rawImage,
+                this.analysis?.faceBox || null,
+                tolerance
+            );
+            this.bgCutoutMethod = this.cutoutCanvas?.cutoutMethod || 'offline-mrf';
+        }
+        this.bgCutoutEnabled = true;
+        this.renderCroppedPhoto();
+        return this.bgCutoutMethod;
+    }
+
+    resetOriginalBackground() {
+        this.bgCutoutEnabled = false;
+        this.renderCroppedPhoto();
     }
 
     /**
@@ -648,24 +684,35 @@ class PassportStudio {
         ctx.fillStyle = this.state.bgColor;
         ctx.fillRect(0, 0, w, h);
 
-        ctx.save();
-        ctx.translate(w / 2, h / 2);
-        const totalDeg = (this.state.rotation || 0) + (this.state.quarterTurnDeg || 0);
-        ctx.rotate((totalDeg * Math.PI) / 180);
-        ctx.translate(-w / 2, -h / 2);
+        const sourceDrawable = (this.bgCutoutEnabled && this.cutoutCanvas) ? this.cutoutCanvas : this.rawImage;
 
-        ctx.drawImage(
-            this.rawImage,
+        // Render foreground on transparent buffer so adjustments never tint the studio background
+        const fgCanvas = document.createElement('canvas');
+        fgCanvas.width = w;
+        fgCanvas.height = h;
+        const fgCtx = fgCanvas.getContext('2d');
+        fgCtx.save();
+        fgCtx.translate(w / 2, h / 2);
+        const totalDeg = (this.state.rotation || 0) + (this.state.quarterTurnDeg || 0);
+        fgCtx.rotate((totalDeg * Math.PI) / 180);
+        fgCtx.translate(-w / 2, -h / 2);
+
+        fgCtx.drawImage(
+            sourceDrawable,
             this.state.offsetX,
             this.state.offsetY,
-            this.rawImage.width * this.state.scale,
-            this.rawImage.height * this.state.scale
+            sourceDrawable.width * this.state.scale,
+            sourceDrawable.height * this.state.scale
         );
-        ctx.restore();
+        fgCtx.restore();
 
-        let imgData = ctx.getImageData(0, 0, w, h);
-        this.applyAdjustments(imgData);
-        ctx.putImageData(imgData, 0, 0);
+        if (this.state.brightness !== 0 || this.state.contrast !== 0 || this.state.skinSmoothing > 0) {
+            const imgData = fgCtx.getImageData(0, 0, w, h);
+            this.applyAdjustments(imgData);
+            fgCtx.putImageData(imgData, 0, 0);
+        }
+
+        ctx.drawImage(fgCanvas, 0, 0);
 
         if (this.state.selectedSuit && this.state.selectedSuit !== 'none') {
             this.drawSuitOverlay(ctx, w, h);
@@ -812,20 +859,24 @@ class PassportStudio {
 
         const usableW = sheetWidthMm - (this.printState.marginMm || 6) * 2;
         const gap = this.printState.gapMm || 3.5;
-        const maxColsFit = Math.max(1, Math.floor((usableW + gap) / (this.currentPreset.widthMm + gap)));
-        const maxRowsFit = Math.max(1, Math.floor(((sheetHeightMm - 18) + gap) / (this.currentPreset.heightMm + gap)));
-        return { sheetWidthMm, sheetHeightMm, maxColsFit, maxRowsFit };
+        const tileLand = Boolean(this.printState.tileLandscapeOnSheet);
+        const effPhotoW = tileLand ? this.currentPreset.heightMm : this.currentPreset.widthMm;
+        const effPhotoH = tileLand ? this.currentPreset.widthMm : this.currentPreset.heightMm;
+        const maxColsFit = Math.max(1, Math.floor((usableW + gap) / (effPhotoW + gap)));
+        const maxRowsFit = Math.max(1, Math.floor(((sheetHeightMm - 18) + gap) / (effPhotoH + gap)));
+        return { sheetWidthMm, sheetHeightMm, maxColsFit, maxRowsFit, effPhotoW, effPhotoH };
     }
 
     /**
-     * Generate Print Sheet (A4 / 4x6 / 5x7) respecting exact Photos-Per-Row (এক লাইনে কয়টা ছবি) & Row Count
+     * Generate Print Sheet (A4 / 4x6 / 5x7) respecting exact Photos-Per-Row (এক লাইনে কয়টা ছবি) & Landscape Tile Rotation
      */
     generatePrintSheet() {
         const photoCanvas = this.renderCroppedPhoto();
         if (!photoCanvas) return null;
 
         const dpi = 300;
-        const { sheetWidthMm, sheetHeightMm, maxRowsFit } = this.getPaperMetrics();
+        const { sheetWidthMm, sheetHeightMm, maxRowsFit, effPhotoW, effPhotoH } = this.getPaperMetrics();
+        const tileLandscape = Boolean(this.printState.tileLandscapeOnSheet);
 
         const sheetW = Math.round((sheetWidthMm / 25.4) * dpi);
         const sheetH = Math.round((sheetHeightMm / 25.4) * dpi);
@@ -839,12 +890,12 @@ class PassportStudio {
         ctx.fillStyle = '#FFFFFF';
         ctx.fillRect(0, 0, sheetW, sheetH);
 
-        let photoW = Math.round((this.currentPreset.widthMm / 25.4) * dpi);
-        let photoH = Math.round((this.currentPreset.heightMm / 25.4) * dpi);
+        let photoW = Math.round((effPhotoW / 25.4) * dpi);
+        let photoH = Math.round((effPhotoH / 25.4) * dpi);
         let gapPx = Math.round(((this.printState.gapMm || 3.5) / 25.4) * dpi);
         const marginPx = Math.round(((this.printState.marginMm || 6) / 25.4) * dpi);
 
-        const desiredCols = Math.max(1, parseInt(this.printState.photosPerRow) || 5);
+        const desiredCols = Math.max(1, parseInt(this.printState.photosPerRow) || (tileLandscape ? 4 : 5));
         const usableW = sheetW - marginPx * 2;
 
         // Ensure exact desiredCols photos fit cleanly in one horizontal row
@@ -880,7 +931,15 @@ class PassportStudio {
                 if (drawn >= totalPhotos) break;
                 const px = startX + c * (photoW + gapPx);
 
-                ctx.drawImage(photoCanvas, px, py, photoW, photoH);
+                if (tileLandscape) {
+                    ctx.save();
+                    ctx.translate(px + photoW / 2, py + photoH / 2);
+                    ctx.rotate(Math.PI / 2);
+                    ctx.drawImage(photoCanvas, -photoH / 2, -photoW / 2, photoH, photoW);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(photoCanvas, px, py, photoW, photoH);
+                }
 
                 if (this.printState.hasBorder) {
                     ctx.strokeStyle = '#cbd5e1';

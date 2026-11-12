@@ -2160,13 +2160,14 @@ function getPrintSheetLayoutSummaryText() {
     const ps = passportStudio.printState;
     const { sheetWidthMm, sheetHeightMm, maxRowsFit } = passportStudio.getPaperMetrics();
     const rowsUsed = ps.rowCount === 'full' ? maxRowsFit : (parseInt(ps.rowCount) || 2);
-    const cols = parseInt(ps.photosPerRow) || 5;
+    const cols = parseInt(ps.photosPerRow) || (ps.tileLandscapeOnSheet ? 4 : 5);
     const total = rowsUsed * cols;
     const orientBn = ps.sheetOrientation === 'landscape' ? 'ল্যান্ডস্কিপ' : 'সোজা';
+    const tileBn = ps.tileLandscapeOnSheet ? ' • ছবি ল্যান্ডস্কিপ (৯০°)' : '';
     const paperLabel = ps.paperSize === 'custom'
         ? `কাস্টম (${Math.round(sheetWidthMm)}×${Math.round(sheetHeightMm)} মিমি, ${orientBn})`
         : `${ps.paperSize.toUpperCase()} (${Math.round(sheetWidthMm)}×${Math.round(sheetHeightMm)} মিমি, ${orientBn})`;
-    return `${paperLabel} • এক লাইনে ${cols}টি × ${rowsUsed} সারি = ${total}টি ছবি`;
+    return `${paperLabel}${tileBn} • এক লাইনে ${cols}টি × ${rowsUsed} সারি = ${total}টি ছবি`;
 }
 
 function updateSheetOrientationAndCustomUI() {
@@ -2193,6 +2194,20 @@ function updateSheetOrientationAndCustomUI() {
     });
     ['inline-sheet-orient-landscape', 'modal-sheet-orient-landscape'].forEach(id => {
         document.getElementById(id)?.classList.toggle('active', isLand);
+    });
+
+    const isTileLand = Boolean(ps.tileLandscapeOnSheet);
+    ['inline-tile-upright', 'modal-tile-upright'].forEach(id => {
+        document.getElementById(id)?.classList.toggle('active', !isTileLand);
+    });
+    ['inline-tile-landscape', 'modal-tile-landscape'].forEach(id => {
+        document.getElementById(id)?.classList.toggle('active', isTileLand);
+    });
+
+    const rowStr = String(ps.photosPerRow);
+    ['inline-sheet-per-row', 'sheet-photos-per-row'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && el.value !== rowStr) el.value = rowStr;
     });
 }
 
@@ -2377,18 +2392,48 @@ function setupPassportStudio() {
     bindSlider('passport-contrast', 'contrast');
     bindSlider('passport-smooth', 'skinSmoothing');
 
+    const applyBgCutoutWithColor = async (colorHex, forceRecompute = false) => {
+        passportStudio.state.bgColor = colorHex;
+        if (!passportStudio.rawImage) {
+            updatePassportCanvasView();
+            return;
+        }
+        const tol = parseInt(document.getElementById('bg-tolerance')?.value) || 45;
+        const magicBtn = document.getElementById('btn-magic-bg');
+        if (magicBtn && (!passportStudio.cutoutCanvas || forceRecompute)) {
+            magicBtn.disabled = true;
+            magicBtn.textContent = '⏳ AI ব্যাকগ্রাউন্ড কাটছে...';
+        }
+        try {
+            const method = await passportStudio.applyAiBackgroundCutout(colorHex, tol, forceRecompute);
+            updatePassportCanvasView();
+            if (forceRecompute) {
+                showComfortToast(
+                    method === 'mediapipe-ai'
+                        ? '✨ AI নিউরাল ব্যাকগ্রাউন্ড রিমুভাল সম্পন্ন!'
+                        : '✨ স্মার্ট এজ ব্যাকগ্রাউন্ড রিমুভাল সম্পন্ন!',
+                    '🪄',
+                    2600
+                );
+            }
+        } finally {
+            if (magicBtn) {
+                magicBtn.disabled = false;
+                magicBtn.textContent = '🪄 AI ব্যাকগ্রাউন্ড কাটুন';
+            }
+        }
+    };
+
     document.querySelectorAll('.passport-color-dot').forEach(dot => {
         dot.addEventListener('click', () => {
             document.querySelectorAll('.passport-color-dot').forEach(d => d.classList.remove('active'));
             dot.classList.add('active');
-            passportStudio.state.bgColor = dot.dataset.color;
-            updatePassportCanvasView();
+            applyBgCutoutWithColor(dot.dataset.color, false);
         });
     });
 
     document.getElementById('passport-custom-color')?.addEventListener('input', (e) => {
-        passportStudio.state.bgColor = e.target.value;
-        updatePassportCanvasView();
+        applyBgCutoutWithColor(e.target.value, false);
     });
 
     document.getElementById('toggle-guidelines')?.addEventListener('change', (e) => {
@@ -2401,18 +2446,14 @@ function setupPassportStudio() {
             alert('অনুগ্রহ করে প্রথমে একটি ছবি আপলোড করুন!');
             return;
         }
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = passportStudio.rawImage.width;
-        tempCanvas.height = passportStudio.rawImage.height;
-        const tCtx = tempCanvas.getContext('2d');
-        tCtx.drawImage(passportStudio.rawImage, 0, 0);
+        applyBgCutoutWithColor(passportStudio.state.bgColor, true);
+    });
 
-        const tol = parseInt(document.getElementById('bg-tolerance').value) || 35;
-        ImageProcessor.replaceBackground(tempCanvas, passportStudio.state.bgColor, tol, null, passportStudio.analysis?.faceBox);
-
-        passportStudio.loadImage(tempCanvas.toDataURL('image/png'), (analysis) => {
-            onPassportImageLoaded(analysis);
-        });
+    document.getElementById('btn-reset-bg')?.addEventListener('click', () => {
+        if (!passportStudio.rawImage) return;
+        passportStudio.resetOriginalBackground();
+        updatePassportCanvasView();
+        showComfortToast('আসল ব্যাকগ্রাউন্ড ফিরিয়ে আনা হয়েছে', '🔄', 2000);
     });
 
     if (previewCanvas) {
@@ -2464,6 +2505,27 @@ function setupPassportStudio() {
     });
     ['inline-sheet-orient-landscape', 'modal-sheet-orient-landscape'].forEach(id => {
         document.getElementById(id)?.addEventListener('click', () => setSheetOrient('landscape'));
+    });
+
+    // Place portrait passport photos sideways (90° landscape tile) on sheet (4/row on Portrait A4)
+    const setTileOrient = (tileLandscape) => {
+        passportStudio.printState.tileLandscapeOnSheet = tileLandscape;
+        if (passportStudio.printState.sheetOrientation === 'portrait') {
+            if (tileLandscape && parseInt(passportStudio.printState.photosPerRow) === 5) {
+                passportStudio.printState.photosPerRow = 4;
+            } else if (!tileLandscape && parseInt(passportStudio.printState.photosPerRow) === 4) {
+                passportStudio.printState.photosPerRow = 5;
+            }
+        }
+        updateSheetOrientationAndCustomUI();
+        renderInlineA4SheetPreview();
+        if (document.getElementById('print-modal')?.classList.contains('active')) renderPrintSheetModal();
+    };
+    ['inline-tile-upright', 'modal-tile-upright'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => setTileOrient(false));
+    });
+    ['inline-tile-landscape', 'modal-tile-landscape'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => setTileOrient(true));
     });
 
     const bindCustomSheetInputs = (wId, hId) => {

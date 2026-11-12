@@ -506,6 +506,11 @@
                                 <button type="button" id="inline-sheet-orient-portrait" class="cs-gender-btn active">📄 সোজা</button>
                                 <button type="button" id="inline-sheet-orient-landscape" class="cs-gender-btn">📐 ল্যান্ডস্কিপ</button>
                             </div>
+                            <div class="cs-gender-toggle-group">
+                                <span style="font-size:0.74rem; color:var(--cs-text-dim); margin-right:4px;">শিটে ছবি বসানো:</span>
+                                <button type="button" id="inline-tile-upright" class="cs-gender-btn active">🧍 সোজা</button>
+                                <button type="button" id="inline-tile-landscape" class="cs-gender-btn">📐 ল্যান্ডস্কিপ (৪টি/লাইন)</button>
+                            </div>
                             <div id="inline-custom-sheet-wrap" class="cs-custom-mm-inline" style="display:none;">
                                 <input type="number" id="inline-sheet-w" value="210" min="40" max="600" class="cs-input-clean" style="width:76px;" title="পেজ প্রস্থ mm">
                                 <span>×</span>
@@ -575,11 +580,14 @@
 
                         <div class="cs-sub-control-box">
                             <div style="display:flex; justify-content:space-between; font-size:0.75rem; margin-bottom:4px; color:var(--cs-text-dim);">
-                                <span>ম্যাজিক ব্যাকগ্রাউন্ড রিমুভার</span>
-                                <span>টলারেন্স: <span id="bg-tolerance-val">35</span></span>
+                                <span>AI ব্যাকগ্রাউন্ড রিমুভার</span>
+                                <span>টলারেন্স: <span id="bg-tolerance-val">45</span></span>
                             </div>
-                            <input type="range" id="bg-tolerance" min="10" max="90" value="35" class="cs-range-slider" oninput="document.getElementById('bg-tolerance-val').textContent = this.value;">
-                            <button id="btn-magic-bg" class="cs-icon-btn" style="width:100%; justify-content:center; margin-top:8px; font-size:0.8rem;">🪄 ব্যাকগ্রাউন্ড পরিবর্তন করুন</button>
+                            <input type="range" id="bg-tolerance" min="15" max="90" value="45" class="cs-range-slider" oninput="document.getElementById('bg-tolerance-val').textContent = this.value;">
+                            <div style="display:flex; gap:6px; margin-top:8px;">
+                                <button type="button" id="btn-magic-bg" class="cs-icon-btn" style="flex:1; justify-content:center; font-size:0.78rem; background:var(--cs-teal); color:#fff; border-color:var(--cs-teal);">🪄 AI ব্যাকগ্রাউন্ড কাটুন</button>
+                                <button type="button" id="btn-reset-bg" class="cs-icon-btn" style="justify-content:center; font-size:0.78rem;" title="আসল ব্যাকগ্রাউন্ডে ফিরুন">🔄 আসল</button>
+                            </div>
                         </div>
                     </div>
 
@@ -1113,6 +1121,11 @@
                     <div class="cs-gender-toggle-group" style="margin-top:4px;">
                         <button type="button" id="modal-sheet-orient-portrait" class="cs-gender-btn active">📄 সোজা</button>
                         <button type="button" id="modal-sheet-orient-landscape" class="cs-gender-btn">📐 ল্যান্ডস্কিপ</button>
+                    </div>
+                    <label style="font-size:0.75rem; color:var(--cs-text-dim); display:block; margin-top:6px;">শিটে ছবি বসানো:</label>
+                    <div class="cs-gender-toggle-group" style="margin-top:4px;">
+                        <button type="button" id="modal-tile-upright" class="cs-gender-btn active">🧍 সোজা</button>
+                        <button type="button" id="modal-tile-landscape" class="cs-gender-btn">📐 ল্যান্ডস্কিপ (৪টি/লাইন)</button>
                     </div>
                     <div id="modal-custom-sheet-wrap" class="cs-custom-mm-inline" style="display:none; margin-top:6px;">
                         <input type="number" id="modal-sheet-w" value="210" min="40" max="600" class="cs-input-clean" style="width:68px;">

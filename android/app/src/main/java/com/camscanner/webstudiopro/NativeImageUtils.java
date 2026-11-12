@@ -44,6 +44,7 @@ import org.opencv.imgproc.Imgproc;
 
 import java.io.InputStream;
 import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -301,15 +302,18 @@ public final class NativeImageUtils {
     }
 
     /**
-     * Neural AI Selfie Segmentation Background Replacement with raw-size matte,
-     * face/torso protection, OpenCV Gaussian matte smoothing, and edge de-fringing.
+     * Hybrid AI Human Cutout: Google ML Kit Selfie Segmentation (raw high-res mask)
+     * refined with OpenCV C++ GrabCut (GMM foreground/background graph-cut),
+     * core face/neck protection, Gaussian alpha feathering & color-spill removal.
+     * Returns transparent ARGB_8888 Bitmap containing ONLY the person.
      */
-    public static Bitmap replaceBackgroundAI(Bitmap src, int targetColor) {
-        return replaceBackgroundAI(src, null, targetColor);
-    }
-
-    public static Bitmap replaceBackgroundAI(Bitmap src, PortraitInfo info, int targetColor) {
+    public static Bitmap extractForegroundCutoutAI(Bitmap src, PortraitInfo info) {
         if (src == null) return null;
+        int w = src.getWidth();
+        int h = src.getHeight();
+        float[] mlAlpha = new float[w * h];
+        boolean hasMlMask = false;
+
         try {
             SelfieSegmenterOptions opts = new SelfieSegmenterOptions.Builder()
                     .setDetectorMode(SelfieSegmenterOptions.SINGLE_IMAGE_MODE)
@@ -323,113 +327,211 @@ public final class NativeImageUtils {
             int mh = mask.getHeight();
             ByteBuffer buf = mask.getBuffer();
             buf.rewind();
+            buf.order(ByteOrder.nativeOrder());
             float[] conf = new float[mw * mh];
             buf.asFloatBuffer().get(conf);
 
-            int w = src.getWidth();
-            int h = src.getHeight();
-
-            // Resample high-res confidence onto target grid & apply OpenCV smoothing on edge matte
-            float[] alphaMap = new float[w * h];
-            for (int y = 0; y < h; y++) {
-                float fy = ((y + 0.5f) * mh / h) - 0.5f;
-                int y0 = Math.max(0, Math.min(mh - 1, (int) Math.floor(fy)));
-                int y1 = Math.max(0, Math.min(mh - 1, y0 + 1));
-                float wy = Math.max(0f, fy - y0);
-                for (int x = 0; x < w; x++) {
-                    float fx = ((x + 0.5f) * mw / w) - 0.5f;
-                    int x0 = Math.max(0, Math.min(mw - 1, (int) Math.floor(fx)));
-                    int x1 = Math.max(0, Math.min(mw - 1, x0 + 1));
-                    float wx = Math.max(0f, fx - x0);
-                    float c00 = conf[y0 * mw + x0];
-                    float c10 = conf[y0 * mw + x1];
-                    float c01 = conf[y1 * mw + x0];
-                    float c11 = conf[y1 * mw + x1];
-                    float c = (c00 * (1f - wx) + c10 * wx) * (1f - wy) + (c01 * (1f - wx) + c11 * wx) * wy;
-                    alphaMap[y * w + x] = c;
-                }
+            float maxC = 0f;
+            for (int i = 0; i < conf.length; i += Math.max(1, conf.length / 200)) {
+                if (!Float.isNaN(conf[i]) && conf[i] <= 1.05f && conf[i] > maxC) maxC = conf[i];
             }
-
-            // Strengthen core human face/neck/upper-torso region so skin/collar never vanishes
-            if (info != null && info.humanDetected) {
-                float fCx = info.centerX;
-                float fRx = Math.max(24f, info.faceWidth * 0.36f);
-                float fCy = (info.crownY + info.chinY) * 0.52f;
-                float fRy = Math.max(30f, (info.chinY - info.crownY) * 0.44f);
-                float neckTop = info.chinY - fRy * 0.15f;
-                float chestHalf = Math.max(36f, info.faceWidth * 0.45f);
+            if (maxC > 0.15f) {
+                hasMlMask = true;
                 for (int y = 0; y < h; y++) {
+                    float fy = ((y + 0.5f) * mh / h) - 0.5f;
+                    int y0 = Math.max(0, Math.min(mh - 1, (int) Math.floor(fy)));
+                    int y1 = Math.max(0, Math.min(mh - 1, y0 + 1));
+                    float wy = Math.max(0f, fy - y0);
                     for (int x = 0; x < w; x++) {
-                        float nx = (x - fCx) / fRx;
-                        float ny = (y - fCy) / fRy;
-                        float dFace = nx * nx + ny * ny;
-                        if (dFace < 0.72f) {
-                            alphaMap[y * w + x] = Math.max(alphaMap[y * w + x], 0.96f);
-                        } else if (y > neckTop && Math.abs(x - fCx) < chestHalf) {
-                            alphaMap[y * w + x] = Math.max(alphaMap[y * w + x], 0.85f);
-                        }
+                        float fx = ((x + 0.5f) * mw / w) - 0.5f;
+                        int x0 = Math.max(0, Math.min(mw - 1, (int) Math.floor(fx)));
+                        int x1 = Math.max(0, Math.min(mw - 1, x0 + 1));
+                        float wx = Math.max(0f, fx - x0);
+                        float c00 = conf[y0 * mw + x0], c10 = conf[y0 * mw + x1];
+                        float c01 = conf[y1 * mw + x0], c11 = conf[y1 * mw + x1];
+                        float c = (c00 * (1f - wx) + c10 * wx) * (1f - wy) + (c01 * (1f - wx) + c11 * wx) * wy;
+                        mlAlpha[y * w + x] = Math.max(0f, Math.min(1f, c));
                     }
                 }
             }
+        } catch (Exception ignored) {}
 
-            if (ensureOpenCV()) {
-                Mat matte = new Mat(h, w, CvType.CV_32FC1);
-                matte.put(0, 0, alphaMap);
-                Imgproc.GaussianBlur(matte, matte, new Size(5, 5), 1.1);
-                matte.get(0, 0, alphaMap);
-                matte.release();
-            }
+        // Stage 2: OpenCV C++ GrabCut refinement (either refines ML Kit mask or performs full Cutout from FaceBox)
+        float[] finalAlpha = new float[w * h];
+        if (hasMlMask) {
+            System.arraycopy(mlAlpha, 0, finalAlpha, 0, mlAlpha.length);
+        }
 
-            int[] pixels = new int[w * h];
-            src.getPixels(pixels, 0, w, 0, 0, w, h);
+        if (ensureOpenCV()) {
+            try {
+                int maxGcDim = 340;
+                float gcScale = Math.min(1f, (float) maxGcDim / Math.max(w, h));
+                int gw = Math.max(48, Math.round(w * gcScale));
+                int gh = Math.max(48, Math.round(h * gcScale));
+                Bitmap smallBmp = Bitmap.createScaledBitmap(src, gw, gh, true);
 
-            // Estimate outer original background RGB from corners for fringe spill decontamination
-            int c1 = pixels[Math.min(h - 1, 8) * w + Math.min(w - 1, 8)];
-            int c2 = pixels[Math.min(h - 1, 8) * w + Math.max(0, w - 9)];
-            int oldBgR = (Color.red(c1) + Color.red(c2)) / 2;
-            int oldBgG = (Color.green(c1) + Color.green(c2)) / 2;
-            int oldBgB = (Color.blue(c1) + Color.blue(c2)) / 2;
+                Mat rgba = new Mat();
+                Utils.bitmapToMat(smallBmp, rgba);
+                Mat rgb = new Mat();
+                Imgproc.cvtColor(rgba, rgb, Imgproc.COLOR_RGBA2RGB);
 
-            int bgR = Color.red(targetColor);
-            int bgG = Color.green(targetColor);
-            int bgB = Color.blue(targetColor);
+                Mat gcMask = new Mat(gh, gw, CvType.CV_8UC1);
+                byte[] gcBytes = new byte[gw * gh];
 
-            for (int i = 0; i < pixels.length; i++) {
-                float c = alphaMap[i];
-                if (c >= 0.86f) continue;
-                if (c <= 0.24f) {
-                    pixels[i] = targetColor;
-                    continue;
+                float fCx = (info != null && info.humanDetected) ? info.centerX * gcScale : gw * 0.5f;
+                float fW = (info != null && info.humanDetected) ? Math.max(16f, info.faceWidth * gcScale) : gw * 0.36f;
+                float fTop = (info != null && info.humanDetected) ? info.crownY * gcScale : gh * 0.14f;
+                float fChin = (info != null && info.humanDetected) ? info.chinY * gcScale : gh * 0.60f;
+                float fCy = (fTop + fChin) * 0.50f;
+                float fRx = Math.max(12f, fW * 0.36f);
+                float fRy = Math.max(16f, (fChin - fTop) * 0.44f);
+
+                for (int y = 0; y < gh; y++) {
+                    int sy = Math.min(h - 1, Math.round(y / gcScale));
+                    for (int x = 0; x < gw; x++) {
+                        int sx = Math.min(w - 1, Math.round(x / gcScale));
+                        float nx = (x - fCx) / fRx;
+                        float ny = (y - fCy) / fRy;
+                        boolean inFaceCore = (nx * nx + ny * ny) < 0.70f;
+                        boolean inBodyCore = (y > fChin && Math.abs(x - fCx) < fW * 0.42f);
+                        boolean outerMargin = (x < gw * 0.05f || x > gw * 0.95f || y < gh * 0.04f) && !inFaceCore && !inBodyCore;
+
+                        if (inFaceCore) {
+                            gcBytes[y * gw + x] = (byte) Imgproc.GC_FGD;
+                        } else if (hasMlMask) {
+                            float p = mlAlpha[sy * w + sx];
+                            if (outerMargin && p < 0.45f) gcBytes[y * gw + x] = (byte) Imgproc.GC_BGD;
+                            else if (p >= 0.85f) gcBytes[y * gw + x] = (byte) Imgproc.GC_FGD;
+                            else if (p >= 0.52f || inBodyCore) gcBytes[y * gw + x] = (byte) Imgproc.GC_PR_FGD;
+                            else if (p >= 0.20f) gcBytes[y * gw + x] = (byte) Imgproc.GC_PR_BGD;
+                            else gcBytes[y * gw + x] = (byte) Imgproc.GC_BGD;
+                        } else {
+                            if (inBodyCore) gcBytes[y * gw + x] = (byte) Imgproc.GC_FGD;
+                            else if (outerMargin) gcBytes[y * gw + x] = (byte) Imgproc.GC_BGD;
+                            else if (Math.abs(x - fCx) < fW * 1.15f && y >= fTop * 0.85f) gcBytes[y * gw + x] = (byte) Imgproc.GC_PR_FGD;
+                            else gcBytes[y * gw + x] = (byte) Imgproc.GC_PR_BGD;
+                        }
+                    }
                 }
-                // Soft smoothstep alpha & de-fringe edge decontamination
-                float t = (c - 0.24f) / 0.62f;
+                gcMask.put(0, 0, gcBytes);
+
+                Mat bgModel = new Mat();
+                Mat fgModel = new Mat();
+                Imgproc.grabCut(rgb, gcMask, new org.opencv.core.Rect(), bgModel, fgModel, 3, Imgproc.GC_INIT_WITH_MASK);
+                gcMask.get(0, 0, gcBytes);
+
+                // Upscale binary GrabCut result & merge cleanly with neural confidence
+                float[] gcFloat = new float[gw * gh];
+                for (int i = 0; i < gcBytes.length; i++) {
+                    byte v = gcBytes[i];
+                    gcFloat[i] = (v == Imgproc.GC_FGD || v == Imgproc.GC_PR_FGD) ? 1.0f : 0.0f;
+                }
+                Mat gcMat = new Mat(gh, gw, CvType.CV_32FC1);
+                gcMat.put(0, 0, gcFloat);
+                Mat gcUp = new Mat();
+                Imgproc.resize(gcMat, gcUp, new Size(w, h), 0, 0, Imgproc.INTER_LINEAR);
+                float[] gcFull = new float[w * h];
+                gcUp.get(0, 0, gcFull);
+
+                for (int i = 0; i < finalAlpha.length; i++) {
+                    if (hasMlMask) {
+                        // Crisp consensus: keep hair detail from ML Kit while removing stubborn background via GrabCut
+                        float ml = mlAlpha[i];
+                        float gc = gcFull[i];
+                        finalAlpha[i] = (ml >= 0.72f) ? Math.max(ml, gc)
+                                : (ml <= 0.30f && gc < 0.5f) ? 0f
+                                : (ml * 0.55f + gc * 0.45f);
+                    } else {
+                        finalAlpha[i] = gcFull[i];
+                    }
+                }
+
+                rgba.release(); rgb.release(); gcMask.release();
+                bgModel.release(); fgModel.release(); gcMat.release(); gcUp.release();
+            } catch (Exception ignored) {
+                if (!hasMlMask) return replaceBackgroundFallbackCutout(src, info, 38);
+            }
+        } else if (!hasMlMask) {
+            return replaceBackgroundFallbackCutout(src, info, 38);
+        }
+
+        // Reinforce face/neck core & apply smooth 5x5 Gaussian feathering on alpha matte
+        if (info != null && info.humanDetected) {
+            float fCx = info.centerX;
+            float fRx = Math.max(24f, info.faceWidth * 0.36f);
+            float fCy = (info.crownY + info.chinY) * 0.52f;
+            float fRy = Math.max(30f, (info.chinY - info.crownY) * 0.44f);
+            float neckTop = info.chinY - fRy * 0.12f;
+            float chestHalf = Math.max(34f, info.faceWidth * 0.44f);
+            for (int y = 0; y < h; y++) {
+                for (int x = 0; x < w; x++) {
+                    float nx = (x - fCx) / fRx;
+                    float ny = (y - fCy) / fRy;
+                    if (nx * nx + ny * ny < 0.72f || (y > neckTop && Math.abs(x - fCx) < chestHalf)) {
+                        finalAlpha[y * w + x] = Math.max(finalAlpha[y * w + x], 0.96f);
+                    }
+                }
+            }
+        }
+
+        if (ensureOpenCV()) {
+            try {
+                Mat matte = new Mat(h, w, CvType.CV_32FC1);
+                matte.put(0, 0, finalAlpha);
+                Imgproc.GaussianBlur(matte, matte, new Size(5, 5), 1.0);
+                matte.get(0, 0, finalAlpha);
+                matte.release();
+            } catch (Exception ignored) {}
+        }
+
+        int[] pixels = new int[w * h];
+        src.getPixels(pixels, 0, w, 0, 0, w, h);
+
+        int c1 = pixels[Math.min(h - 1, 8) * w + Math.min(w - 1, 8)];
+        int c2 = pixels[Math.min(h - 1, 8) * w + Math.max(0, w - 9)];
+        int oldBgR = (Color.red(c1) + Color.red(c2)) / 2;
+        int oldBgG = (Color.green(c1) + Color.green(c2)) / 2;
+        int oldBgB = (Color.blue(c1) + Color.blue(c2)) / 2;
+
+        for (int i = 0; i < pixels.length; i++) {
+            float c = finalAlpha[i];
+            if (c <= 0.36f) {
+                pixels[i] = Color.TRANSPARENT;
+            } else if (c >= 0.80f) {
+                pixels[i] = Color.argb(255, Color.red(pixels[i]), Color.green(pixels[i]), Color.blue(pixels[i]));
+            } else {
+                float t = (c - 0.36f) / 0.44f;
                 float alpha = t * t * (3f - 2f * t);
                 int pCol = pixels[i];
-                float fgR = Color.red(pCol);
-                float fgG = Color.green(pCol);
-                float fgB = Color.blue(pCol);
-                if (alpha > 0.15f && alpha < 0.85f) {
-                    float spill = (1f - alpha) * 0.45f;
-                    float norm = Math.max(0.45f, 1f - spill);
-                    fgR = Math.max(0f, Math.min(255f, (fgR - spill * oldBgR) / norm));
-                    fgG = Math.max(0f, Math.min(255f, (fgG - spill * oldBgG) / norm));
-                    fgB = Math.max(0f, Math.min(255f, (fgB - spill * oldBgB) / norm));
-                }
-                int r = Math.max(0, Math.min(255, Math.round(fgR * alpha + bgR * (1f - alpha))));
-                int g = Math.max(0, Math.min(255, Math.round(fgG * alpha + bgG * (1f - alpha))));
-                int b = Math.max(0, Math.min(255, Math.round(fgB * alpha + bgB * (1f - alpha))));
-                pixels[i] = Color.rgb(r, g, b);
+                float spill = (1f - alpha) * 0.45f;
+                float norm = Math.max(0.45f, 1f - spill);
+                int fgR = Math.max(0, Math.min(255, Math.round((Color.red(pCol) - spill * oldBgR) / norm)));
+                int fgG = Math.max(0, Math.min(255, Math.round((Color.green(pCol) - spill * oldBgG) / norm)));
+                int fgB = Math.max(0, Math.min(255, Math.round((Color.blue(pCol) - spill * oldBgB) / norm)));
+                pixels[i] = Color.argb(Math.round(alpha * 255f), fgR, fgG, fgB);
             }
-
-            Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
-            out.setPixels(pixels, 0, w, 0, 0, w, h);
-            return out;
-        } catch (Exception e) {
-            return replaceBackgroundFallback(src, info, targetColor, 36);
         }
+
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        out.setPixels(pixels, 0, w, 0, 0, w, h);
+        return out;
     }
 
-    private static Bitmap replaceBackgroundFallback(Bitmap src, PortraitInfo info, int targetColor, int tolerance) {
+    public static Bitmap replaceBackgroundAI(Bitmap src, int targetColor) {
+        return replaceBackgroundAI(src, null, targetColor);
+    }
+
+    public static Bitmap replaceBackgroundAI(Bitmap src, PortraitInfo info, int targetColor) {
+        Bitmap cutout = extractForegroundCutoutAI(src, info);
+        if (cutout == null) return src;
+        Bitmap out = Bitmap.createBitmap(cutout.getWidth(), cutout.getHeight(), Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(out);
+        c.drawColor(targetColor);
+        c.drawBitmap(cutout, 0f, 0f, new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG));
+        return out;
+    }
+
+    private static Bitmap replaceBackgroundFallbackCutout(Bitmap src, PortraitInfo info, int tolerance) {
         int w = src.getWidth(), h = src.getHeight();
         int[] pixels = new int[w * h];
         src.getPixels(pixels, 0, w, 0, 0, w, h);
@@ -459,7 +561,7 @@ public final class NativeImageUtils {
             int col = pixels[idx];
             int dr = Color.red(col) - bgR, dg = Color.green(col) - bgG, db = Color.blue(col) - bgB;
             if (dr * dr + dg * dg + db * db > tolSq) continue;
-            pixels[idx] = targetColor;
+            pixels[idx] = Color.TRANSPARENT;
             for (int n : new int[]{idx - 1, idx + 1, idx - w, idx + w}) {
                 if (n >= 0 && n < pixels.length && !visited[n]) { visited[n] = true; q.add(n); }
             }
@@ -484,9 +586,27 @@ public final class NativeImageUtils {
             int bgColor,
             boolean doReplaceBg
     ) {
+        return renderPassportPhoto(src, null, info, targetW, targetH, userZoom, panX, panY, suitMode, bgColor, doReplaceBg);
+    }
+
+    public static Bitmap renderPassportPhoto(
+            Bitmap src,
+            Bitmap precomputedCutout,
+            PortraitInfo info,
+            int targetW,
+            int targetH,
+            float userZoom,
+            float panX,
+            float panY,
+            int suitMode,
+            int bgColor,
+            boolean doReplaceBg
+    ) {
         if (src == null) return null;
 
-        Bitmap working = doReplaceBg ? replaceBackgroundAI(src, info, bgColor) : src;
+        Bitmap working = doReplaceBg
+                ? (precomputedCutout != null ? precomputedCutout : extractForegroundCutoutAI(src, info))
+                : src;
 
         Bitmap out = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
         Canvas canvas = new Canvas(out);
@@ -746,10 +866,28 @@ public final class NativeImageUtils {
             int rowsWanted,
             boolean cutLines
     ) {
+        return composePrintSheet(singlePhoto, photoMmW, photoMmH, sheetMmW, sheetMmH, photosPerRow, rowsWanted, cutLines, false);
+    }
+
+    public static Bitmap composePrintSheet(
+            Bitmap singlePhoto,
+            float photoMmW,
+            float photoMmH,
+            float sheetMmW,
+            float sheetMmH,
+            int photosPerRow,
+            int rowsWanted,
+            boolean cutLines,
+            boolean tileLandscapeOnSheet
+    ) {
         if (singlePhoto == null) return null;
         int dpi = 200;
         sheetMmW = Math.max(40f, sheetMmW);
         sheetMmH = Math.max(40f, sheetMmH);
+
+        Bitmap tileBmp = tileLandscapeOnSheet ? rotateBitmap(singlePhoto, 90f) : singlePhoto;
+        float effPhotoMmW = tileLandscapeOnSheet ? photoMmH : photoMmW;
+        float effPhotoMmH = tileLandscapeOnSheet ? photoMmW : photoMmH;
 
         int sheetW = Math.round((sheetMmW / 25.4f) * dpi);
         int sheetH = Math.round((sheetMmH / 25.4f) * dpi);
@@ -758,8 +896,8 @@ public final class NativeImageUtils {
         Canvas c = new Canvas(sheet);
         c.drawColor(Color.WHITE);
 
-        float photoW = (photoMmW / 25.4f) * dpi;
-        float photoH = (photoMmH / 25.4f) * dpi;
+        float photoW = (effPhotoMmW / 25.4f) * dpi;
+        float photoH = (effPhotoMmH / 25.4f) * dpi;
         float gap = (3.5f / 25.4f) * dpi;
         float margin = (6f / 25.4f) * dpi;
 
@@ -800,7 +938,7 @@ public final class NativeImageUtils {
             for (int col = 0; col < cols; col++) {
                 float px = startX + col * (photoW + gap);
                 RectF dst = new RectF(px, py, px + photoW, py + photoH);
-                c.drawBitmap(singlePhoto, null, dst, imgPaint);
+                c.drawBitmap(tileBmp, null, dst, imgPaint);
                 c.drawRect(dst, borderPaint);
 
                 if (cutLines) {

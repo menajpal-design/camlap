@@ -33,6 +33,7 @@ import java.util.concurrent.Executors;
 public class PassportStudioActivity extends AppCompatActivity {
 
     private Bitmap rawBitmap;
+    private Bitmap cutoutBitmap;
     private NativeImageUtils.PortraitInfo portraitInfo;
     private Bitmap croppedBitmap;
     private Bitmap sheetBitmap;
@@ -49,10 +50,11 @@ public class PassportStudioActivity extends AppCompatActivity {
     private float photoMmH = 45f;
     private boolean photoLandscape = false;
 
-    // Main Sheet Custom Dimensions & Orientation
+    // Main Sheet Custom Dimensions, Orientation & Tile Rotation
     private float sheetMmW = 210f;
     private float sheetMmH = 297f;
     private boolean sheetLandscape = false;
+    private boolean tileLandscapeOnSheet = false;
 
     private int photosPerRow = 5;
     private int rowsCount = 2; // 0 = full sheet
@@ -63,12 +65,14 @@ public class PassportStudioActivity extends AppCompatActivity {
     private TextView tvAttire;
     private TextView tvSheetSummary;
     private EditText etPhotoW, etPhotoH, etSheetW, etSheetH;
+    private Spinner spPerRow;
 
     private Button btnGenderMale, btnGenderFemale;
     private Button btnPhotoPortrait, btnPhotoLandscape;
     private Button btnSuitNone, btnSuitBlack, btnSuitNavy, btnSuitFemale;
     private Button btnBgWhite, btnBgSky, btnBgBlue, btnBgToggle;
     private Button btnSheetPortrait, btnSheetLandscape;
+    private Button btnTileUpright, btnTileLandscape;
 
     private boolean suppressSpinnerCallbacks = false;
 
@@ -110,6 +114,9 @@ public class PassportStudioActivity extends AppCompatActivity {
         btnBgToggle = findViewById(R.id.btn_bg_toggle);
         btnSheetPortrait = findViewById(R.id.btn_sheet_portrait);
         btnSheetLandscape = findViewById(R.id.btn_sheet_landscape);
+        btnTileUpright = findViewById(R.id.btn_tile_upright);
+        btnTileLandscape = findViewById(R.id.btn_tile_landscape);
+        spPerRow = findViewById(R.id.sp_per_row);
 
         cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), ok -> {
             if (ok && pendingCameraUri != null) loadPortraitUri(pendingCameraUri);
@@ -171,12 +178,14 @@ public class PassportStudioActivity extends AppCompatActivity {
 
         findViewById(R.id.btn_pp_rotate).setOnClickListener(v -> {
             if (rawBitmap == null) return;
-            tvAiStatus.setText("ছবি ঘোরানো ও পুনরায় শনাক্ত করা হচ্ছে...");
+            tvAiStatus.setText("ছবি ঘোরানো ও AI ব্যাকগ্রাউন্ড প্রস্তুত হচ্ছে...");
             final Bitmap rotated = NativeImageUtils.rotateBitmap(rawBitmap, 90f);
             executor.execute(() -> {
                 NativeImageUtils.PortraitInfo info = NativeImageUtils.analyzePortrait(rotated);
+                Bitmap cut = NativeImageUtils.extractForegroundCutoutAI(rotated, info);
                 runOnUiThread(() -> {
                     rawBitmap = rotated;
+                    cutoutBitmap = cut;
                     portraitInfo = info;
                     panX = 0f;
                     panY = 0f;
@@ -211,10 +220,31 @@ public class PassportStudioActivity extends AppCompatActivity {
         btnBgBlue.setOnClickListener(v -> { bgColor = Color.parseColor("#1D4ED8"); replaceBgEnabled = true; updateControlHighlights(); reRenderPassport(); });
         btnBgToggle.setOnClickListener(v -> { replaceBgEnabled = !replaceBgEnabled; updateControlHighlights(); reRenderPassport(); });
 
-        // Sheet Orientation & Custom Size
+        // Sheet Orientation, Tile Placement & Custom Size
         btnSheetPortrait.setOnClickListener(v -> setSheetOrientation(false));
         btnSheetLandscape.setOnClickListener(v -> setSheetOrientation(true));
         findViewById(R.id.btn_apply_sheet_mm).setOnClickListener(v -> applyCustomSheetMm());
+
+        btnTileUpright.setOnClickListener(v -> {
+            tileLandscapeOnSheet = false;
+            if (photosPerRow == 4 && spPerRow != null) {
+                photosPerRow = 5;
+                spPerRow.setSelection(3);
+            }
+            updateControlHighlights();
+            updateSheetSummary();
+            reRenderSheetOnly();
+        });
+        btnTileLandscape.setOnClickListener(v -> {
+            tileLandscapeOnSheet = true;
+            if (photosPerRow == 5 && spPerRow != null) {
+                photosPerRow = 4;
+                spPerRow.setSelection(2); // "৪ টি" optimal for 4x 45mm on Portrait A4
+            }
+            updateControlHighlights();
+            updateSheetSummary();
+            reRenderSheetOnly();
+        });
 
         setupSpinners();
         syncInputs();
@@ -251,6 +281,9 @@ public class PassportStudioActivity extends AppCompatActivity {
 
         setChipActive(btnSheetPortrait, !sheetLandscape);
         setChipActive(btnSheetLandscape, sheetLandscape);
+
+        setChipActive(btnTileUpright, !tileLandscapeOnSheet);
+        setChipActive(btnTileLandscape, tileLandscapeOnSheet);
     }
 
     private void syncInputs() {
@@ -267,9 +300,9 @@ public class PassportStudioActivity extends AppCompatActivity {
     }
 
     private void updateSheetSummary() {
-        String pOr = photoLandscape ? "ল্যান্ডস্কিপ" : "সোজা";
+        String pOr = tileLandscapeOnSheet ? "শিটে ল্যান্ডস্কিপ (৯০°)" : (photoLandscape ? "ল্যান্ডস্কিপ" : "সোজা");
         String sOr = sheetLandscape ? "ল্যান্ডস্কিপ" : "সোজা";
-        tvSheetSummary.setText("পেজ: " + fmtMm(sheetMmW) + "×" + fmtMm(sheetMmH) + " mm (" + sOr + ")  •  ছবি: " + fmtMm(photoMmW) + "×" + fmtMm(photoMmH) + " mm (" + pOr + ")");
+        tvSheetSummary.setText("পেজ: " + fmtMm(sheetMmW) + "×" + fmtMm(sheetMmH) + " mm (" + sOr + ")  •  ছবি: " + fmtMm(photoMmW) + "×" + fmtMm(photoMmH) + " mm (" + pOr + ") • " + photosPerRow + "টি/লাইন");
     }
 
     private void setSinglePhotoOrientation(boolean landscape) {
@@ -428,13 +461,15 @@ public class PassportStudioActivity extends AppCompatActivity {
     }
 
     private void loadPortraitUri(Uri uri) {
-        tvAiStatus.setText("হিউমান ডিটেক্টর: মুখ, মানুষ ও পোশাক শনাক্ত হচ্ছে...");
+        tvAiStatus.setText("হিউমান ডিটেক্টর ও AI ব্যাকগ্রাউন্ড কাটআউট হচ্ছে...");
         executor.execute(() -> {
             Bitmap loaded = NativeImageUtils.loadBitmapSafe(this, uri, 1200);
             if (loaded == null) return;
             NativeImageUtils.PortraitInfo info = NativeImageUtils.analyzePortrait(loaded);
+            Bitmap cut = NativeImageUtils.extractForegroundCutoutAI(loaded, info);
             runOnUiThread(() -> {
                 rawBitmap = loaded;
+                cutoutBitmap = cut;
                 portraitInfo = info;
                 userZoom = 1.0f;
                 panX = 0f;
@@ -458,6 +493,7 @@ public class PassportStudioActivity extends AppCompatActivity {
     private void reRenderPassport() {
         if (rawBitmap == null || portraitInfo == null) return;
         final Bitmap src = rawBitmap;
+        final Bitmap cut = cutoutBitmap;
         final NativeImageUtils.PortraitInfo info = portraitInfo;
         final float zoom = userZoom, px = panX, py = panY;
         final int sm = suitMode, bg = bgColor;
@@ -465,13 +501,14 @@ public class PassportStudioActivity extends AppCompatActivity {
         final float pMmW = photoMmW, pMmH = photoMmH;
         final float sMmW = sheetMmW, sMmH = sheetMmH;
         final int ppr = photosPerRow, rc = rowsCount;
+        final boolean tileLand = tileLandscapeOnSheet;
 
         final int pxW = Math.max(150, Math.round((pMmW / 25.4f) * 300f));
         final int pxH = Math.max(150, Math.round((pMmH / 25.4f) * 300f));
 
         executor.execute(() -> {
-            Bitmap single = NativeImageUtils.renderPassportPhoto(src, info, pxW, pxH, zoom, px, py, sm, bg, rbg);
-            Bitmap sheet = NativeImageUtils.composePrintSheet(single, pMmW, pMmH, sMmW, sMmH, ppr, rc, true);
+            Bitmap single = NativeImageUtils.renderPassportPhoto(src, cut, info, pxW, pxH, zoom, px, py, sm, bg, rbg);
+            Bitmap sheet = NativeImageUtils.composePrintSheet(single, pMmW, pMmH, sMmW, sMmH, ppr, rc, true, tileLand);
             runOnUiThread(() -> {
                 croppedBitmap = single;
                 sheetBitmap = sheet;
@@ -487,11 +524,13 @@ public class PassportStudioActivity extends AppCompatActivity {
         final float pMmW = photoMmW, pMmH = photoMmH;
         final float sMmW = sheetMmW, sMmH = sheetMmH;
         final int ppr = photosPerRow, rc = rowsCount;
+        final boolean tileLand = tileLandscapeOnSheet;
         executor.execute(() -> {
-            Bitmap sheet = NativeImageUtils.composePrintSheet(single, pMmW, pMmH, sMmW, sMmH, ppr, rc, true);
+            Bitmap sheet = NativeImageUtils.composePrintSheet(single, pMmW, pMmH, sMmW, sMmH, ppr, rc, true, tileLand);
             runOnUiThread(() -> {
                 sheetBitmap = sheet;
                 ivA4Preview.setImageBitmap(sheet);
+                updateSheetSummary();
             });
         });
     }

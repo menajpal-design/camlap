@@ -3,3 +3,4 @@
     <background android:drawable="@color/ic_camlab_bg" />
     <foreground android:drawable="@drawable/ic_camlab_foreground" />
 </adaptive-icon>
+

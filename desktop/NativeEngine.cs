@@ -231,112 +231,212 @@ public static class NativeEngine
         return res;
     }
 
+    /// <summary>
+    /// Proper GrabCut-style Multi-Cluster Foreground/Background Cutout with Spatial Portrait Prior,
+    /// MRF edge-aware relaxation & outer border cleanup. Returns ARGB Bitmap with transparent background.
+    /// </summary>
+    public static Bitmap ExtractForegroundCutout(Bitmap src, PortraitAnalysis? info = null)
+    {
+        int w = src.Width, h = src.Height;
+        int workMax = 280;
+        float sc = Math.Min(1f, (float)workMax / Math.Max(w, h));
+        int gw = Math.Max(48, (int)Math.Round(w * sc));
+        int gh = Math.Max(48, (int)Math.Round(h * sc));
+
+        using var smallBmp = new Bitmap(gw, gh, PixelFormat.Format32bppArgb);
+        using (var gs = Graphics.FromImage(smallBmp))
+        {
+            gs.InterpolationMode = InterpolationMode.HighQualityBilinear;
+            gs.DrawImage(src, 0, 0, gw, gh);
+        }
+        byte[] gbuf = ExtractBgraBytes(smallBmp, out int gStride);
+
+        float fCx = (info != null ? info.CenterX : w * 0.5f) * sc;
+        float fW = Math.Max(14f, (info != null ? info.FaceWidth : w * 0.36f) * sc);
+        float fTop = (info != null ? info.CrownY : h * 0.14f) * sc;
+        float fChin = (info != null ? info.ChinY : h * 0.60f) * sc;
+        float fCy = (fTop + fChin) * 0.50f;
+        float fRx = Math.Max(10f, fW * 0.38f);
+        float fRy = Math.Max(14f, (fChin - fTop) * 0.45f);
+
+        // Collect Foreground samples (Face + Neck + Upper Torso center) and Background samples (outer perimeter)
+        var fgSamples = new List<(float B, float G, float R)>();
+        var bgSamples = new List<(float B, float G, float R)>();
+
+        for (int y = 0; y < gh; y += 2)
+        {
+            for (int x = 0; x < gw; x += 2)
+            {
+                int off = y * gStride + x * 4;
+                float pb = gbuf[off], pg = gbuf[off + 1], pr = gbuf[off + 2];
+                float nx = (x - fCx) / fRx, ny = (y - fCy) / fRy;
+                bool inFace = (nx * nx + ny * ny) < 0.72f;
+                bool inTorso = (y > fChin && y < gh * 0.96f && Math.Abs(x - fCx) < fW * 0.42f);
+                bool inOuter = (x < gw * 0.08f || x > gw * 0.92f || (y < Math.Max(8f, fTop * 0.65f) && Math.Abs(x - fCx) > fW * 0.65f));
+
+                if (inFace || inTorso)
+                {
+                    if ((x + y) % 4 == 0) fgSamples.Add((pb, pg, pr));
+                }
+                else if (inOuter)
+                {
+                    bgSamples.Add((pb, pg, pr));
+                }
+            }
+        }
+        if (fgSamples.Count == 0) fgSamples.Add((128, 128, 128));
+        if (bgSamples.Count == 0) bgSamples.Add((240, 240, 240));
+
+        // Initial likelihood probability map + spatial body prior
+        float[] prob = new float[gw * gh];
+        for (int y = 0; y < gh; y++)
+        {
+            for (int x = 0; x < gw; x++)
+            {
+                int idx = y * gw + x;
+                int off = y * gStride + x * 4;
+                float pb = gbuf[off], pg = gbuf[off + 1], pr = gbuf[off + 2];
+
+                float nx = (x - fCx) / (fRx * 1.15f), ny = (y - fCy) / (fRy * 1.15f);
+                if (nx * nx + ny * ny < 0.75f || (y > fChin && Math.Abs(x - fCx) < fW * 0.40f))
+                {
+                    prob[idx] = 1.0f;
+                    continue;
+                }
+                if (x < gw * 0.02f || x > gw * 0.98f || y < Math.Max(4f, fTop * 0.35f))
+                {
+                    prob[idx] = 0.0f;
+                    continue;
+                }
+
+                double minBg = double.MaxValue;
+                foreach (var sw in bgSamples)
+                {
+                    double db = pb - sw.B, dg = pg - sw.G, dr = pr - sw.R;
+                    double d2 = db * db * 0.8 + dg * dg * 1.2 + dr * dr * 1.0;
+                    if (d2 < minBg) minBg = d2;
+                }
+
+                double minFg = double.MaxValue;
+                int stepFg = Math.Max(1, fgSamples.Count / 40);
+                for (int k = 0; k < fgSamples.Count; k += stepFg)
+                {
+                    var sw = fgSamples[k];
+                    double db = pb - sw.B, dg = pg - sw.G, dr = pr - sw.R;
+                    double d2 = db * db * 0.8 + dg * dg * 1.2 + dr * dr * 1.0;
+                    if (d2 < minFg) minFg = d2;
+                }
+
+                double dBg = Math.Sqrt(minBg);
+                double dFg = Math.Sqrt(minFg);
+                float colorLik = (float)(dBg / (dBg + dFg + 1e-4));
+
+                // Shoulder/body geometric prior silhouette
+                float bodySpan = (y < fTop) ? 0.1f : (y < fChin ? fW * 0.65f : fW * (0.75f + (y - fChin) / Math.Max(20f, gh - fChin) * 0.75f));
+                float dx = Math.Abs(x - fCx);
+                float spatialPrior = dx <= bodySpan ? 0.68f : (dx <= bodySpan * 1.35f ? 0.42f : 0.18f);
+
+                prob[idx] = Math.Clamp(colorLik * 0.68f + spatialPrior * 0.32f, 0f, 1f);
+            }
+        }
+
+        // 4 iterations of edge-aware MRF smoothness (keeps sharp contours, removes speckles)
+        float[] nextProb = new float[gw * gh];
+        for (int iter = 0; iter < 4; iter++)
+        {
+            for (int y = 1; y < gh - 1; y++)
+            {
+                for (int x = 1; x < gw - 1; x++)
+                {
+                    int idx = y * gw + x;
+                    float nx = (x - fCx) / fRx, ny = (y - fCy) / fRy;
+                    if (nx * nx + ny * ny < 0.72f || (y > fChin && Math.Abs(x - fCx) < fW * 0.40f))
+                    {
+                        nextProb[idx] = 1.0f;
+                        continue;
+                    }
+                    int off = y * gStride + x * 4;
+                    float cB = gbuf[off], cG = gbuf[off + 1], cR = gbuf[off + 2];
+
+                    float wSum = 1.2f, pSum = prob[idx] * 1.2f;
+                    int[] nb = { idx - 1, idx + 1, idx - gw, idx + gw };
+                    foreach (int ni in nb)
+                    {
+                        int nyi = ni / gw, nxi = ni % gw;
+                        int noff = nyi * gStride + nxi * 4;
+                        float colDiff = Math.Abs(cB - gbuf[noff]) + Math.Abs(cG - gbuf[noff + 1]) + Math.Abs(cR - gbuf[noff + 2]);
+                        float edgeW = (float)Math.Exp(-colDiff / 45f);
+                        wSum += edgeW;
+                        pSum += prob[ni] * edgeW;
+                    }
+                    nextProb[idx] = Math.Clamp(pSum / wSum, 0f, 1f);
+                }
+            }
+            Array.Copy(nextProb, prob, prob.Length);
+        }
+
+        // Border-connected Flood Cleanup so enclosed light clothing isn't punched
+        bool[] bgVisited = new bool[gw * gh];
+        var flood = new Queue<int>();
+        for (int x = 0; x < gw; x++) { flood.Enqueue(x); bgVisited[x] = true; }
+        for (int y = 1; y < gh; y++)
+        {
+            int l = y * gw, r = y * gw + gw - 1;
+            flood.Enqueue(l); bgVisited[l] = true;
+            flood.Enqueue(r); bgVisited[r] = true;
+        }
+        bool[] isBg = new bool[gw * gh];
+        while (flood.Count > 0)
+        {
+            int idx = flood.Dequeue();
+            if (prob[idx] > 0.56f) continue;
+            isBg[idx] = true;
+            int x = idx % gw, y = idx / gw;
+            if (x + 1 < gw && !bgVisited[idx + 1]) { bgVisited[idx + 1] = true; flood.Enqueue(idx + 1); }
+            if (x - 1 >= 0 && !bgVisited[idx - 1]) { bgVisited[idx - 1] = true; flood.Enqueue(idx - 1); }
+            if (y + 1 < gh && !bgVisited[idx + gw]) { bgVisited[idx + gw] = true; flood.Enqueue(idx + gw); }
+            if (y - 1 >= 0 && !bgVisited[idx - gw]) { bgVisited[idx - gw] = true; flood.Enqueue(idx - gw); }
+        }
+
+        var fullBmp = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+        using (var gf = Graphics.FromImage(fullBmp)) gf.DrawImage(src, 0, 0, w, h);
+        byte[] fbuf = ExtractBgraBytes(fullBmp, out int fStride);
+
+        for (int y = 0; y < h; y++)
+        {
+            float fy = ((y + 0.5f) * gh / h) - 0.5f;
+            int y0 = Math.Clamp((int)Math.Floor(fy), 0, gh - 1);
+            int y1 = Math.Clamp(y0 + 1, 0, gh - 1);
+            float wy = Math.Max(0f, fy - y0);
+            for (int x = 0; x < w; x++)
+            {
+                float fx = ((x + 0.5f) * gw / w) - 0.5f;
+                int x0 = Math.Clamp((int)Math.Floor(fx), 0, gw - 1);
+                int x1 = Math.Clamp(x0 + 1, 0, gw - 1);
+                float wx = Math.Max(0f, fx - x0);
+
+                float a00 = isBg[y0 * gw + x0] ? 0f : (prob[y0 * gw + x0] > 0.50f ? 1f : 0f);
+                float a10 = isBg[y0 * gw + x1] ? 0f : (prob[y0 * gw + x1] > 0.50f ? 1f : 0f);
+                float a01 = isBg[y1 * gw + x0] ? 0f : (prob[y1 * gw + x0] > 0.50f ? 1f : 0f);
+                float a11 = isBg[y1 * gw + x1] ? 0f : (prob[y1 * gw + x1] > 0.50f ? 1f : 0f);
+                float a = (a00 * (1f - wx) + a10 * wx) * (1f - wy) + (a01 * (1f - wx) + a11 * wx) * wy;
+
+                int off = y * fStride + x * 4;
+                fbuf[off + 3] = (byte)Math.Clamp(Math.Round(a * 255f), 0, 255);
+            }
+        }
+        WriteBgraBytes(fullBmp, fbuf);
+        return fullBmp;
+    }
+
     public static Bitmap ReplaceBackground(Bitmap src, Color bgColor, int tolerance = 38, PortraitAnalysis? info = null)
     {
-        var bmp = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
-        using (var g = Graphics.FromImage(bmp)) g.DrawImage(src, 0, 0, src.Width, src.Height);
-
-        int w = bmp.Width, h = bmp.Height;
-        byte[] buf = ExtractBgraBytes(bmp, out int stride);
-
-        int[] samplePts = {
-            2 * stride + 2 * 4,
-            2 * stride + Math.Max(2, w - 3) * 4,
-            (int)(h * 0.14) * stride + 2 * 4,
-            (int)(h * 0.14) * stride + Math.Max(2, w - 3) * 4,
-            (int)(h * 0.35) * stride + 2 * 4,
-            (int)(h * 0.35) * stride + Math.Max(2, w - 3) * 4
-        };
-        var swatches = new List<(int B, int G, int R)>(samplePts.Length);
-        foreach (int c in samplePts)
-        {
-            int idx = Math.Clamp(c, 0, buf.Length - 4);
-            swatches.Add((buf[idx], buf[idx + 1], buf[idx + 2]));
-        }
-        double tolSq = tolerance * tolerance * 3.1;
-
-        byte[] mask = new byte[w * h]; // 1 = background
-        bool[] visited = new bool[w * h];
-        var q = new Queue<int>();
-        for (int x = 0; x < w; x++) { q.Enqueue(x); visited[x] = true; }
-        for (int y = 1; y < (int)(h * 0.88); y++)
-        {
-            int l = y * w, r = y * w + (w - 1);
-            if (!visited[l]) { q.Enqueue(l); visited[l] = true; }
-            if (!visited[r]) { q.Enqueue(r); visited[r] = true; }
-        }
-
-        float pCx = info != null ? info.CenterX : w * 0.5f;
-        float fW = info != null ? Math.Max(40f, info.FaceWidth) : w * 0.36f;
-        float fTop = info != null ? info.CrownY : h * 0.16f;
-        float fChin = info != null ? info.ChinY : h * 0.62f;
-        float pCy = (fTop + fChin) * 0.52f;
-        float pRx = Math.Max(26f, fW * 0.48f);
-        float pRy = Math.Max(36f, (fChin - fTop) * 0.52f);
-
-        while (q.Count > 0)
-        {
-            int idx = q.Dequeue();
-            int x = idx % w, y = idx / w;
-            float ndx = (x - pCx) / pRx, ndy = (y - pCy) / pRy;
-            if (ndx * ndx + ndy * ndy < 1.0f) continue;
-            if (y > fChin && Math.Abs(x - pCx) < fW * 0.62f) continue;
-
-            int off = y * stride + x * 4;
-            int pxB = buf[off], pxG = buf[off + 1], pxR = buf[off + 2];
-            double bestDistSq = double.MaxValue;
-            foreach (var sw in swatches)
-            {
-                int db = pxB - sw.B, dg = pxG - sw.G, dr = pxR - sw.R;
-                double d2 = db * db + dg * dg + dr * dr;
-                if (d2 < bestDistSq) bestDistSq = d2;
-            }
-            if (bestDistSq > tolSq) continue;
-
-            mask[idx] = 1;
-            int[] nbs = { idx - 1, idx + 1, idx - w, idx + w };
-            foreach (int n in nbs)
-            {
-                if (n >= 0 && n < visited.Length && !visited[n])
-                {
-                    visited[n] = true;
-                    q.Enqueue(n);
-                }
-            }
-        }
-
-        // Smooth edge feathering so hair & shoulders blend cleanly onto new studio BG
-        for (int y = 1; y < h - 1; y++)
-        {
-            for (int x = 1; x < w - 1; x++)
-            {
-                int idx = y * w + x;
-                int off = y * stride + x * 4;
-                if (mask[idx] == 1)
-                {
-                    buf[off] = bgColor.B;
-                    buf[off + 1] = bgColor.G;
-                    buf[off + 2] = bgColor.R;
-                    buf[off + 3] = 255;
-                }
-                else
-                {
-                    int bgNbrs = mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w]
-                               + mask[idx - w - 1] + mask[idx - w + 1] + mask[idx + w - 1] + mask[idx + w + 1];
-                    if (bgNbrs > 0)
-                    {
-                        float alpha = (bgNbrs / 8f) * 0.55f;
-                        buf[off] = (byte)Math.Clamp(Math.Round(buf[off] * (1f - alpha) + bgColor.B * alpha), 0, 255);
-                        buf[off + 1] = (byte)Math.Clamp(Math.Round(buf[off + 1] * (1f - alpha) + bgColor.G * alpha), 0, 255);
-                        buf[off + 2] = (byte)Math.Clamp(Math.Round(buf[off + 2] * (1f - alpha) + bgColor.R * alpha), 0, 255);
-                        buf[off + 3] = 255;
-                    }
-                }
-            }
-        }
-
-        WriteBgraBytes(bmp, buf);
-        return bmp;
+        using var cut = ExtractForegroundCutout(src, info);
+        var outBmp = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(outBmp);
+        g.Clear(bgColor);
+        g.DrawImage(cut, 0, 0, src.Width, src.Height);
+        return outBmp;
     }
 
     public static Bitmap RenderPassportPhoto(
@@ -349,9 +449,13 @@ public static class NativeEngine
         float panY,
         int suitMode,
         Color bgColor,
-        bool doReplaceBg)
+        bool doReplaceBg,
+        Bitmap? precomputedCutout = null)
     {
-        Bitmap working = doReplaceBg ? ReplaceBackground(src, bgColor, 38, info) : src;
+        Bitmap? tempCut = null;
+        Bitmap working = doReplaceBg
+            ? (precomputedCutout ?? (tempCut = ExtractForegroundCutout(src, info)))
+            : src;
         try
         {
             var outBmp = new Bitmap(targetW, targetH, PixelFormat.Format32bppArgb);
@@ -383,7 +487,7 @@ public static class NativeEngine
         }
         finally
         {
-            if (!ReferenceEquals(working, src)) working.Dispose();
+            tempCut?.Dispose();
         }
     }
 
@@ -478,73 +582,93 @@ public static class NativeEngine
         int photosPerRow,
         int rowsWanted,
         bool cutLines,
-        bool hasBorder)
+        bool hasBorder,
+        bool tileLandscapeOnSheet = false)
     {
         const int dpi = 240;
         sheetMmW = Math.Clamp(sheetMmW, 40f, 600f);
         sheetMmH = Math.Clamp(sheetMmH, 40f, 600f);
 
+        Bitmap? rotatedTile = null;
+        Bitmap tileBmp = singlePhoto;
+        float effPhotoMmW = photoMmW, effPhotoMmH = photoMmH;
+        if (tileLandscapeOnSheet)
+        {
+            rotatedTile = new Bitmap(singlePhoto);
+            rotatedTile.RotateFlip(RotateFlipType.Rotate90FlipNone);
+            tileBmp = rotatedTile;
+            effPhotoMmW = photoMmH;
+            effPhotoMmH = photoMmW;
+        }
+
         int sheetW = (int)Math.Round((sheetMmW / 25.4f) * dpi);
         int sheetH = (int)Math.Round((sheetMmH / 25.4f) * dpi);
 
         var sheet = new Bitmap(sheetW, sheetH, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(sheet);
-        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-        g.Clear(Color.White);
-
-        float photoW = (photoMmW / 25.4f) * dpi;
-        float photoH = (photoMmH / 25.4f) * dpi;
-        float gap = (3.5f / 25.4f) * dpi;
-        float margin = (6f / 25.4f) * dpi;
-
-        int cols = Math.Max(1, photosPerRow);
-        float usableW = sheetW - margin * 2f;
-        float reqW = cols * photoW + (cols - 1) * gap;
-        if (reqW > usableW)
+        try
         {
-            float shrink = usableW / reqW;
-            photoW *= shrink;
-            photoH *= shrink;
-            gap = Math.Max(8f, gap * shrink);
-        }
+            using var g = Graphics.FromImage(sheet);
+            g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+            g.Clear(Color.White);
 
-        int maxRows = Math.Max(1, (int)Math.Floor((sheetH - margin * 2f + gap) / (photoH + gap)));
-        int rows = rowsWanted <= 0 ? maxRows : Math.Min(maxRows, rowsWanted);
+            float photoW = (effPhotoMmW / 25.4f) * dpi;
+            float photoH = (effPhotoMmH / 25.4f) * dpi;
+            float gap = (3.5f / 25.4f) * dpi;
+            float margin = (6f / 25.4f) * dpi;
 
-        float gridW = cols * photoW + (cols - 1) * gap;
-        float startX = (sheetW - gridW) * 0.5f;
-        float startY = margin + dpi * 0.08f;
-
-        using var borderPen = new Pen(Color.FromArgb(203, 213, 225), 2f);
-        using var cutPen = new Pen(Color.FromArgb(148, 163, 184), 1.5f) { DashStyle = DashStyle.Dash };
-
-        int total = 0;
-        for (int r = 0; r < rows; r++)
-        {
-            float py = startY + r * (photoH + gap);
-            if (py + photoH > sheetH - margin) break;
-            for (int c = 0; c < cols; c++)
+            int cols = Math.Max(1, photosPerRow);
+            float usableW = sheetW - margin * 2f;
+            float reqW = cols * photoW + (cols - 1) * gap;
+            if (reqW > usableW)
             {
-                float px = startX + c * (photoW + gap);
-                g.DrawImage(singlePhoto, px, py, photoW, photoH);
-                if (hasBorder) g.DrawRectangle(borderPen, px, py, photoW, photoH);
-                if (cutLines)
-                {
-                    float mLen = Math.Min(22f, gap * 0.5f);
-                    g.DrawLine(cutPen, px - mLen, py, px, py);
-                    g.DrawLine(cutPen, px, py - mLen, px, py);
-                    g.DrawLine(cutPen, px + photoW, py, px + photoW + mLen, py);
-                    g.DrawLine(cutPen, px + photoW, py - mLen, px + photoW, py);
-                }
-                total++;
+                float shrink = usableW / reqW;
+                photoW *= shrink;
+                photoH *= shrink;
+                gap = Math.Max(8f, gap * shrink);
             }
+
+            int maxRows = Math.Max(1, (int)Math.Floor((sheetH - margin * 2f + gap) / (photoH + gap)));
+            int rows = rowsWanted <= 0 ? maxRows : Math.Min(maxRows, rowsWanted);
+
+            float gridW = cols * photoW + (cols - 1) * gap;
+            float startX = (sheetW - gridW) * 0.5f;
+            float startY = margin + dpi * 0.08f;
+
+            using var borderPen = new Pen(Color.FromArgb(203, 213, 225), 2f);
+            using var cutPen = new Pen(Color.FromArgb(148, 163, 184), 1.5f) { DashStyle = DashStyle.Dash };
+
+            int total = 0;
+            for (int r = 0; r < rows; r++)
+            {
+                float py = startY + r * (photoH + gap);
+                if (py + photoH > sheetH - margin) break;
+                for (int c = 0; c < cols; c++)
+                {
+                    float px = startX + c * (photoW + gap);
+                    g.DrawImage(tileBmp, px, py, photoW, photoH);
+                    if (hasBorder) g.DrawRectangle(borderPen, px, py, photoW, photoH);
+                    if (cutLines)
+                    {
+                        float mLen = Math.Min(22f, gap * 0.5f);
+                        g.DrawLine(cutPen, px - mLen, py, px, py);
+                        g.DrawLine(cutPen, px, py - mLen, px, py);
+                        g.DrawLine(cutPen, px + photoW, py, px + photoW + mLen, py);
+                        g.DrawLine(cutPen, px + photoW, py - mLen, px + photoW, py);
+                    }
+                    total++;
+                }
+            }
+
+            using var f = new Font("Segoe UI", Math.Max(10, dpi * 0.036f), FontStyle.Bold);
+            using var b = new SolidBrush(Color.FromArgb(100, 116, 139));
+            g.DrawString($"camlab Desktop Print Studio | {Math.Round(sheetMmW)}x{Math.Round(sheetMmH)}mm | {cols} Photos/Row • {total} Total • {dpi} DPI", f, b, margin, sheetH - dpi * 0.16f);
+
+            return sheet;
         }
-
-        using var f = new Font("Segoe UI", Math.Max(10, dpi * 0.036f), FontStyle.Bold);
-        using var b = new SolidBrush(Color.FromArgb(100, 116, 139));
-        g.DrawString($"camlab Desktop Print Studio | {Math.Round(sheetMmW)}x{Math.Round(sheetMmH)}mm | {cols} Photos/Row • {total} Total • {dpi} DPI", f, b, margin, sheetH - dpi * 0.16f);
-
-        return sheet;
+        finally
+        {
+            rotatedTile?.Dispose();
+        }
     }
 
     public static Bitmap ApplyDocFilter(Bitmap src, int mode)

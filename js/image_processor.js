@@ -609,126 +609,367 @@ class ImageProcessor {
     }
 
     /**
-     * Smart Human-Aware Background Replacement for Passport Photos
-     * Protects detected face/hair/neck/torso core, matches multi-swatch background wall samples,
-     * and applies 8-neighbor feathering + edge color-spill cleanup.
+     * Load MediaPipe Selfie Segmentation lazily on demand with fast offline fallback.
      */
-    static replaceBackground(canvas, targetHex, tolerance = 35, seedPoint = null, faceBox = null) {
-        const ctx = canvas.getContext('2d');
-        const w = canvas.width;
-        const h = canvas.height;
-        const imgData = ctx.getImageData(0, 0, w, h);
-        const data = imgData.data;
+    static async _getMediaPipeSegmenter() {
+        if (this._mpSegmenter) return this._mpSegmenter;
+        if (this._mpLoadFailed) return null;
 
-        const targetR = parseInt(targetHex.slice(1, 3), 16);
-        const targetG = parseInt(targetHex.slice(3, 5), 16);
-        const targetB = parseInt(targetHex.slice(5, 7), 16);
+        if (!this._mpInitPromise) {
+            this._mpInitPromise = (async () => {
+                try {
+                    if (typeof window.SelfieSegmentation === 'undefined') {
+                        await new Promise((resolve, reject) => {
+                            const s = document.createElement('script');
+                            s.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/selfie_segmentation.js';
+                            s.async = true;
+                            s.crossOrigin = 'anonymous';
+                            const timer = setTimeout(() => reject(new Error('timeout')), 4500);
+                            s.onload = () => { clearTimeout(timer); resolve(); };
+                            s.onerror = () => { clearTimeout(timer); reject(new Error('load-error')); };
+                            document.head.appendChild(s);
+                        });
+                    }
+                    if (typeof window.SelfieSegmentation === 'undefined') {
+                        throw new Error('SelfieSegmentation unavailable');
+                    }
+                    const seg = new window.SelfieSegmentation({
+                        locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/${file}`
+                    });
+                    seg.setOptions({ modelSelection: 1 });
+                    if (typeof seg.initialize === 'function') {
+                        await Promise.race([
+                            seg.initialize(),
+                            new Promise((_, rej) => setTimeout(() => rej(new Error('init-timeout')), 5000))
+                        ]);
+                    }
+                    this._mpSegmenter = seg;
+                    return seg;
+                } catch {
+                    this._mpLoadFailed = true;
+                    return null;
+                }
+            })();
+        }
+        return this._mpInitPromise;
+    }
 
-        // Build swatches from perimeter wall zones (avoids bottom clothing)
-        const swatches = [];
-        if (seedPoint && seedPoint.x >= 0 && seedPoint.x < w && seedPoint.y >= 0 && seedPoint.y < h) {
-            const sIdx = (seedPoint.y * w + seedPoint.x) * 4;
-            swatches.push([data[sIdx], data[sIdx + 1], data[sIdx + 2]]);
-        } else {
-            const pts = [
-                [Math.round(w * 0.04), Math.round(h * 0.04)],
-                [Math.round(w * 0.96), Math.round(h * 0.04)],
-                [Math.round(w * 0.04), Math.round(h * 0.22)],
-                [Math.round(w * 0.96), Math.round(h * 0.22)],
-                [Math.round(w * 0.05), Math.round(h * 0.42)],
-                [Math.round(w * 0.95), Math.round(h * 0.42)]
-            ];
-            for (const [sx, sy] of pts) {
-                const idx = (sy * w + sx) * 4;
-                swatches.push([data[idx], data[idx + 1], data[idx + 2]]);
+    /**
+     * Build a clean transparent RGBA cutout canvas using a normalized [0..1] foreground alpha mask,
+     * smoothing hair/shoulder transitions and removing background color spill along edges.
+     */
+    static _buildTransparentCutoutFromAlpha(srcImgOrCanvas, alphaGrid, mw, mh) {
+        const w = srcImgOrCanvas.width;
+        const h = srcImgOrCanvas.height;
+
+        const alphaCanvas = document.createElement('canvas');
+        alphaCanvas.width = mw;
+        alphaCanvas.height = mh;
+        const aCtx = alphaCanvas.getContext('2d');
+        const aData = aCtx.createImageData(mw, mh);
+        for (let i = 0; i < mw * mh; i++) {
+            const p = i * 4;
+            const aByte = Math.max(0, Math.min(255, Math.round(alphaGrid[i] * 255)));
+            aData.data[p] = aByte;
+            aData.data[p + 1] = aByte;
+            aData.data[p + 2] = aByte;
+            aData.data[p + 3] = 255;
+        }
+        aCtx.putImageData(aData, 0, 0);
+
+        const upscaledAlphaCanvas = document.createElement('canvas');
+        upscaledAlphaCanvas.width = w;
+        upscaledAlphaCanvas.height = h;
+        const uaCtx = upscaledAlphaCanvas.getContext('2d');
+        uaCtx.imageSmoothingEnabled = true;
+        uaCtx.imageSmoothingQuality = 'high';
+        uaCtx.filter = w >= 400 ? 'blur(1.4px)' : 'blur(0.9px)';
+        uaCtx.drawImage(alphaCanvas, 0, 0, w, h);
+        uaCtx.filter = 'none';
+        const upAlpha = uaCtx.getImageData(0, 0, w, h).data;
+
+        const outCanvas = document.createElement('canvas');
+        outCanvas.width = w;
+        outCanvas.height = h;
+        const outCtx = outCanvas.getContext('2d');
+        outCtx.drawImage(srcImgOrCanvas, 0, 0, w, h);
+        const outImg = outCtx.getImageData(0, 0, w, h);
+        const d = outImg.data;
+
+        // Estimate dominant background color from pure-background samples for spill suppression
+        let bgR = 0, bgG = 0, bgB = 0, bgCnt = 0;
+        const step = Math.max(4, Math.floor((w * h) / 4000));
+        for (let i = 0; i < w * h; i += step) {
+            const p = i * 4;
+            if (upAlpha[p] < 16) {
+                bgR += d[p]; bgG += d[p + 1]; bgB += d[p + 2]; bgCnt++;
+            }
+        }
+        const hasBg = bgCnt > 20;
+        const mBgR = hasBg ? bgR / bgCnt : 220;
+        const mBgG = hasBg ? bgG / bgCnt : 220;
+        const mBgB = hasBg ? bgB / bgCnt : 220;
+
+        for (let i = 0; i < w * h; i++) {
+            const p = i * 4;
+            let a = upAlpha[p];
+            if (a < 22) a = 0;
+            else if (a > 236) a = 255;
+            else if (hasBg) {
+                // De-fringe semi-transparent boundary pixels toward true foreground color
+                const af = a / 255;
+                if (af > 0.15) {
+                    const inv = 1 - af;
+                    d[p] = Math.max(0, Math.min(255, Math.round((d[p] - mBgR * inv) / af)));
+                    d[p + 1] = Math.max(0, Math.min(255, Math.round((d[p + 1] - mBgG * inv) / af)));
+                    d[p + 2] = Math.max(0, Math.min(255, Math.round((d[p + 2] - mBgB * inv) / af)));
+                }
+            }
+            d[p + 3] = a;
+        }
+        outCtx.putImageData(outImg, 0, 0);
+        return outCanvas;
+    }
+
+    /**
+     * Offline Perceptual Foreground/Background Graph Segmentation:
+     * Combines multi-cluster outer-margin background swatches, central face/neck/torso foreground samples,
+     * human head-neck-shoulder spatial prior, 4-pass edge-aware 8-neighbor MRF relaxation, and border flood cleanup.
+     */
+    static _computeOfflineForegroundAlpha(srcImgOrCanvas, faceBox = null, tolerance = 45) {
+        const srcW = srcImgOrCanvas.width;
+        const srcH = srcImgOrCanvas.height;
+        const maxDim = 280;
+        const scale = Math.min(1, maxDim / Math.max(srcW, srcH));
+        const w = Math.max(80, Math.round(srcW * scale));
+        const h = Math.max(80, Math.round(srcH * scale));
+
+        const work = document.createElement('canvas');
+        work.width = w;
+        work.height = h;
+        const wCtx = work.getContext('2d');
+        wCtx.drawImage(srcImgOrCanvas, 0, 0, w, h);
+        const px = wCtx.getImageData(0, 0, w, h).data;
+
+        const fx = faceBox ? (faceBox.centerX / srcW) * w : w * 0.5;
+        const fy = faceBox ? (((faceBox.crownY || srcH * 0.15) + (faceBox.chinY || srcH * 0.58)) * 0.5 / srcH) * h : h * 0.36;
+        const fw = faceBox ? Math.max(w * 0.18, ((faceBox.w || srcW * 0.34) / srcW) * w) : w * 0.34;
+        const fh = faceBox ? Math.max(h * 0.22, (((faceBox.chinY || srcH * 0.58) - (faceBox.crownY || srcH * 0.15)) / srcH) * h) : h * 0.42;
+
+        // Spatial Human Silhouette Prior [-1..+1]: positive = likely human, negative = likely background
+        const prior = new Float32Array(w * h);
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+                const idx = y * w + x;
+                const dxH = (x - fx) / (fw * 0.62);
+                const dyH = (y - fy) / (fh * 0.68);
+                const dHead = dxH * dxH + dyH * dyH;
+
+                const neckDx = Math.abs(x - fx) / (fw * 0.48);
+                const shoulderY = Math.max(0, Math.min(1, (y - (fy + fh * 0.32)) / (h - (fy + fh * 0.32) + 1)));
+                const shoulderHalfW = fw * (0.58 + 1.15 * Math.pow(shoulderY, 0.72));
+                const dTorso = (y > fy + fh * 0.28) ? Math.abs(x - fx) / shoulderHalfW : 2.5;
+
+                if (dHead < 0.72 || (y > fy + fh * 0.35 && neckDx < 0.88)) {
+                    prior[idx] = 1.0;
+                } else if (dHead < 1.25 || dTorso < 0.85) {
+                    prior[idx] = 0.55;
+                } else if (dHead < 1.75 || dTorso < 1.15) {
+                    prior[idx] = 0.05;
+                } else {
+                    prior[idx] = -0.85;
+                }
+                if (x < w * 0.06 || x > w * 0.94 || y < h * 0.05) {
+                    prior[idx] = Math.min(prior[idx], -0.9);
+                }
             }
         }
 
-        const mask = new Uint8Array(w * h); // 1 = background, 0 = subject
-        const visited = new Uint8Array(w * h);
-        const queue = [];
-
-        const fCx = faceBox?.centerX ?? (w * 0.5);
-        const fW = Math.max(30, faceBox?.w ?? (w * 0.36));
-        const fTop = faceBox?.crownY ?? (h * 0.16);
-        const fChin = faceBox?.chinY ?? (h * 0.62);
-        const fCy = (fTop + fChin) * 0.52;
-        const pRx = Math.max(24, fW * 0.48);
-        const pRy = Math.max(30, (fChin - fTop) * 0.52);
-
-        const isProtectedCore = (x, y) => {
-            const nx = (x - fCx) / pRx;
-            const ny = (y - fCy) / pRy;
-            if (nx * nx + ny * ny < 1.0) return true; // Inner face + hair core
-            if (y > fChin && Math.abs(x - fCx) < fW * 0.62) return true; // Neck + upper chest core
-            return false;
+        // Collect quantized color clusters for Background (outer frame) vs Foreground (core person)
+        const quantKey = (r, g, b) => ((r >> 4) << 8) | ((g >> 4) << 4) | (b >> 4);
+        const buildPalette = (isBg) => {
+            const bins = new Map();
+            for (let y = 0; y < h; y += 2) {
+                for (let x = 0; x < w; x += 2) {
+                    const p = prior[y * w + x];
+                    if (isBg ? (p > -0.75 || y > h * 0.86) : (p < 0.82)) continue;
+                    const i = (y * w + x) * 4;
+                    const k = quantKey(px[i], px[i + 1], px[i + 2]);
+                    let entry = bins.get(k);
+                    if (!entry) { entry = { r: 0, g: 0, b: 0, c: 0 }; bins.set(k, entry); }
+                    entry.r += px[i]; entry.g += px[i + 1]; entry.b += px[i + 2]; entry.c++;
+                }
+            }
+            return Array.from(bins.values())
+                .sort((a, b) => b.c - a.c)
+                .slice(0, 14)
+                .map(e => [e.r / e.c, e.g / e.c, e.b / e.c]);
         };
 
-        for (let x = 0; x < w; x++) {
-            queue.push(x, 0);
-            visited[x] = 1;
-        }
-        for (let y = 1; y < Math.round(h * 0.88); y++) {
-            queue.push(0, y);
-            visited[y * w] = 1;
-            queue.push(w - 1, y);
-            visited[y * w + (w - 1)] = 1;
-        }
+        const bgPalette = buildPalette(true);
+        const fgPalette = buildPalette(false);
 
-        const tolSq = tolerance * tolerance * 2.2;
-        let head = 0;
-        while (head < queue.length) {
-            const qx = queue[head++];
-            const qy = queue[head++];
-            if (isProtectedCore(qx, qy)) continue;
-
-            const pIdx = qy * w + qx;
-            const dIdx = pIdx * 4;
-            const pxR = data[dIdx], pxG = data[dIdx + 1], pxB = data[dIdx + 2];
-
-            let bestDistSq = 1e9;
-            for (let s = 0; s < swatches.length; s++) {
-                const sw = swatches[s];
-                const dr = pxR - sw[0];
-                const dg = pxG - sw[1];
-                const db = pxB - sw[2];
-                const d2 = dr * dr + dg * dg + db * db;
-                if (d2 < bestDistSq) bestDistSq = d2;
+        const minColorDist = (r, g, b, pal) => {
+            let best = 1e9;
+            for (let i = 0; i < pal.length; i++) {
+                const dr = r - pal[i][0], dg = g - pal[i][1], db = b - pal[i][2];
+                // Perceptual luma-weighted distance handles shadows & textured walls better than raw RGB
+                const lumaD = 0.299 * dr + 0.587 * dg + 0.114 * db;
+                const d2 = (dr * dr + dg * dg + db * db) * 0.72 + lumaD * lumaD * 0.65;
+                if (d2 < best) best = d2;
             }
+            return Math.sqrt(best);
+        };
 
-            if (bestDistSq <= tolSq) {
-                mask[pIdx] = 1;
-                if (qx + 1 < w && !visited[pIdx + 1]) { visited[pIdx + 1] = 1; queue.push(qx + 1, qy); }
-                if (qx - 1 >= 0 && !visited[pIdx - 1]) { visited[pIdx - 1] = 1; queue.push(qx - 1, qy); }
-                if (qy + 1 < h && !visited[pIdx + w]) { visited[pIdx + w] = 1; queue.push(qx, qy + 1); }
-                if (qy - 1 >= 0 && !visited[pIdx - w]) { visited[pIdx - w] = 1; queue.push(qx, qy - 1); }
-            }
+        const tolBias = (tolerance - 45) * 0.45;
+        let fgMask = new Uint8Array(w * h);
+        const unary = new Float32Array(w * h);
+
+        for (let i = 0; i < w * h; i++) {
+            const p = prior[i];
+            const dIdx = i * 4;
+            const dBg = bgPalette.length ? minColorDist(px[dIdx], px[dIdx + 1], px[dIdx + 2], bgPalette) : 120;
+            const dFg = fgPalette.length ? minColorDist(px[dIdx], px[dIdx + 1], px[dIdx + 2], fgPalette) : 120;
+            const colorScore = (dBg - dFg) + tolBias;
+            const score = colorScore + p * 34;
+            unary[i] = score;
+            fgMask[i] = (p >= 0.92 || score > 2.0) ? 1 : 0;
         }
 
-        // 8-neighbor edge feathering for crisp smooth hairline & shoulder transition
-        for (let y = 1; y < h - 1; y++) {
-            for (let x = 1; x < w - 1; x++) {
+        // 4 passes of edge-aware MRF relaxation to snap cleanly to clothing/hair edges
+        let nextMask = new Uint8Array(w * h);
+        const offs = [-w - 1, -w, -w + 1, -1, 1, w - 1, w, w + 1];
+        for (let pass = 0; pass < 4; pass++) {
+            nextMask.set(fgMask);
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const idx = y * w + x;
+                    if (prior[idx] >= 0.95) { nextMask[idx] = 1; continue; }
+                    const dIdx = idx * 4;
+                    let fgW = 0, bgW = 0;
+                    for (let k = 0; k < 8; k++) {
+                        const nIdx = idx + offs[k];
+                        const nd = nIdx * 4;
+                        const diff = Math.abs(px[dIdx] - px[nd]) + Math.abs(px[dIdx + 1] - px[nd + 1]) + Math.abs(px[dIdx + 2] - px[nd + 2]);
+                        const edgeW = Math.exp(-diff / 42);
+                        if (fgMask[nIdx] === 1) fgW += edgeW; else bgW += edgeW;
+                    }
+                    const mrfScore = unary[idx] * 0.14 + (fgW - bgW) * 1.45;
+                    nextMask[idx] = mrfScore > 0 ? 1 : 0;
+                }
+            }
+            const tmp = fgMask; fgMask = nextMask; nextMask = tmp;
+        }
+
+        // Remove floating background islands by keeping foreground blobs connected to core head/torso
+        const keep = new Uint8Array(w * h);
+        const q = [];
+        for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
                 const idx = y * w + x;
-                const dIdx = idx * 4;
-
-                if (mask[idx] === 1) {
-                    data[dIdx] = targetR;
-                    data[dIdx + 1] = targetG;
-                    data[dIdx + 2] = targetB;
-                } else {
-                    const bgNbrs = mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w]
-                        + mask[idx - w - 1] + mask[idx - w + 1] + mask[idx + w - 1] + mask[idx + w + 1];
-                    if (bgNbrs > 0) {
-                        const alpha = (bgNbrs / 8) * 0.55;
-                        data[dIdx] = Math.round(data[dIdx] * (1 - alpha) + targetR * alpha);
-                        data[dIdx + 1] = Math.round(data[dIdx + 1] * (1 - alpha) + targetG * alpha);
-                        data[dIdx + 2] = Math.round(data[dIdx + 2] * (1 - alpha) + targetB * alpha);
+                if (fgMask[idx] === 1 && prior[idx] >= 0.72) {
+                    keep[idx] = 1;
+                    q.push(idx);
+                }
+            }
+        }
+        let qHead = 0;
+        while (qHead < q.length) {
+            const cur = q[qHead++];
+            const cx = cur % w;
+            const cy = (cur / w) | 0;
+            for (let dy = -1; dy <= 1; dy++) {
+                const ny = cy + dy;
+                if (ny < 0 || ny >= h) continue;
+                for (let dx = -1; dx <= 1; dx++) {
+                    const nx = cx + dx;
+                    if (nx < 0 || nx >= w) continue;
+                    const nIdx = ny * w + nx;
+                    if (fgMask[nIdx] === 1 && !keep[nIdx]) {
+                        keep[nIdx] = 1;
+                        q.push(nIdx);
                     }
                 }
             }
         }
 
-        ctx.putImageData(imgData, 0, 0);
+        const alpha = new Float32Array(w * h);
+        for (let i = 0; i < w * h; i++) alpha[i] = keep[i] ? 1.0 : 0.0;
+        return { alpha, mw: w, mh: h };
+    }
+
+    /**
+     * Primary AI Neural + Offline Graph Background Cutout Extractor for Passport Studio.
+     * Returns a transparent RGBA canvas of the extracted person cutout.
+     */
+    static async extractForegroundCutoutAI(srcImgOrCanvas, faceBox = null, tolerance = 45) {
+        const w = srcImgOrCanvas.width;
+        const h = srcImgOrCanvas.height;
+
+        try {
+            const seg = await this._getMediaPipeSegmenter();
+            if (seg) {
+                const maskResult = await new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => reject(new Error('seg-timeout')), 6500);
+                    seg.onResults((res) => {
+                        clearTimeout(timer);
+                        resolve(res);
+                    });
+                    seg.send({ image: srcImgOrCanvas }).catch((e) => {
+                        clearTimeout(timer);
+                        reject(e);
+                    });
+                });
+
+                if (maskResult && maskResult.segmentationMask) {
+                    const mCanvas = document.createElement('canvas');
+                    const mw = Math.min(512, w);
+                    const mh = Math.min(512, Math.max(120, Math.round(h * (mw / w))));
+                    mCanvas.width = mw;
+                    mCanvas.height = mh;
+                    const mCtx = mCanvas.getContext('2d');
+                    mCtx.drawImage(maskResult.segmentationMask, 0, 0, mw, mh);
+                    const mData = mCtx.getImageData(0, 0, mw, mh).data;
+                    const alpha = new Float32Array(mw * mh);
+                    // MediaPipe writes confidence in R/A channel depending on build
+                    let fgSum = 0;
+                    for (let i = 0; i < mw * mh; i++) {
+                        const v = (mData[i * 4] > 0 ? mData[i * 4] : mData[i * 4 + 3]) / 255;
+                        // Contrast curve centered around 0.5 to harden solid core and soften hair fringe
+                        const tuned = v < 0.28 ? 0 : (v > 0.72 ? 1 : (v - 0.28) / 0.44);
+                        alpha[i] = tuned;
+                        fgSum += tuned;
+                    }
+                    const cov = fgSum / (mw * mh);
+                    if (cov > 0.06 && cov < 0.94) {
+                        const cutout = this._buildTransparentCutoutFromAlpha(srcImgOrCanvas, alpha, mw, mh);
+                        cutout.cutoutMethod = 'mediapipe-ai';
+                        return cutout;
+                    }
+                }
+            }
+        } catch {
+            // Fall through cleanly to offline Perceptual Lab/MRF Segmentation
+        }
+
+        const { alpha, mw, mh } = this._computeOfflineForegroundAlpha(srcImgOrCanvas, faceBox, tolerance);
+        const cutout = this._buildTransparentCutoutFromAlpha(srcImgOrCanvas, alpha, mw, mh);
+        cutout.cutoutMethod = 'offline-mrf';
+        return cutout;
+    }
+
+    /**
+     * Synchronous Background Replacement helper (used for legacy/quick fallback paths).
+     */
+    static replaceBackground(canvas, targetHex, tolerance = 45, seedPoint = null, faceBox = null) {
+        const { alpha, mw, mh } = this._computeOfflineForegroundAlpha(canvas, faceBox, tolerance);
+        const cutout = this._buildTransparentCutoutFromAlpha(canvas, alpha, mw, mh);
+        const ctx = canvas.getContext('2d');
+        ctx.save();
+        ctx.fillStyle = targetHex || '#FFFFFF';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(cutout, 0, 0);
+        ctx.restore();
         return canvas;
     }
 }

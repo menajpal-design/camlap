@@ -516,6 +516,45 @@
                         android:textSize="11sp" />
                 </LinearLayout>
 
+                <!-- Placed Passport Tile Orientation on Sheet (Upright vs Rotated 90° Landscape for 4/row Portrait A4) -->
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="পেজে ছবি বসানোর দিক (Portrait A4-এ ৪টি ল্যান্ডস্কিপ):"
+                    android:textColor="#64748B"
+                    android:textSize="11sp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:orientation="horizontal">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_tile_upright"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:background="@drawable/bg_chip"
+                        android:text="🧍 শিটে সোজা বসবে"
+                        android:textAllCaps="false"
+                        android:textColor="#00896C"
+                        android:textSize="11sp" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_tile_landscape"
+                        android:layout_width="0dp"
+                        android:layout_height="34dp"
+                        android:layout_weight="1.15"
+                        android:background="@drawable/bg_btn_outline"
+                        android:text="📐 ল্যান্ডস্কিপ (৪টি/লাইন)"
+                        android:textAllCaps="false"
+                        android:textColor="#0F172A"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
                 <!-- Photos Per Row & Rows -->
                 <LinearLayout
                     android:layout_width="match_parent"

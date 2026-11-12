@@ -17,6 +17,7 @@ public sealed class MainForm : Form
 
     // Passport Studio state
     private Bitmap? _rawPassportBmp;
+    private Bitmap? _cutoutPassportBmp;
     private PortraitAnalysis? _analysis;
     private Bitmap? _singlePassportBmp;
     private Bitmap? _a4SheetBmp;
@@ -61,6 +62,7 @@ public sealed class MainForm : Form
     private ComboBox _cbRows = null!;
     private CheckBox _chkCutLines = null!;
     private CheckBox _chkBorder = null!;
+    private CheckBox _chkTileLandscape = null!;
     private TrackBar _tbZoom = null!;
 
     // Document Scanner state
@@ -418,6 +420,22 @@ public sealed class MainForm : Form
         chkRow.Controls.Add(_chkBorder);
         flow.Controls.Add(chkRow);
 
+        _chkTileLandscape = new CheckBox
+        {
+            Text = "📐 শিটে ছবি ল্যান্ডস্কিপ (৯০° শায়িত — Portrait A4-এ ৪টি/লাইন)",
+            Checked = false,
+            AutoSize = false,
+            Width = 300,
+            Height = 36
+        };
+        _chkTileLandscape.CheckedChanged += (s, e) =>
+        {
+            if (_chkTileLandscape.Checked && _cbPerRow.SelectedIndex == 3) _cbPerRow.SelectedIndex = 2; // 4 per line
+            else if (!_chkTileLandscape.Checked && _cbPerRow.SelectedIndex == 2) _cbPerRow.SelectedIndex = 3; // 5 per line
+            RenderSheetOnly();
+        };
+        flow.Controls.Add(_chkTileLandscape);
+
         var btnPrintNow = CreateAccentButton("🖨️ সরাসরি প্রিন্ট আউট (Print A4)", 300);
         btnPrintNow.Margin = new Padding(0, 8, 0, 4);
         btnPrintNow.Click += (s, e) => PrintBitmap(_a4SheetBmp);
@@ -533,6 +551,8 @@ public sealed class MainForm : Form
         if (_rawPassportBmp == null) return;
         _rawPassportBmp.RotateFlip(RotateFlipType.Rotate90FlipNone);
         _analysis = NativeEngine.AnalyzePortrait(_rawPassportBmp);
+        _cutoutPassportBmp?.Dispose();
+        _cutoutPassportBmp = NativeEngine.ExtractForegroundCutout(_rawPassportBmp, _analysis);
         _panX = 0; _panY = 0;
         RenderPassportAll();
     }
@@ -545,6 +565,8 @@ public sealed class MainForm : Form
         _rawPassportBmp?.Dispose();
         _rawPassportBmp = NativeEngine.LoadBitmapOriented(ofd.FileName, 1600);
         _analysis = NativeEngine.AnalyzePortrait(_rawPassportBmp);
+        _cutoutPassportBmp?.Dispose();
+        _cutoutPassportBmp = NativeEngine.ExtractForegroundCutout(_rawPassportBmp, _analysis);
         _panX = 0; _panY = 0; _userZoom = 1.0f; _tbZoom.Value = 100;
 
         _rbFemale.Checked = _analysis.IsFemale;
@@ -562,7 +584,7 @@ public sealed class MainForm : Form
         int pxH = Math.Max(150, (int)Math.Round((_photoMmH / 25.4f) * 300f));
 
         var nextSingle = NativeEngine.RenderPassportPhoto(
-            _rawPassportBmp, _analysis, pxW, pxH, _userZoom, _panX, _panY, _cbSuit.SelectedIndex, _bgColor, _replaceBg);
+            _rawPassportBmp, _analysis, pxW, pxH, _userZoom, _panX, _panY, _cbSuit.SelectedIndex, _bgColor, _replaceBg, _cutoutPassportBmp);
         _singlePassportBmp?.Dispose();
         _singlePassportBmp = nextSingle;
         _pbSingle.Image = _singlePassportBmp;
@@ -577,7 +599,7 @@ public sealed class MainForm : Form
         int rows = _cbRows.SelectedIndex == 4 ? 0 : (_cbRows.SelectedIndex + 1);
 
         var nextSheet = NativeEngine.ComposePrintSheet(
-            _singlePassportBmp, _photoMmW, _photoMmH, _sheetMmW, _sheetMmH, perRow, rows, _chkCutLines.Checked, _chkBorder.Checked);
+            _singlePassportBmp, _photoMmW, _photoMmH, _sheetMmW, _sheetMmH, perRow, rows, _chkCutLines.Checked, _chkBorder.Checked, _chkTileLandscape.Checked);
         _a4SheetBmp?.Dispose();
         _a4SheetBmp = nextSheet;
         _pbSheet.Image = _a4SheetBmp;
