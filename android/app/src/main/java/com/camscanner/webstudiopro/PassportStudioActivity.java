@@ -11,6 +11,8 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
+import android.widget.Button;
+import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.Spinner;
 import android.widget.TextView;
@@ -24,6 +26,7 @@ import androidx.core.content.FileProvider;
 
 import java.io.File;
 import java.util.Collections;
+import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -41,13 +44,33 @@ public class PassportStudioActivity extends AppCompatActivity {
     private int bgColor = Color.WHITE;
     private boolean replaceBgEnabled = false;
 
+    // Single Passport Photo Custom Dimensions & Orientation
+    private float photoMmW = 35f;
+    private float photoMmH = 45f;
+    private boolean photoLandscape = false;
+
+    // Main Sheet Custom Dimensions & Orientation
+    private float sheetMmW = 210f;
+    private float sheetMmH = 297f;
+    private boolean sheetLandscape = false;
+
     private int photosPerRow = 5;
-    private int rowsCount = 2; // 0 = full A4 page
+    private int rowsCount = 2; // 0 = full sheet
 
     private ImageView ivSingle;
     private ImageView ivA4Preview;
     private TextView tvAiStatus;
     private TextView tvAttire;
+    private TextView tvSheetSummary;
+    private EditText etPhotoW, etPhotoH, etSheetW, etSheetH;
+
+    private Button btnGenderMale, btnGenderFemale;
+    private Button btnPhotoPortrait, btnPhotoLandscape;
+    private Button btnSuitNone, btnSuitBlack, btnSuitNavy, btnSuitFemale;
+    private Button btnBgWhite, btnBgSky, btnBgBlue, btnBgToggle;
+    private Button btnSheetPortrait, btnSheetLandscape;
+
+    private boolean suppressSpinnerCallbacks = false;
 
     private Uri pendingCameraUri;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
@@ -66,6 +89,27 @@ public class PassportStudioActivity extends AppCompatActivity {
         ivA4Preview = findViewById(R.id.iv_a4_preview);
         tvAiStatus = findViewById(R.id.tv_pp_ai_status);
         tvAttire = findViewById(R.id.tv_pp_attire);
+        tvSheetSummary = findViewById(R.id.tv_sheet_summary);
+
+        etPhotoW = findViewById(R.id.et_photo_w_mm);
+        etPhotoH = findViewById(R.id.et_photo_h_mm);
+        etSheetW = findViewById(R.id.et_sheet_w_mm);
+        etSheetH = findViewById(R.id.et_sheet_h_mm);
+
+        btnGenderMale = findViewById(R.id.btn_gender_male);
+        btnGenderFemale = findViewById(R.id.btn_gender_female);
+        btnPhotoPortrait = findViewById(R.id.btn_photo_portrait);
+        btnPhotoLandscape = findViewById(R.id.btn_photo_landscape);
+        btnSuitNone = findViewById(R.id.btn_suit_none);
+        btnSuitBlack = findViewById(R.id.btn_suit_black);
+        btnSuitNavy = findViewById(R.id.btn_suit_navy);
+        btnSuitFemale = findViewById(R.id.btn_suit_female);
+        btnBgWhite = findViewById(R.id.btn_bg_white);
+        btnBgSky = findViewById(R.id.btn_bg_sky);
+        btnBgBlue = findViewById(R.id.btn_bg_blue);
+        btnBgToggle = findViewById(R.id.btn_bg_toggle);
+        btnSheetPortrait = findViewById(R.id.btn_sheet_portrait);
+        btnSheetLandscape = findViewById(R.id.btn_sheet_landscape);
 
         cameraLauncher = registerForActivityResult(new ActivityResultContracts.TakePicture(), ok -> {
             if (ok && pendingCameraUri != null) loadPortraitUri(pendingCameraUri);
@@ -104,23 +148,43 @@ public class PassportStudioActivity extends AppCompatActivity {
             return false;
         });
 
-        findViewById(R.id.btn_gender_male).setOnClickListener(v -> {
+        btnGenderMale.setOnClickListener(v -> {
             if (portraitInfo != null) {
                 portraitInfo.isFemale = false;
                 portraitInfo.genderLabelBn = "ছেলে / পুরুষ";
                 if (suitMode == 3) suitMode = 1;
                 updateAiTexts();
-                reRenderPassport();
             }
+            updateControlHighlights();
+            reRenderPassport();
         });
-        findViewById(R.id.btn_gender_female).setOnClickListener(v -> {
+        btnGenderFemale.setOnClickListener(v -> {
             if (portraitInfo != null) {
                 portraitInfo.isFemale = true;
                 portraitInfo.genderLabelBn = "মেয়ে / নারী";
                 if (suitMode == 1 || suitMode == 2) suitMode = 3;
                 updateAiTexts();
-                reRenderPassport();
             }
+            updateControlHighlights();
+            reRenderPassport();
+        });
+
+        findViewById(R.id.btn_pp_rotate).setOnClickListener(v -> {
+            if (rawBitmap == null) return;
+            tvAiStatus.setText("ছবি ঘোরানো ও পুনরায় শনাক্ত করা হচ্ছে...");
+            final Bitmap rotated = NativeImageUtils.rotateBitmap(rawBitmap, 90f);
+            executor.execute(() -> {
+                NativeImageUtils.PortraitInfo info = NativeImageUtils.analyzePortrait(rotated);
+                runOnUiThread(() -> {
+                    rawBitmap = rotated;
+                    portraitInfo = info;
+                    panX = 0f;
+                    panY = 0f;
+                    updateAiTexts();
+                    updateControlHighlights();
+                    reRenderPassport();
+                });
+            });
         });
 
         findViewById(R.id.btn_pp_zoom_in).setOnClickListener(v -> {
@@ -128,33 +192,201 @@ public class PassportStudioActivity extends AppCompatActivity {
             reRenderPassport();
         });
         findViewById(R.id.btn_pp_zoom_out).setOnClickListener(v -> {
-            userZoom = Math.max(0.55f, userZoom - 0.08f);
+            userZoom = Math.max(0.50f, userZoom - 0.08f);
             reRenderPassport();
         });
 
-        findViewById(R.id.btn_suit_none).setOnClickListener(v -> { suitMode = 0; reRenderPassport(); });
-        findViewById(R.id.btn_suit_black).setOnClickListener(v -> { suitMode = 1; reRenderPassport(); });
-        findViewById(R.id.btn_suit_navy).setOnClickListener(v -> { suitMode = 2; reRenderPassport(); });
-        findViewById(R.id.btn_suit_female).setOnClickListener(v -> { suitMode = 3; reRenderPassport(); });
+        // Single Photo Orientation & Custom Size
+        btnPhotoPortrait.setOnClickListener(v -> setSinglePhotoOrientation(false));
+        btnPhotoLandscape.setOnClickListener(v -> setSinglePhotoOrientation(true));
+        findViewById(R.id.btn_apply_photo_mm).setOnClickListener(v -> applyCustomPhotoMm());
 
-        findViewById(R.id.btn_bg_white).setOnClickListener(v -> { bgColor = Color.WHITE; replaceBgEnabled = true; reRenderPassport(); });
-        findViewById(R.id.btn_bg_sky).setOnClickListener(v -> { bgColor = Color.parseColor("#38BDF8"); replaceBgEnabled = true; reRenderPassport(); });
-        findViewById(R.id.btn_bg_blue).setOnClickListener(v -> { bgColor = Color.parseColor("#1D4ED8"); replaceBgEnabled = true; reRenderPassport(); });
-        findViewById(R.id.btn_bg_toggle).setOnClickListener(v -> { replaceBgEnabled = !replaceBgEnabled; reRenderPassport(); });
+        btnSuitNone.setOnClickListener(v -> { suitMode = 0; updateControlHighlights(); reRenderPassport(); });
+        btnSuitBlack.setOnClickListener(v -> { suitMode = 1; updateControlHighlights(); reRenderPassport(); });
+        btnSuitNavy.setOnClickListener(v -> { suitMode = 2; updateControlHighlights(); reRenderPassport(); });
+        btnSuitFemale.setOnClickListener(v -> { suitMode = 3; updateControlHighlights(); reRenderPassport(); });
+
+        btnBgWhite.setOnClickListener(v -> { bgColor = Color.WHITE; replaceBgEnabled = true; updateControlHighlights(); reRenderPassport(); });
+        btnBgSky.setOnClickListener(v -> { bgColor = Color.parseColor("#38BDF8"); replaceBgEnabled = true; updateControlHighlights(); reRenderPassport(); });
+        btnBgBlue.setOnClickListener(v -> { bgColor = Color.parseColor("#1D4ED8"); replaceBgEnabled = true; updateControlHighlights(); reRenderPassport(); });
+        btnBgToggle.setOnClickListener(v -> { replaceBgEnabled = !replaceBgEnabled; updateControlHighlights(); reRenderPassport(); });
+
+        // Sheet Orientation & Custom Size
+        btnSheetPortrait.setOnClickListener(v -> setSheetOrientation(false));
+        btnSheetLandscape.setOnClickListener(v -> setSheetOrientation(true));
+        findViewById(R.id.btn_apply_sheet_mm).setOnClickListener(v -> applyCustomSheetMm());
 
         setupSpinners();
+        syncInputs();
+        updateControlHighlights();
 
         findViewById(R.id.btn_pp_save_single).setOnClickListener(v -> saveSinglePhoto());
         findViewById(R.id.btn_pp_save_pdf).setOnClickListener(v -> saveA4Pdf());
         findViewById(R.id.btn_pp_print).setOnClickListener(v -> printA4Sheet());
     }
 
+    private void setChipActive(Button btn, boolean active) {
+        if (btn == null) return;
+        btn.setBackgroundResource(active ? R.drawable.bg_chip : R.drawable.bg_btn_outline);
+        btn.setTextColor(active ? Color.parseColor("#00896C") : Color.parseColor("#0F172A"));
+    }
+
+    private void updateControlHighlights() {
+        boolean isFemale = portraitInfo != null && portraitInfo.isFemale;
+        setChipActive(btnGenderMale, !isFemale);
+        setChipActive(btnGenderFemale, isFemale);
+
+        setChipActive(btnPhotoPortrait, !photoLandscape);
+        setChipActive(btnPhotoLandscape, photoLandscape);
+
+        setChipActive(btnSuitNone, suitMode == 0);
+        setChipActive(btnSuitBlack, suitMode == 1);
+        setChipActive(btnSuitNavy, suitMode == 2);
+        setChipActive(btnSuitFemale, suitMode == 3);
+
+        setChipActive(btnBgWhite, replaceBgEnabled && bgColor == Color.WHITE);
+        setChipActive(btnBgSky, replaceBgEnabled && bgColor == Color.parseColor("#38BDF8"));
+        setChipActive(btnBgBlue, replaceBgEnabled && bgColor == Color.parseColor("#1D4ED8"));
+        setChipActive(btnBgToggle, replaceBgEnabled);
+
+        setChipActive(btnSheetPortrait, !sheetLandscape);
+        setChipActive(btnSheetLandscape, sheetLandscape);
+    }
+
+    private void syncInputs() {
+        etPhotoW.setText(fmtMm(photoMmW));
+        etPhotoH.setText(fmtMm(photoMmH));
+        etSheetW.setText(fmtMm(sheetMmW));
+        etSheetH.setText(fmtMm(sheetMmH));
+        updateSheetSummary();
+    }
+
+    private String fmtMm(float v) {
+        if (Math.abs(v - Math.round(v)) < 0.05f) return String.valueOf(Math.round(v));
+        return String.format(Locale.US, "%.1f", v);
+    }
+
+    private void updateSheetSummary() {
+        String pOr = photoLandscape ? "ল্যান্ডস্কিপ" : "সোজা";
+        String sOr = sheetLandscape ? "ল্যান্ডস্কিপ" : "সোজা";
+        tvSheetSummary.setText("পেজ: " + fmtMm(sheetMmW) + "×" + fmtMm(sheetMmH) + " mm (" + sOr + ")  •  ছবি: " + fmtMm(photoMmW) + "×" + fmtMm(photoMmH) + " mm (" + pOr + ")");
+    }
+
+    private void setSinglePhotoOrientation(boolean landscape) {
+        float minD = Math.min(photoMmW, photoMmH);
+        float maxD = Math.max(photoMmW, photoMmH);
+        photoLandscape = landscape;
+        if (Math.abs(minD - maxD) >= 0.5f) {
+            photoMmW = landscape ? maxD : minD;
+            photoMmH = landscape ? minD : maxD;
+        }
+        syncInputs();
+        updateControlHighlights();
+        reRenderPassport();
+    }
+
+    private void applyCustomPhotoMm() {
+        try {
+            float w = Float.parseFloat(etPhotoW.getText().toString().trim());
+            float h = Float.parseFloat(etPhotoH.getText().toString().trim());
+            photoMmW = Math.max(12f, Math.min(250f, w));
+            photoMmH = Math.max(12f, Math.min(250f, h));
+            photoLandscape = photoMmW > photoMmH;
+            syncInputs();
+            updateControlHighlights();
+            reRenderPassport();
+        } catch (Exception e) {
+            Toast.makeText(this, "সঠিক mm সংখ্যা লিখুন (যেমন 35 এবং 45)", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void setSheetOrientation(boolean landscape) {
+        float minD = Math.min(sheetMmW, sheetMmH);
+        float maxD = Math.max(sheetMmW, sheetMmH);
+        sheetLandscape = landscape;
+        if (Math.abs(minD - maxD) >= 0.5f) {
+            sheetMmW = landscape ? maxD : minD;
+            sheetMmH = landscape ? minD : maxD;
+        }
+        syncInputs();
+        updateControlHighlights();
+        reRenderSheetOnly();
+    }
+
+    private void applyCustomSheetMm() {
+        try {
+            float w = Float.parseFloat(etSheetW.getText().toString().trim());
+            float h = Float.parseFloat(etSheetH.getText().toString().trim());
+            sheetMmW = Math.max(40f, Math.min(600f, w));
+            sheetMmH = Math.max(40f, Math.min(600f, h));
+            sheetLandscape = sheetMmW > sheetMmH;
+            syncInputs();
+            updateControlHighlights();
+            reRenderSheetOnly();
+        } catch (Exception e) {
+            Toast.makeText(this, "সঠিক পেজ mm সংখ্যা লিখুন (যেমন 210 এবং 297)", Toast.LENGTH_SHORT).show();
+        }
+    }
+
     private void setupSpinners() {
+        Spinner spPhotoPreset = findViewById(R.id.sp_photo_preset);
+        String[] photoItems = new String[]{
+                "35×45 mm (স্ট্যান্ডার্ড পাসপোর্ট)",
+                "40×50 mm (পাসপোর্ট লার্জ)",
+                "30×40 mm (স্ট্যাম্প / স্কুল)",
+                "51×51 mm (US ভিসা 2×2\")",
+                "Custom (নিজস্ব mm)"
+        };
+        spPhotoPreset.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, photoItems));
+        spPhotoPreset.setSelection(0);
+        spPhotoPreset.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                if (suppressSpinnerCallbacks || pos == 4) return;
+                float[][] dims = {{35f, 45f}, {40f, 50f}, {30f, 40f}, {51f, 51f}};
+                float baseW = dims[pos][0], baseH = dims[pos][1];
+                if (photoLandscape && baseW != baseH) {
+                    photoMmW = Math.max(baseW, baseH);
+                    photoMmH = Math.min(baseW, baseH);
+                } else {
+                    photoMmW = baseW;
+                    photoMmH = baseH;
+                }
+                syncInputs();
+                updateControlHighlights();
+                reRenderPassport();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        Spinner spSheetPaper = findViewById(R.id.sp_sheet_paper);
+        String[] paperItems = new String[]{
+                "A4 পেপার (210 × 297 mm)",
+                "4×6 ফটো পেপার (102 × 152 mm)",
+                "5×7 ফটো পেপার (127 × 178 mm)",
+                "Legal পেপার (216 × 356 mm)",
+                "Custom (কাস্টম পেজ mm)"
+        };
+        spSheetPaper.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, paperItems));
+        spSheetPaper.setSelection(0);
+        spSheetPaper.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
+                if (suppressSpinnerCallbacks || pos == 4) return;
+                float[][] papers = {{210f, 297f}, {101.6f, 152.4f}, {127f, 177.8f}, {215.9f, 355.6f}};
+                float pW = papers[pos][0], pH = papers[pos][1];
+                sheetMmW = sheetLandscape ? Math.max(pW, pH) : Math.min(pW, pH);
+                sheetMmH = sheetLandscape ? Math.min(pW, pH) : Math.max(pW, pH);
+                syncInputs();
+                updateControlHighlights();
+                reRenderSheetOnly();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
         Spinner spPerRow = findViewById(R.id.sp_per_row);
-        String[] perRowItems = new String[]{"২ টি", "৩ টি", "৪ টি", "৫ টি (A4 বেস্ট)", "৬ টি", "৭ টি"};
+        String[] perRowItems = new String[]{"২ টি", "৩ টি", "৪ টি", "৫ টি (A4 বেস্ট)", "৬ টি", "৭ টি", "৮ টি"};
         ArrayAdapter<String> rowAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, perRowItems);
         spPerRow.setAdapter(rowAdapter);
-        spPerRow.setSelection(3); // 5 photos per line default
+        spPerRow.setSelection(3);
         spPerRow.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
                 photosPerRow = pos + 2;
@@ -164,13 +396,13 @@ public class PassportStudioActivity extends AppCompatActivity {
         });
 
         Spinner spRows = findViewById(R.id.sp_rows);
-        String[] rowsItems = new String[]{"১ সারি", "২ সারি", "৩ সারি", "৪ সারি", "পুরো A4 পেপার"};
+        String[] rowsItems = new String[]{"১ সারি", "২ সারি", "৩ সারি", "৪ সারি", "৫ সারি", "পুরো পেজ পূর্ণ"};
         ArrayAdapter<String> rowsAdapter = new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, rowsItems);
         spRows.setAdapter(rowsAdapter);
-        spRows.setSelection(1); // 2 rows default
+        spRows.setSelection(1);
         spRows.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                rowsCount = (pos == 4) ? 0 : (pos + 1);
+                rowsCount = (pos == 5) ? 0 : (pos + 1);
                 reRenderSheetOnly();
             }
             @Override public void onNothingSelected(AdapterView<?> parent) {}
@@ -196,7 +428,7 @@ public class PassportStudioActivity extends AppCompatActivity {
     }
 
     private void loadPortraitUri(Uri uri) {
-        tvAiStatus.setText("মুখ, ছেলে/মেয়ে, পোশাক ও গলার অংশ স্ক্যান হচ্ছে...");
+        tvAiStatus.setText("হিউমান ডিটেক্টর: মুখ, মানুষ ও পোশাক শনাক্ত হচ্ছে...");
         executor.execute(() -> {
             Bitmap loaded = NativeImageUtils.loadBitmapSafe(this, uri, 1200);
             if (loaded == null) return;
@@ -208,6 +440,7 @@ public class PassportStudioActivity extends AppCompatActivity {
                 panX = 0f;
                 panY = 0f;
                 updateAiTexts();
+                updateControlHighlights();
                 reRenderPassport();
             });
         });
@@ -215,9 +448,11 @@ public class PassportStudioActivity extends AppCompatActivity {
 
     private void updateAiTexts() {
         if (portraitInfo == null) return;
-        String faceTxt = portraitInfo.faceDetected ? "✓ মুখ ও গলা শনাক্ত" : "✓ ম্যানুয়াল ফ্রেম";
+        String faceTxt = portraitInfo.faceDetected
+                ? "✓ হিউমান ও মুখ শনাক্ত"
+                : (portraitInfo.humanDetected ? "✓ মানুষ শনাক্ত (অটো-ফ্রেম)" : "⚠️ মানুষ পাওয়া যায়নি (ম্যানুয়াল)");
         tvAiStatus.setText(faceTxt + "  •  " + portraitInfo.genderLabelBn);
-        tvAttire.setText(portraitInfo.attireLabelBn + " (ছবি টেনে পজিশন ঠিক করুন)");
+        tvAttire.setText(portraitInfo.attireLabelBn + " (ড্র্যাগ করে পজিশন ঠিক করুন)");
     }
 
     private void reRenderPassport() {
@@ -227,10 +462,16 @@ public class PassportStudioActivity extends AppCompatActivity {
         final float zoom = userZoom, px = panX, py = panY;
         final int sm = suitMode, bg = bgColor;
         final boolean rbg = replaceBgEnabled;
+        final float pMmW = photoMmW, pMmH = photoMmH;
+        final float sMmW = sheetMmW, sMmH = sheetMmH;
+        final int ppr = photosPerRow, rc = rowsCount;
+
+        final int pxW = Math.max(150, Math.round((pMmW / 25.4f) * 300f));
+        final int pxH = Math.max(150, Math.round((pMmH / 25.4f) * 300f));
 
         executor.execute(() -> {
-            Bitmap single = NativeImageUtils.renderPassportPhoto(src, info, 413, 531, zoom, px, py, sm, bg, rbg); // 35x45mm @ 300 DPI
-            Bitmap sheet = NativeImageUtils.composePrintSheet(single, 35f, 45f, true, photosPerRow, rowsCount, true);
+            Bitmap single = NativeImageUtils.renderPassportPhoto(src, info, pxW, pxH, zoom, px, py, sm, bg, rbg);
+            Bitmap sheet = NativeImageUtils.composePrintSheet(single, pMmW, pMmH, sMmW, sMmH, ppr, rc, true);
             runOnUiThread(() -> {
                 croppedBitmap = single;
                 sheetBitmap = sheet;
@@ -243,9 +484,11 @@ public class PassportStudioActivity extends AppCompatActivity {
     private void reRenderSheetOnly() {
         if (croppedBitmap == null) return;
         final Bitmap single = croppedBitmap;
+        final float pMmW = photoMmW, pMmH = photoMmH;
+        final float sMmW = sheetMmW, sMmH = sheetMmH;
         final int ppr = photosPerRow, rc = rowsCount;
         executor.execute(() -> {
-            Bitmap sheet = NativeImageUtils.composePrintSheet(single, 35f, 45f, true, ppr, rc, true);
+            Bitmap sheet = NativeImageUtils.composePrintSheet(single, pMmW, pMmH, sMmW, sMmH, ppr, rc, true);
             runOnUiThread(() -> {
                 sheetBitmap = sheet;
                 ivA4Preview.setImageBitmap(sheet);
@@ -277,12 +520,13 @@ public class PassportStudioActivity extends AppCompatActivity {
             Toast.makeText(this, "প্রথমে একটি ছবি নিন!", Toast.LENGTH_SHORT).show();
             return;
         }
+        final float sW = sheetMmW, sH = sheetMmH;
         executor.execute(() -> {
             try {
-                String name = "camlab_Passport_A4_" + System.currentTimeMillis() + ".pdf";
-                File saved = NativePdfUtils.saveBitmapsToPdf(this, Collections.singletonList(sheetBitmap), name, true);
+                String name = "camlab_Passport_Sheet_" + System.currentTimeMillis() + ".pdf";
+                File saved = NativePdfUtils.saveBitmapsToPdf(this, Collections.singletonList(sheetBitmap), name, sW, sH);
                 runOnUiThread(() -> {
-                    Toast.makeText(this, "✅ A4 PDF তৈরি হয়েছে: Downloads/camlab/" + name, Toast.LENGTH_LONG).show();
+                    Toast.makeText(this, "✅ PDF তৈরি হয়েছে: Downloads/camlab/" + name, Toast.LENGTH_LONG).show();
                     if (saved != null) NativePdfUtils.shareFile(this, saved, "application/pdf");
                 });
             } catch (Exception e) {
@@ -296,7 +540,7 @@ public class PassportStudioActivity extends AppCompatActivity {
             Toast.makeText(this, "প্রথমে একটি ছবি নিন!", Toast.LENGTH_SHORT).show();
             return;
         }
-        NativePdfUtils.printBitmap(this, sheetBitmap, "camlab_Passport_A4", true);
+        NativePdfUtils.printBitmap(this, sheetBitmap, "camlab_Passport_Sheet", sheetMmW, sheetMmH);
     }
 
     @Override

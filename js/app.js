@@ -2158,14 +2158,42 @@ function onPassportImageLoaded(analysis) {
 
 function getPrintSheetLayoutSummaryText() {
     const ps = passportStudio.printState;
-    const { maxRowsFit } = passportStudio.getPaperMetrics();
+    const { sheetWidthMm, sheetHeightMm, maxRowsFit } = passportStudio.getPaperMetrics();
     const rowsUsed = ps.rowCount === 'full' ? maxRowsFit : (parseInt(ps.rowCount) || 2);
     const cols = parseInt(ps.photosPerRow) || 5;
     const total = rowsUsed * cols;
-    const paperName = ps.paperSize === 'A4'
-        ? 'A4 (২১০ × ২৯৭ মিমি)'
-        : (ps.paperSize === '4x6' ? '৪×৬ ইঞ্চি' : '৫×৭ ইঞ্চি');
-    return `${paperName} • এক লাইনে ${cols}টি × ${rowsUsed} সারি = ${total}টি পাসপোর্ট ছবি`;
+    const orientBn = ps.sheetOrientation === 'landscape' ? 'ল্যান্ডস্কিপ' : 'সোজা';
+    const paperLabel = ps.paperSize === 'custom'
+        ? `কাস্টম (${Math.round(sheetWidthMm)}×${Math.round(sheetHeightMm)} মিমি, ${orientBn})`
+        : `${ps.paperSize.toUpperCase()} (${Math.round(sheetWidthMm)}×${Math.round(sheetHeightMm)} মিমি, ${orientBn})`;
+    return `${paperLabel} • এক লাইনে ${cols}টি × ${rowsUsed} সারি = ${total}টি ছবি`;
+}
+
+function updateSheetOrientationAndCustomUI() {
+    const ps = passportStudio.printState;
+    const isCustom = ps.paperSize === 'custom';
+    const inlineWrap = document.getElementById('inline-custom-sheet-wrap');
+    const modalWrap = document.getElementById('modal-custom-sheet-wrap');
+    if (inlineWrap) inlineWrap.style.display = isCustom ? 'inline-flex' : 'none';
+    if (modalWrap) modalWrap.style.display = isCustom ? 'inline-flex' : 'none';
+
+    const { sheetWidthMm, sheetHeightMm } = passportStudio.getPaperMetrics();
+    ['inline-sheet-w', 'modal-sheet-w'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = Math.round(sheetWidthMm);
+    });
+    ['inline-sheet-h', 'modal-sheet-h'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && document.activeElement !== el) el.value = Math.round(sheetHeightMm);
+    });
+
+    const isLand = ps.sheetOrientation === 'landscape';
+    ['inline-sheet-orient-portrait', 'modal-sheet-orient-portrait'].forEach(id => {
+        document.getElementById(id)?.classList.toggle('active', !isLand);
+    });
+    ['inline-sheet-orient-landscape', 'modal-sheet-orient-landscape'].forEach(id => {
+        document.getElementById(id)?.classList.toggle('active', isLand);
+    });
 }
 
 function syncPrintSheetControls(source = 'inline') {
@@ -2188,6 +2216,7 @@ function syncPrintSheetControls(source = 'inline') {
         if (modalEl && modalEl.value !== rawVal) modalEl.value = rawVal;
     });
 
+    updateSheetOrientationAndCustomUI();
     renderInlineA4SheetPreview();
     if (document.getElementById('print-modal')?.classList.contains('active')) {
         renderPrintSheetModal();
@@ -2203,16 +2232,13 @@ function exportOrPrintPassportSheet(action) {
     if (!sheet) return;
 
     const paper = passportStudio.printState.paperSize;
+    const { sheetWidthMm, sheetHeightMm } = passportStudio.getPaperMetrics();
     if (action === 'jpg') {
         PDFExporter.downloadCanvasImage(sheet, `camlab_Passport_${paper}.jpg`, 'image/jpeg', 0.96);
     } else if (action === 'pdf') {
-        const pdfSize = paper === 'A4' ? 'a4' : (paper === '5x7' ? [177.8, 127] : [152.4, 101.6]);
-        PDFExporter.exportPagesToPDF([sheet], `camlab_Passport_Sheet_${paper}.pdf`, pdfSize);
+        PDFExporter.exportPagesToPDF([sheet], `camlab_Passport_Sheet_${paper}.pdf`, [sheetWidthMm, sheetHeightMm]);
     } else if (action === 'print') {
-        const pageCss = paper === 'A4'
-            ? 'A4 portrait'
-            : (paper === '5x7' ? '177.8mm 127mm' : '152.4mm 101.6mm');
-        PDFExporter.printCanvasListAsPDF([sheet], `camlab Passport ${paper} Print`, pageCss);
+        PDFExporter.printCanvasListAsPDF([sheet], `camlab Passport ${paper} Print`, `${sheetWidthMm}mm ${sheetHeightMm}mm`);
     }
 }
 
@@ -2325,6 +2351,26 @@ function setupPassportStudio() {
         });
     };
 
+    // Single Photo Portrait / Landscape & 90° Rotation
+    const setPhotoOrientUI = (orient) => {
+        passportStudio.setPhotoOrientation(orient);
+        document.getElementById('btn-photo-orient-portrait')?.classList.toggle('active', orient !== 'landscape');
+        document.getElementById('btn-photo-orient-landscape')?.classList.toggle('active', orient === 'landscape');
+        const cw = document.getElementById('custom-width');
+        const ch = document.getElementById('custom-height');
+        if (cw) cw.value = passportStudio.currentPreset.widthMm;
+        if (ch) ch.value = passportStudio.currentPreset.heightMm;
+        syncPassportSlidersFromState();
+        updatePassportCanvasView();
+    };
+    document.getElementById('btn-photo-orient-portrait')?.addEventListener('click', () => setPhotoOrientUI('portrait'));
+    document.getElementById('btn-photo-orient-landscape')?.addEventListener('click', () => setPhotoOrientUI('landscape'));
+    document.getElementById('btn-passport-rotate-90')?.addEventListener('click', () => {
+        if (!passportStudio.rawImage) return;
+        passportStudio.rotate90();
+        updatePassportCanvasView();
+    });
+
     bindSlider('passport-zoom', 'scale');
     bindSlider('passport-rotate', 'rotation');
     bindSlider('passport-brightness', 'brightness');
@@ -2362,7 +2408,7 @@ function setupPassportStudio() {
         tCtx.drawImage(passportStudio.rawImage, 0, 0);
 
         const tol = parseInt(document.getElementById('bg-tolerance').value) || 35;
-        ImageProcessor.replaceBackground(tempCanvas, passportStudio.state.bgColor, tol);
+        ImageProcessor.replaceBackground(tempCanvas, passportStudio.state.bgColor, tol, null, passportStudio.analysis?.faceBox);
 
         passportStudio.loadImage(tempCanvas.toDataURL('image/png'), (analysis) => {
             onPassportImageLoaded(analysis);
@@ -2399,6 +2445,45 @@ function setupPassportStudio() {
     ['sheet-paper-size', 'sheet-photos-per-row', 'sheet-row-count'].forEach(id => {
         document.getElementById(id)?.addEventListener('change', () => syncPrintSheetControls('modal'));
     });
+
+    // Sheet Orientation toggles (inline + modal)
+    const setSheetOrient = (orient) => {
+        passportStudio.printState.sheetOrientation = orient === 'landscape' ? 'landscape' : 'portrait';
+        if (passportStudio.printState.paperSize === 'custom') {
+            const cw = parseFloat(passportStudio.printState.customSheetWidthMm) || 210;
+            const ch = parseFloat(passportStudio.printState.customSheetHeightMm) || 297;
+            passportStudio.printState.customSheetWidthMm = orient === 'landscape' ? Math.max(cw, ch) : Math.min(cw, ch);
+            passportStudio.printState.customSheetHeightMm = orient === 'landscape' ? Math.min(cw, ch) : Math.max(cw, ch);
+        }
+        updateSheetOrientationAndCustomUI();
+        renderInlineA4SheetPreview();
+        if (document.getElementById('print-modal')?.classList.contains('active')) renderPrintSheetModal();
+    };
+    ['inline-sheet-orient-portrait', 'modal-sheet-orient-portrait'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => setSheetOrient('portrait'));
+    });
+    ['inline-sheet-orient-landscape', 'modal-sheet-orient-landscape'].forEach(id => {
+        document.getElementById(id)?.addEventListener('click', () => setSheetOrient('landscape'));
+    });
+
+    const bindCustomSheetInputs = (wId, hId) => {
+        const apply = () => {
+            const w = parseFloat(document.getElementById(wId)?.value) || 210;
+            const h = parseFloat(document.getElementById(hId)?.value) || 297;
+            passportStudio.printState.paperSize = 'custom';
+            passportStudio.printState.customSheetWidthMm = w;
+            passportStudio.printState.customSheetHeightMm = h;
+            passportStudio.printState.sheetOrientation = w > h ? 'landscape' : 'portrait';
+            updateSheetOrientationAndCustomUI();
+            renderInlineA4SheetPreview();
+            if (document.getElementById('print-modal')?.classList.contains('active')) renderPrintSheetModal();
+        };
+        document.getElementById(wId)?.addEventListener('input', apply);
+        document.getElementById(hId)?.addEventListener('input', apply);
+    };
+    bindCustomSheetInputs('inline-sheet-w', 'inline-sheet-h');
+    bindCustomSheetInputs('modal-sheet-w', 'modal-sheet-h');
+    updateSheetOrientationAndCustomUI();
 
     document.getElementById('sheet-cut-lines')?.addEventListener('change', (e) => {
         passportStudio.printState.showCutLines = e.target.checked;

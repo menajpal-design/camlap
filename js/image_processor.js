@@ -609,10 +609,11 @@ class ImageProcessor {
     }
 
     /**
-     * Smart Foreground-Preserving Background Replacement for Passport Photos
-     * Combines outer-margin flood-fill with central portrait protection & smooth edge feathering.
+     * Smart Human-Aware Background Replacement for Passport Photos
+     * Protects detected face/hair/neck/torso core, matches multi-swatch background wall samples,
+     * and applies 8-neighbor feathering + edge color-spill cleanup.
      */
-    static replaceBackground(canvas, targetHex, tolerance = 35, seedPoint = null) {
+    static replaceBackground(canvas, targetHex, tolerance = 35, seedPoint = null, faceBox = null) {
         const ctx = canvas.getContext('2d');
         const w = canvas.width;
         const h = canvas.height;
@@ -623,42 +624,43 @@ class ImageProcessor {
         const targetG = parseInt(targetHex.slice(3, 5), 16);
         const targetB = parseInt(targetHex.slice(5, 7), 16);
 
-        // Identify background color by sampling outer top/left/right margins (avoid bottom clothes)
-        let baseR, baseG, baseB;
+        // Build swatches from perimeter wall zones (avoids bottom clothing)
+        const swatches = [];
         if (seedPoint && seedPoint.x >= 0 && seedPoint.x < w && seedPoint.y >= 0 && seedPoint.y < h) {
             const sIdx = (seedPoint.y * w + seedPoint.x) * 4;
-            baseR = data[sIdx];
-            baseG = data[sIdx + 1];
-            baseB = data[sIdx + 2];
+            swatches.push([data[sIdx], data[sIdx + 1], data[sIdx + 2]]);
         } else {
-            const samples = [
-                (Math.round(h * 0.05) * w + Math.round(w * 0.05)) * 4,
-                (Math.round(h * 0.05) * w + Math.round(w * 0.95)) * 4,
-                (Math.round(h * 0.25) * w + Math.round(w * 0.04)) * 4,
-                (Math.round(h * 0.25) * w + Math.round(w * 0.96)) * 4
+            const pts = [
+                [Math.round(w * 0.04), Math.round(h * 0.04)],
+                [Math.round(w * 0.96), Math.round(h * 0.04)],
+                [Math.round(w * 0.04), Math.round(h * 0.22)],
+                [Math.round(w * 0.96), Math.round(h * 0.22)],
+                [Math.round(w * 0.05), Math.round(h * 0.42)],
+                [Math.round(w * 0.95), Math.round(h * 0.42)]
             ];
-            let sumR = 0, sumG = 0, sumB = 0;
-            for (const s of samples) {
-                sumR += data[s];
-                sumG += data[s + 1];
-                sumB += data[s + 2];
+            for (const [sx, sy] of pts) {
+                const idx = (sy * w + sx) * 4;
+                swatches.push([data[idx], data[idx + 1], data[idx + 2]]);
             }
-            baseR = Math.round(sumR / samples.length);
-            baseG = Math.round(sumG / samples.length);
-            baseB = Math.round(sumB / samples.length);
         }
 
-        // Flood fill from top, upper-left, and upper-right edges (and protect inner face+chest oval)
         const mask = new Uint8Array(w * h); // 1 = background, 0 = subject
         const visited = new Uint8Array(w * h);
         const queue = [];
 
+        const fCx = faceBox?.centerX ?? (w * 0.5);
+        const fW = Math.max(30, faceBox?.w ?? (w * 0.36));
+        const fTop = faceBox?.crownY ?? (h * 0.16);
+        const fChin = faceBox?.chinY ?? (h * 0.62);
+        const fCy = (fTop + fChin) * 0.52;
+        const pRx = Math.max(24, fW * 0.48);
+        const pRy = Math.max(30, (fChin - fTop) * 0.52);
+
         const isProtectedCore = (x, y) => {
-            const nx = (x - w * 0.5) / (w * 0.22);
-            const ny = (y - h * 0.45) / (h * 0.28);
-            if (nx * nx + ny * ny < 1.0) return true; // Inner face
-            // Inner chest/neck core
-            if (y > h * 0.62 && Math.abs(x - w * 0.5) < w * 0.24) return true;
+            const nx = (x - fCx) / pRx;
+            const ny = (y - fCy) / pRy;
+            if (nx * nx + ny * ny < 1.0) return true; // Inner face + hair core
+            if (y > fChin && Math.abs(x - fCx) < fW * 0.62) return true; // Neck + upper chest core
             return false;
         };
 
@@ -666,14 +668,14 @@ class ImageProcessor {
             queue.push(x, 0);
             visited[x] = 1;
         }
-        for (let y = 1; y < Math.round(h * 0.85); y++) {
+        for (let y = 1; y < Math.round(h * 0.88); y++) {
             queue.push(0, y);
             visited[y * w] = 1;
             queue.push(w - 1, y);
             visited[y * w + (w - 1)] = 1;
         }
 
-        const tolSq = tolerance * tolerance * 1.4;
+        const tolSq = tolerance * tolerance * 2.2;
         let head = 0;
         while (head < queue.length) {
             const qx = queue[head++];
@@ -682,12 +684,19 @@ class ImageProcessor {
 
             const pIdx = qy * w + qx;
             const dIdx = pIdx * 4;
-            const dr = data[dIdx] - baseR;
-            const dg = data[dIdx + 1] - baseG;
-            const db = data[dIdx + 2] - baseB;
-            const distSq = dr * dr + dg * dg + db * db;
+            const pxR = data[dIdx], pxG = data[dIdx + 1], pxB = data[dIdx + 2];
 
-            if (distSq <= tolSq) {
+            let bestDistSq = 1e9;
+            for (let s = 0; s < swatches.length; s++) {
+                const sw = swatches[s];
+                const dr = pxR - sw[0];
+                const dg = pxG - sw[1];
+                const db = pxB - sw[2];
+                const d2 = dr * dr + dg * dg + db * db;
+                if (d2 < bestDistSq) bestDistSq = d2;
+            }
+
+            if (bestDistSq <= tolSq) {
                 mask[pIdx] = 1;
                 if (qx + 1 < w && !visited[pIdx + 1]) { visited[pIdx + 1] = 1; queue.push(qx + 1, qy); }
                 if (qx - 1 >= 0 && !visited[pIdx - 1]) { visited[pIdx - 1] = 1; queue.push(qx - 1, qy); }
@@ -696,7 +705,7 @@ class ImageProcessor {
             }
         }
 
-        // Edge feathering: count background neighbors for smooth hair/shoulder edge
+        // 8-neighbor edge feathering for crisp smooth hairline & shoulder transition
         for (let y = 1; y < h - 1; y++) {
             for (let x = 1; x < w - 1; x++) {
                 const idx = y * w + x;
@@ -707,9 +716,10 @@ class ImageProcessor {
                     data[dIdx + 1] = targetG;
                     data[dIdx + 2] = targetB;
                 } else {
-                    const bgNbrs = mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w];
+                    const bgNbrs = mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w]
+                        + mask[idx - w - 1] + mask[idx - w + 1] + mask[idx + w - 1] + mask[idx + w + 1];
                     if (bgNbrs > 0) {
-                        const alpha = (bgNbrs / 4) * 0.45;
+                        const alpha = (bgNbrs / 8) * 0.55;
                         data[dIdx] = Math.round(data[dIdx] * (1 - alpha) + targetR * alpha);
                         data[dIdx + 1] = Math.round(data[dIdx + 1] * (1 - alpha) + targetG * alpha);
                         data[dIdx + 2] = Math.round(data[dIdx + 2] * (1 - alpha) + targetB * alpha);

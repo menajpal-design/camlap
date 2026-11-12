@@ -469,8 +469,10 @@
                                 <label>পেপারের সাইজ</label>
                                 <select id="inline-sheet-paper" class="cs-select-clean">
                                     <option value="A4" selected>A4 (২১০ × ২৯৭ মিমি)</option>
-                                    <option value="4x6">৪×৬ ইঞ্চি</option>
-                                    <option value="5x7">৫×৭ ইঞ্চি</option>
+                                    <option value="4x6">৪×৬ ইঞ্চি (১০২×১৫২ মিমি)</option>
+                                    <option value="5x7">৫×৭ ইঞ্চি (১২৭×১৭৮ মিমি)</option>
+                                    <option value="legal">Legal (২১৬ × ৩৫৬ মিমি)</option>
+                                    <option value="custom">Custom (কাস্টম পেজ mm)</option>
                                 </select>
                             </div>
                             <div>
@@ -492,8 +494,23 @@
                                     <option value="2" selected>২ সারি</option>
                                     <option value="3">৩ সারি</option>
                                     <option value="4">৪ সারি</option>
-                                    <option value="full">পুরো A4 পেপার পূর্ণ</option>
+                                    <option value="full">পুরো পেপার পূর্ণ</option>
                                 </select>
+                            </div>
+                        </div>
+
+                        <!-- Sheet Orientation & Custom mm Bar -->
+                        <div class="cs-sheet-orient-bar">
+                            <div class="cs-gender-toggle-group">
+                                <span style="font-size:0.74rem; color:var(--cs-text-dim); margin-right:4px;">মূল পেজ দিক:</span>
+                                <button type="button" id="inline-sheet-orient-portrait" class="cs-gender-btn active">📄 সোজা</button>
+                                <button type="button" id="inline-sheet-orient-landscape" class="cs-gender-btn">📐 ল্যান্ডস্কিপ</button>
+                            </div>
+                            <div id="inline-custom-sheet-wrap" class="cs-custom-mm-inline" style="display:none;">
+                                <input type="number" id="inline-sheet-w" value="210" min="40" max="600" class="cs-input-clean" style="width:76px;" title="পেজ প্রস্থ mm">
+                                <span>×</span>
+                                <input type="number" id="inline-sheet-h" value="297" min="40" max="600" class="cs-input-clean" style="width:76px;" title="পেজ উচ্চতা mm">
+                                <span style="font-size:0.74rem; color:var(--cs-text-dim);">mm</span>
                             </div>
                         </div>
 
@@ -513,8 +530,16 @@
                 <!-- Right Controls Sidebar -->
                 <div class="cs-passport-controls-pane">
                     <div>
-                        <div class="cs-control-title">📐 দেশের সাইজ ও ফরম্যাট (Presets)</div>
+                        <div class="cs-control-title">📐 পাসপোর্ট ছবির আলাদা সেটিংস</div>
                         <select id="passport-preset-select" class="cs-select-clean"></select>
+
+                        <div class="cs-gender-toggle-group" style="margin-top:8px; width:100%; justify-content:space-between;">
+                            <span style="font-size:0.74rem; color:var(--cs-text-dim);">ছবির দিক:</span>
+                            <div style="display:flex; gap:6px;">
+                                <button type="button" id="btn-photo-orient-portrait" class="cs-gender-btn active">🧍 সোজা</button>
+                                <button type="button" id="btn-photo-orient-landscape" class="cs-gender-btn">🖼️ ল্যান্ডস্কিপ</button>
+                            </div>
+                        </div>
 
                         <div id="custom-size-inputs" style="display:none; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                             <input type="number" id="custom-width" placeholder="প্রস্থ (মিমি)" value="35" class="cs-input-clean">
@@ -529,8 +554,9 @@
                         </div>
                         <input type="range" id="passport-zoom" min="0.3" max="3" step="0.05" value="1.1" class="cs-range-slider">
 
-                        <div style="display:flex; justify-content:space-between; font-size:0.78rem; color:var(--cs-text-dim); margin-top:8px; margin-bottom:4px;">
-                            <span>ঘোরান:</span> <span id="passport-rotate-val">0°</span>
+                        <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.78rem; color:var(--cs-text-dim); margin-top:8px; margin-bottom:4px;">
+                            <span>ঘোরান: <span id="passport-rotate-val">0°</span></span>
+                            <button type="button" id="btn-passport-rotate-90" class="cs-icon-btn" style="padding:2px 8px; font-size:0.74rem;">↻ ৯০°</button>
                         </div>
                         <input type="range" id="passport-rotate" min="-45" max="45" step="1" value="0" class="cs-range-slider">
                     </div>
@@ -1076,9 +1102,24 @@
                     <label style="font-size:0.75rem; color:var(--cs-text-dim);">কাগজের সাইজ:</label>
                     <select id="sheet-paper-size" class="cs-select-clean" style="margin-top:4px;">
                         <option value="A4" selected>A4 সাইজ পেপার (২১০ × ২৯৭ মিমি)</option>
-                        <option value="4x6">৪×৬ ইঞ্চি (১০×১৫ সেমি)</option>
-                        <option value="5x7">৫×৭ ইঞ্চি পেপার</option>
+                        <option value="4x6">৪×৬ ইঞ্চি (১০২ × ১৫২ মিমি)</option>
+                        <option value="5x7">৫×৭ ইঞ্চি পেপার (১২৭ × ১৭৮ মিমি)</option>
+                        <option value="legal">Legal (২১৬ × ৩৫৬ মিমি)</option>
+                        <option value="custom">Custom (কাস্টম পেজ mm)</option>
                     </select>
+                </div>
+                <div>
+                    <label style="font-size:0.75rem; color:var(--cs-text-dim);">মূল পেজের দিক:</label>
+                    <div class="cs-gender-toggle-group" style="margin-top:4px;">
+                        <button type="button" id="modal-sheet-orient-portrait" class="cs-gender-btn active">📄 সোজা</button>
+                        <button type="button" id="modal-sheet-orient-landscape" class="cs-gender-btn">📐 ল্যান্ডস্কিপ</button>
+                    </div>
+                    <div id="modal-custom-sheet-wrap" class="cs-custom-mm-inline" style="display:none; margin-top:6px;">
+                        <input type="number" id="modal-sheet-w" value="210" min="40" max="600" class="cs-input-clean" style="width:68px;">
+                        <span>×</span>
+                        <input type="number" id="modal-sheet-h" value="297" min="40" max="600" class="cs-input-clean" style="width:68px;">
+                        <span style="font-size:0.72rem; color:var(--cs-text-dim);">mm</span>
+                    </div>
                 </div>
                 <div>
                     <label style="font-size:0.75rem; color:var(--cs-text-dim);">এক লাইনে কয়টা ছবি (Photos/Row):</label>

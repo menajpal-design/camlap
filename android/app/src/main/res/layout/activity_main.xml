@@ -3,6 +3,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:fitsSystemWindows="true"
     android:background="#F8FAFC">
 
     <!-- Clean Minimal Header -->
@@ -11,14 +12,14 @@
         android:layout_height="wrap_content"
         android:background="#FFFFFF"
         android:paddingHorizontal="20dp"
-        android:paddingVertical="16dp"
+        android:paddingVertical="14dp"
         android:gravity="center_vertical"
         android:elevation="2dp">
 
         <ImageView
-            android:layout_width="38dp"
-            android:layout_height="38dp"
-            android:src="@mipmap/ic_launcher"
+            android:layout_width="42dp"
+            android:layout_height="42dp"
+            android:src="@drawable/ic_camlab_logo"
             android:contentDescription="camlab" />
 
         <LinearLayout

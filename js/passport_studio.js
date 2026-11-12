@@ -102,6 +102,8 @@ class PassportStudio {
         this.state = {
             scale: 1,
             rotation: 0,
+            quarterTurnDeg: 0,
+            photoOrientation: 'portrait', // 'portrait' | 'landscape'
             offsetX: 0,
             offsetY: 0,
             bgColor: '#FFFFFF',
@@ -132,12 +134,15 @@ class PassportStudio {
             needsFormalSuit: false
         };
 
-        // A4 & Photo Print Sheet State (Default A4, 5 per row, 2 rows = 10 photos)
+        // Print Sheet State (Custom Sheet Size + Portrait/Landscape + Photos-Per-Row)
         this.printState = {
-            paperSize: 'A4',      // 'A4', '4x6', '5x7'
-            photosPerRow: 5,      // Exact count of photos in 1 horizontal line
-            rowCount: 2,          // Number of lines/rows
-            photoCount: 10,       // Calculated photosPerRow * rowCount (or manual)
+            paperSize: 'A4',            // 'A4', '4x6', '5x7', 'legal', 'custom'
+            sheetOrientation: 'portrait', // 'portrait' | 'landscape'
+            customSheetWidthMm: 210,
+            customSheetHeightMm: 297,
+            photosPerRow: 5,
+            rowCount: 2,
+            photoCount: 10,
             showCutLines: true,
             hasBorder: true,
             gapMm: 3.5,
@@ -554,24 +559,54 @@ class PassportStudio {
      */
     setPreset(presetId, customW, customH) {
         if (presetId === 'custom') {
+            const w = Math.max(12, Math.min(250, customW || 35));
+            const h = Math.max(12, Math.min(250, customH || 45));
+            this.state.photoOrientation = w > h ? 'landscape' : 'portrait';
             this.currentPreset = {
                 id: 'custom',
                 country: '⚙️ Custom',
-                name_bn: `কাস্টম (${customW} × ${customH} মিমি)`,
-                name_en: `Custom (${customW} x ${customH} mm)`,
-                widthMm: customW || 35,
-                heightMm: customH || 45,
+                name_bn: `কাস্টম (${w} × ${h} মিমি)`,
+                name_en: `Custom (${w} x ${h} mm)`,
+                widthMm: w,
+                heightMm: h,
                 bgColor: this.state.bgColor,
                 dpi: 300
             };
         } else {
             const found = PASSPORT_PRESETS.find(p => p.id === presetId);
             if (found) {
-                this.currentPreset = found;
+                const clone = { ...found };
+                if (this.state.photoOrientation === 'landscape' && clone.widthMm !== clone.heightMm) {
+                    const mn = Math.min(clone.widthMm, clone.heightMm);
+                    const mx = Math.max(clone.widthMm, clone.heightMm);
+                    clone.widthMm = mx;
+                    clone.heightMm = mn;
+                }
+                this.currentPreset = clone;
                 this.state.bgColor = found.bgColor;
             }
         }
         this.autoFrameHeadNeckChest();
+        this.renderCroppedPhoto();
+    }
+
+    setPhotoOrientation(orientation) {
+        this.state.photoOrientation = orientation === 'landscape' ? 'landscape' : 'portrait';
+        const minD = Math.min(this.currentPreset.widthMm, this.currentPreset.heightMm);
+        const maxD = Math.max(this.currentPreset.widthMm, this.currentPreset.heightMm);
+        if (Math.abs(minD - maxD) >= 0.2) {
+            this.currentPreset = {
+                ...this.currentPreset,
+                widthMm: this.state.photoOrientation === 'landscape' ? maxD : minD,
+                heightMm: this.state.photoOrientation === 'landscape' ? minD : maxD
+            };
+        }
+        this.autoFrameHeadNeckChest();
+        this.renderCroppedPhoto();
+    }
+
+    rotate90() {
+        this.state.quarterTurnDeg = ((this.state.quarterTurnDeg || 0) + 90) % 360;
         this.renderCroppedPhoto();
     }
 
@@ -615,7 +650,8 @@ class PassportStudio {
 
         ctx.save();
         ctx.translate(w / 2, h / 2);
-        ctx.rotate((this.state.rotation * Math.PI) / 180);
+        const totalDeg = (this.state.rotation || 0) + (this.state.quarterTurnDeg || 0);
+        ctx.rotate((totalDeg * Math.PI) / 180);
         ctx.translate(-w / 2, -h / 2);
 
         ctx.drawImage(
@@ -744,14 +780,36 @@ class PassportStudio {
      * Calculate paper dimensions & max columns for current preset
      */
     getPaperMetrics() {
-        let sheetWidthMm = 210, sheetHeightMm = 297;
-        if (this.printState.paperSize === '4x6') {
-            sheetWidthMm = 152.4;
-            sheetHeightMm = 101.6;
-        } else if (this.printState.paperSize === '5x7') {
-            sheetWidthMm = 177.8;
-            sheetHeightMm = 127;
+        let baseW = 210, baseH = 297;
+        const ps = this.printState.paperSize;
+        if (ps === '4x6') {
+            baseW = 101.6;
+            baseH = 152.4;
+        } else if (ps === '5x7') {
+            baseW = 127;
+            baseH = 177.8;
+        } else if (ps === 'legal') {
+            baseW = 215.9;
+            baseH = 355.6;
+        } else if (ps === 'custom') {
+            baseW = Math.max(40, Math.min(600, parseFloat(this.printState.customSheetWidthMm) || 210));
+            baseH = Math.max(40, Math.min(600, parseFloat(this.printState.customSheetHeightMm) || 297));
         }
+
+        let sheetWidthMm = baseW;
+        let sheetHeightMm = baseH;
+        if (ps !== 'custom') {
+            const mn = Math.min(baseW, baseH);
+            const mx = Math.max(baseW, baseH);
+            const isLand = this.printState.sheetOrientation === 'landscape';
+            sheetWidthMm = isLand ? mx : mn;
+            sheetHeightMm = isLand ? mn : mx;
+        } else if (this.printState.sheetOrientation === 'landscape' && sheetWidthMm < sheetHeightMm) {
+            [sheetWidthMm, sheetHeightMm] = [sheetHeightMm, sheetWidthMm];
+        } else if (this.printState.sheetOrientation === 'portrait' && sheetWidthMm > sheetHeightMm) {
+            [sheetWidthMm, sheetHeightMm] = [sheetHeightMm, sheetWidthMm];
+        }
+
         const usableW = sheetWidthMm - (this.printState.marginMm || 6) * 2;
         const gap = this.printState.gapMm || 3.5;
         const maxColsFit = Math.max(1, Math.floor((usableW + gap) / (this.currentPreset.widthMm + gap)));

@@ -41,14 +41,18 @@ public final class NativePdfUtils {
     }
 
     /**
-     * Generate crisp A4 / 4x6 PDF natively using android.graphics.pdf.PdfDocument,
+     * Generate crisp custom-dimension PDF natively using android.graphics.pdf.PdfDocument,
      * store inside app vault AND save copy to device Downloads/camlab folder.
      */
     public static File saveBitmapsToPdf(Context ctx, List<Bitmap> pages, String fileName, boolean isA4) throws Exception {
+        return saveBitmapsToPdf(ctx, pages, fileName, isA4 ? 210f : 152.4f, isA4 ? 297f : 101.6f);
+    }
+
+    public static File saveBitmapsToPdf(Context ctx, List<Bitmap> pages, String fileName, float sheetMmW, float sheetMmH) throws Exception {
         if (pages == null || pages.isEmpty()) return null;
 
-        int pageW = isA4 ? 595 : 432;  // 72 pt/in: A4 = 210mm, 4x6 = 6 in landscape
-        int pageH = isA4 ? 842 : 288;  // A4 = 297mm, 4x6 = 4 in landscape
+        int pageW = Math.max(72, Math.round((Math.max(40f, sheetMmW) / 25.4f) * 72f));
+        int pageH = Math.max(72, Math.round((Math.max(40f, sheetMmH) / 25.4f) * 72f));
 
         PdfDocument pdf = new PdfDocument();
         Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
@@ -119,15 +123,28 @@ public final class NativePdfUtils {
     }
 
     /**
-     * Launch native Android Print Dialog directly from a Bitmap using PrintManager.
+     * Launch native Android Print Dialog directly from a Bitmap using PrintManager with custom sheet size.
      */
     public static void printBitmap(Activity activity, Bitmap sheetBmp, String jobName, boolean isA4) {
+        printBitmap(activity, sheetBmp, jobName, isA4 ? 210f : 152.4f, isA4 ? 297f : 101.6f);
+    }
+
+    public static void printBitmap(Activity activity, Bitmap sheetBmp, String jobName, float sheetMmW, float sheetMmH) {
         PrintManager pm = (PrintManager) activity.getSystemService(Context.PRINT_SERVICE);
         if (pm == null || sheetBmp == null) return;
 
-        PrintAttributes.MediaSize media = isA4
-                ? PrintAttributes.MediaSize.ISO_A4
-                : PrintAttributes.MediaSize.NA_INDEX_4X6.asLandscape();
+        final int pw = Math.max(72, Math.round((Math.max(40f, sheetMmW) / 25.4f) * 72f));
+        final int ph = Math.max(72, Math.round((Math.max(40f, sheetMmH) / 25.4f) * 72f));
+        boolean landscape = sheetMmW > sheetMmH;
+        int wMils = Math.max(1500, Math.round((sheetMmW / 25.4f) * 1000f));
+        int hMils = Math.max(1500, Math.round((sheetMmH / 25.4f) * 1000f));
+        PrintAttributes.MediaSize baseMedia = new PrintAttributes.MediaSize(
+                "camlab_sheet_" + wMils + "x" + hMils,
+                Math.round(sheetMmW) + "x" + Math.round(sheetMmH) + "mm",
+                Math.min(wMils, hMils),
+                Math.max(wMils, hMils)
+        );
+        PrintAttributes.MediaSize media = landscape ? baseMedia.asLandscape() : baseMedia.asPortrait();
 
         pm.print(jobName, new PrintDocumentAdapter() {
             @Override
@@ -146,8 +163,6 @@ public final class NativePdfUtils {
             @Override
             public void onWrite(PageRange[] pages, ParcelFileDescriptor dest, CancellationSignal cs, WriteResultCallback cb) {
                 try {
-                    int pw = isA4 ? 595 : 432;
-                    int ph = isA4 ? 842 : 288;
                     PdfDocument doc = new PdfDocument();
                     PdfDocument.Page page = doc.startPage(new PdfDocument.PageInfo.Builder(pw, ph, 1).create());
                     Canvas c = page.getCanvas();

@@ -4,6 +4,7 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.Drawing.Printing;
 using System.IO;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace CamLabDesktop;
@@ -27,15 +28,35 @@ public sealed class MainForm : Form
     private bool _replaceBg = false;
     private Color _bgColor = Color.White;
 
+    // Single Photo Custom Dimensions & Orientation
+    private float _photoMmW = 35f;
+    private float _photoMmH = 45f;
+    private bool _photoLandscape = false;
+
+    // Main Print Sheet Custom Dimensions & Orientation
+    private float _sheetMmW = 210f;
+    private float _sheetMmH = 297f;
+    private bool _sheetLandscape = false;
+    private bool _suppressUiSync = false;
+
     private PictureBox _pbSingle = null!;
     private PictureBox _pbSheet = null!;
     private Label _lblAiStatus = null!;
     private Label _lblAttire = null!;
+    private Label _lblSheetMeta = null!;
     private RadioButton _rbMale = null!;
     private RadioButton _rbFemale = null!;
+    private RadioButton _rbPhotoPortrait = null!;
+    private RadioButton _rbPhotoLandscape = null!;
+    private NumericUpDown _numPhotoW = null!;
+    private NumericUpDown _numPhotoH = null!;
     private ComboBox _cbPreset = null!;
     private ComboBox _cbSuit = null!;
     private ComboBox _cbPaper = null!;
+    private RadioButton _rbSheetPortrait = null!;
+    private RadioButton _rbSheetLandscape = null!;
+    private NumericUpDown _numSheetW = null!;
+    private NumericUpDown _numSheetH = null!;
     private ComboBox _cbPerRow = null!;
     private ComboBox _cbRows = null!;
     private CheckBox _chkCutLines = null!;
@@ -57,30 +78,54 @@ public sealed class MainForm : Form
         new("স্ট্যাম্প / NID (২৫ × ৩০ মিমি)", 25f, 30f),
         new("আমেরিকা ভিসা (৫১ × ৫১ মিমি)", 50.8f, 50.8f),
         new("ইউরোপ / শেঞ্জেন (৩৫ × ৪৫ মিমি)", 35f, 45f),
-        new("সৌদি ভিসা (৪০ × ৬০ মিমি)", 40f, 60f)
+        new("সৌদি ভিসা (৪০ × ৬০ মিমি)", 40f, 60f),
+        new("Custom (নিজস্ব mm)", 35f, 45f)
     };
+
+    private Image? _logoImage;
 
     public MainForm()
     {
         Text = "camlab — সহজ ডকুমেন্ট ও পাসপোর্ট স্টুডিও (Desktop)";
-        Size = new Size(1220, 780);
-        MinimumSize = new Size(980, 650);
+        Size = new Size(1240, 810);
+        MinimumSize = new Size(980, 680);
         StartPosition = FormStartPosition.CenterScreen;
         BackColor = _bgLight;
         Font = new Font("Segoe UI", 9.5f);
 
+        LoadEmbeddedIcons();
         BuildUi();
+    }
+
+    private void LoadEmbeddedIcons()
+    {
+        try
+        {
+            var asm = Assembly.GetExecutingAssembly();
+            using var icoStream = asm.GetManifestResourceStream("CamLabDesktop.camlab.ico");
+            if (icoStream != null) Icon = new Icon(icoStream);
+            using var pngStream = asm.GetManifestResourceStream("CamLabDesktop.camlab_icon.png");
+            if (pngStream != null) _logoImage = Image.FromStream(pngStream);
+        }
+        catch { }
     }
 
     private void BuildUi()
     {
-        // Minimal Header
+        // Minimal Header with camlab Logo
         var header = new Panel
         {
             Dock = DockStyle.Top,
-            Height = 56,
+            Height = 58,
             BackColor = Color.White,
-            Padding = new Padding(18, 10, 18, 10)
+            Padding = new Padding(16, 10, 16, 10)
+        };
+        var logoBox = new PictureBox
+        {
+            Size = new Size(36, 36),
+            Location = new Point(16, 11),
+            SizeMode = PictureBoxSizeMode.Zoom,
+            Image = _logoImage
         };
         var titleLbl = new Label
         {
@@ -88,7 +133,7 @@ public sealed class MainForm : Form
             Font = new Font("Segoe UI", 16f, FontStyle.Bold),
             ForeColor = _teal,
             AutoSize = true,
-            Location = new Point(18, 12)
+            Location = new Point(60, 12)
         };
         var subLbl = new Label
         {
@@ -96,8 +141,9 @@ public sealed class MainForm : Form
             Font = new Font("Segoe UI", 9.5f),
             ForeColor = Color.FromArgb(100, 116, 139),
             AutoSize = true,
-            Location = new Point(115, 19)
+            Location = new Point(160, 19)
         };
+        header.Controls.Add(logoBox);
         header.Controls.Add(titleLbl);
         header.Controls.Add(subLbl);
 
@@ -174,8 +220,16 @@ public sealed class MainForm : Form
         singleCard.Controls.Add(_lblAiStatus);
         singleCard.Controls.Add(_lblAttire);
 
-        // Col 2: Live A4 Print Sheet Arrangement Preview
-        var sheetCard = CreateCard("A4 পেপার সাজানো ও লাইভ প্রিভিউ (Print Ready)");
+        // Col 2: Live Print Sheet Arrangement Preview
+        var sheetCard = CreateCard("মূল পেপার সাজানো ও লাইভ প্রিভিউ (Print Ready)");
+        _lblSheetMeta = new Label
+        {
+            Dock = DockStyle.Bottom,
+            Height = 26,
+            Text = "পেজ: 210×297 mm (সোজা) • ছবি: 35×45 mm (সোজা)",
+            ForeColor = Color.FromArgb(71, 85, 105),
+            TextAlign = ContentAlignment.MiddleCenter
+        };
         _pbSheet = new PictureBox
         {
             Dock = DockStyle.Fill,
@@ -183,6 +237,7 @@ public sealed class MainForm : Form
             BackColor = Color.FromArgb(226, 232, 240)
         };
         sheetCard.Controls.Add(_pbSheet);
+        sheetCard.Controls.Add(_lblSheetMeta);
 
         // Col 3: Simple Controls Sidebar
         var ctrlPanel = new Panel
@@ -204,25 +259,66 @@ public sealed class MainForm : Form
         btnImport.Click += (s, e) => ImportPassportImage();
         flow.Controls.Add(btnImport);
 
-        // Gender & Auto-Crop Strip
+        // Gender, Rotate & Auto-Crop Strip
         var genderBox = new FlowLayoutPanel { Width = 300, AutoSize = true, Margin = new Padding(0, 10, 0, 4) };
         _rbMale = new RadioButton { Text = "👨 ছেলে", Checked = true, AutoSize = true };
         _rbFemale = new RadioButton { Text = "👩 মেয়ে", AutoSize = true };
         _rbMale.CheckedChanged += (s, e) => { if (_rbMale.Checked && _analysis != null) { _analysis.IsFemale = false; RenderPassportAll(); } };
         _rbFemale.CheckedChanged += (s, e) => { if (_rbFemale.Checked && _analysis != null) { _analysis.IsFemale = true; RenderPassportAll(); } };
-        var btnAutoFrame = CreateOutlineButton("✨ অটো-ক্রপ", 115);
+        var btnRotatePhoto = CreateOutlineButton("↻ ৯০°", 68);
+        btnRotatePhoto.Click += (s, e) => RotatePassportPhoto();
+        var btnAutoFrame = CreateOutlineButton("✨ অটো-ক্রপ", 88);
         btnAutoFrame.Click += (s, e) => { _panX = 0; _panY = 0; _userZoom = 1f; _tbZoom.Value = 100; RenderPassportAll(); };
         genderBox.Controls.Add(_rbMale);
         genderBox.Controls.Add(_rbFemale);
+        genderBox.Controls.Add(btnRotatePhoto);
         genderBox.Controls.Add(btnAutoFrame);
         flow.Controls.Add(genderBox);
 
-        flow.Controls.Add(CreateFieldLabel("দেশের মাপ (Preset):"));
+        flow.Controls.Add(CreateFieldLabel("🪪 পাসপোর্ট ছবির আলাদা সেটিংস (Preset & mm):"));
         _cbPreset = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
         foreach (var p in _presets) _cbPreset.Items.Add(p.Label);
         _cbPreset.SelectedIndex = 0;
-        _cbPreset.SelectedIndexChanged += (s, e) => RenderPassportAll();
+        _cbPreset.SelectedIndexChanged += (s, e) =>
+        {
+            int idx = _cbPreset.SelectedIndex;
+            if (idx >= 0 && idx < _presets.Length - 1)
+            {
+                var pr = _presets[idx];
+                _photoMmW = _photoLandscape ? Math.Max(pr.WidthMm, pr.HeightMm) : Math.Min(pr.WidthMm, pr.HeightMm);
+                _photoMmH = _photoLandscape ? Math.Min(pr.WidthMm, pr.HeightMm) : Math.Max(pr.WidthMm, pr.HeightMm);
+                SyncDimensionControls();
+                RenderPassportAll();
+            }
+        };
         flow.Controls.Add(_cbPreset);
+
+        var photoOrRow = new FlowLayoutPanel { Width = 300, AutoSize = true, Margin = new Padding(0, 4, 0, 2) };
+        _rbPhotoPortrait = new RadioButton { Text = "🧍 ছবি সোজা (Portrait)", Checked = true, AutoSize = true };
+        _rbPhotoLandscape = new RadioButton { Text = "🖼️ ল্যান্ডস্কিপ", AutoSize = true };
+        _rbPhotoPortrait.CheckedChanged += (s, e) => { if (!_suppressUiSync && _rbPhotoPortrait.Checked) SetPhotoOrientation(false); };
+        _rbPhotoLandscape.CheckedChanged += (s, e) => { if (!_suppressUiSync && _rbPhotoLandscape.Checked) SetPhotoOrientation(true); };
+        photoOrRow.Controls.Add(_rbPhotoPortrait);
+        photoOrRow.Controls.Add(_rbPhotoLandscape);
+        flow.Controls.Add(photoOrRow);
+
+        var photoMmRow = new FlowLayoutPanel { Width = 300, AutoSize = true, Margin = new Padding(0, 2, 0, 4) };
+        _numPhotoW = new NumericUpDown { Width = 80, Minimum = 12, Maximum = 250, DecimalPlaces = 1, Value = 35 };
+        _numPhotoH = new NumericUpDown { Width = 80, Minimum = 12, Maximum = 250, DecimalPlaces = 1, Value = 45 };
+        var btnApplyPhotoMm = CreateOutlineButton("ছবি mm সেট", 100);
+        btnApplyPhotoMm.Click += (s, e) =>
+        {
+            _photoMmW = (float)_numPhotoW.Value;
+            _photoMmH = (float)_numPhotoH.Value;
+            _photoLandscape = _photoMmW > _photoMmH;
+            SyncDimensionControls();
+            RenderPassportAll();
+        };
+        photoMmRow.Controls.Add(_numPhotoW);
+        photoMmRow.Controls.Add(new Label { Text = "×", AutoSize = true, Padding = new Padding(2, 6, 2, 0) });
+        photoMmRow.Controls.Add(_numPhotoH);
+        photoMmRow.Controls.Add(btnApplyPhotoMm);
+        flow.Controls.Add(photoMmRow);
 
         flow.Controls.Add(CreateFieldLabel("ফরমাল স্যুট (Auto Suit):"));
         _cbSuit = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -232,7 +328,7 @@ public sealed class MainForm : Form
         flow.Controls.Add(_cbSuit);
 
         flow.Controls.Add(CreateFieldLabel("জুম অ্যাডজাস্ট:"));
-        _tbZoom = new TrackBar { Width = 300, Minimum = 55, Maximum = 220, Value = 100, TickFrequency = 15 };
+        _tbZoom = new TrackBar { Width = 300, Minimum = 50, Maximum = 240, Value = 100, TickFrequency = 15 };
         _tbZoom.Scroll += (s, e) => { _userZoom = _tbZoom.Value / 100f; RenderPassportAll(); };
         flow.Controls.Add(_tbZoom);
 
@@ -252,13 +348,52 @@ public sealed class MainForm : Form
         bgFlow.Controls.Add(btnOrigBg);
         flow.Controls.Add(bgFlow);
 
-        // A4 Arrangement Section
-        flow.Controls.Add(CreateFieldLabel("কাগজের সাইজ (Paper):"));
+        // Main Sheet Custom Size & Orientation Section
+        flow.Controls.Add(CreateFieldLabel("📄 মূল পেপার সাইজ ও দিক (Custom Sheet):"));
         _cbPaper = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
-        _cbPaper.Items.AddRange(new object[] { "A4", "4x6", "5x7" });
+        _cbPaper.Items.AddRange(new object[] { "A4 (210×297 mm)", "4x6 (102×152 mm)", "5x7 (127×178 mm)", "Legal (216×356 mm)", "Custom (কাস্টম পেজ mm)" });
         _cbPaper.SelectedIndex = 0;
-        _cbPaper.SelectedIndexChanged += (s, e) => RenderSheetOnly();
+        _cbPaper.SelectedIndexChanged += (s, e) =>
+        {
+            if (_suppressUiSync) return;
+            float[][] papers = { new[] { 210f, 297f }, new[] { 101.6f, 152.4f }, new[] { 127f, 177.8f }, new[] { 215.9f, 355.6f } };
+            int idx = _cbPaper.SelectedIndex;
+            if (idx >= 0 && idx < papers.Length)
+            {
+                _sheetMmW = _sheetLandscape ? Math.Max(papers[idx][0], papers[idx][1]) : Math.Min(papers[idx][0], papers[idx][1]);
+                _sheetMmH = _sheetLandscape ? Math.Min(papers[idx][0], papers[idx][1]) : Math.Max(papers[idx][0], papers[idx][1]);
+                SyncDimensionControls();
+                RenderSheetOnly();
+            }
+        };
         flow.Controls.Add(_cbPaper);
+
+        var sheetOrRow = new FlowLayoutPanel { Width = 300, AutoSize = true, Margin = new Padding(0, 4, 0, 2) };
+        _rbSheetPortrait = new RadioButton { Text = "📄 পেজ সোজা (Portrait)", Checked = true, AutoSize = true };
+        _rbSheetLandscape = new RadioButton { Text = "📐 ল্যান্ডস্কিপ", AutoSize = true };
+        _rbSheetPortrait.CheckedChanged += (s, e) => { if (!_suppressUiSync && _rbSheetPortrait.Checked) SetSheetOrientation(false); };
+        _rbSheetLandscape.CheckedChanged += (s, e) => { if (!_suppressUiSync && _rbSheetLandscape.Checked) SetSheetOrientation(true); };
+        sheetOrRow.Controls.Add(_rbSheetPortrait);
+        sheetOrRow.Controls.Add(_rbSheetLandscape);
+        flow.Controls.Add(sheetOrRow);
+
+        var sheetMmRow = new FlowLayoutPanel { Width = 300, AutoSize = true, Margin = new Padding(0, 2, 0, 4) };
+        _numSheetW = new NumericUpDown { Width = 80, Minimum = 40, Maximum = 600, DecimalPlaces = 1, Value = 210 };
+        _numSheetH = new NumericUpDown { Width = 80, Minimum = 40, Maximum = 600, DecimalPlaces = 1, Value = 297 };
+        var btnApplySheetMm = CreateOutlineButton("পেজ mm সেট", 100);
+        btnApplySheetMm.Click += (s, e) =>
+        {
+            _sheetMmW = (float)_numSheetW.Value;
+            _sheetMmH = (float)_numSheetH.Value;
+            _sheetLandscape = _sheetMmW > _sheetMmH;
+            SyncDimensionControls();
+            RenderSheetOnly();
+        };
+        sheetMmRow.Controls.Add(_numSheetW);
+        sheetMmRow.Controls.Add(new Label { Text = "×", AutoSize = true, Padding = new Padding(2, 6, 2, 0) });
+        sheetMmRow.Controls.Add(_numSheetH);
+        sheetMmRow.Controls.Add(btnApplySheetMm);
+        flow.Controls.Add(sheetMmRow);
 
         flow.Controls.Add(CreateFieldLabel("এক লাইনে কয়টা ছবি (Photos/Row):"));
         _cbPerRow = new ComboBox { Width = 300, DropDownStyle = ComboBoxStyle.DropDownList };
@@ -349,6 +484,59 @@ public sealed class MainForm : Form
         page.Controls.Add(topBar);
     }
 
+    private void SyncDimensionControls()
+    {
+        _suppressUiSync = true;
+        _numPhotoW.Value = (decimal)Math.Clamp(_photoMmW, 12f, 250f);
+        _numPhotoH.Value = (decimal)Math.Clamp(_photoMmH, 12f, 250f);
+        _rbPhotoPortrait.Checked = !_photoLandscape;
+        _rbPhotoLandscape.Checked = _photoLandscape;
+
+        _numSheetW.Value = (decimal)Math.Clamp(_sheetMmW, 40f, 600f);
+        _numSheetH.Value = (decimal)Math.Clamp(_sheetMmH, 40f, 600f);
+        _rbSheetPortrait.Checked = !_sheetLandscape;
+        _rbSheetLandscape.Checked = _sheetLandscape;
+        _lblSheetMeta.Text = $"পেজ: {_sheetMmW:0.#}×{_sheetMmH:0.#} mm ({(_sheetLandscape ? "ল্যান্ডস্কিপ" : "সোজা")})  •  ছবি: {_photoMmW:0.#}×{_photoMmH:0.#} mm ({(_photoLandscape ? "ল্যান্ডস্কিপ" : "সোজা")})";
+        _suppressUiSync = false;
+    }
+
+    private void SetPhotoOrientation(bool landscape)
+    {
+        float minD = Math.Min(_photoMmW, _photoMmH);
+        float maxD = Math.Max(_photoMmW, _photoMmH);
+        _photoLandscape = landscape;
+        if (Math.Abs(minD - maxD) >= 0.5f)
+        {
+            _photoMmW = landscape ? maxD : minD;
+            _photoMmH = landscape ? minD : maxD;
+        }
+        SyncDimensionControls();
+        RenderPassportAll();
+    }
+
+    private void SetSheetOrientation(bool landscape)
+    {
+        float minD = Math.Min(_sheetMmW, _sheetMmH);
+        float maxD = Math.Max(_sheetMmW, _sheetMmH);
+        _sheetLandscape = landscape;
+        if (Math.Abs(minD - maxD) >= 0.5f)
+        {
+            _sheetMmW = landscape ? maxD : minD;
+            _sheetMmH = landscape ? minD : maxD;
+        }
+        SyncDimensionControls();
+        RenderSheetOnly();
+    }
+
+    private void RotatePassportPhoto()
+    {
+        if (_rawPassportBmp == null) return;
+        _rawPassportBmp.RotateFlip(RotateFlipType.Rotate90FlipNone);
+        _analysis = NativeEngine.AnalyzePortrait(_rawPassportBmp);
+        _panX = 0; _panY = 0;
+        RenderPassportAll();
+    }
+
     private void ImportPassportImage()
     {
         using var ofd = new OpenFileDialog { Filter = "Images|*.jpg;*.jpeg;*.png;*.bmp;*.webp" };
@@ -361,7 +549,7 @@ public sealed class MainForm : Form
 
         _rbFemale.Checked = _analysis.IsFemale;
         _rbMale.Checked = !_analysis.IsFemale;
-        _lblAiStatus.Text = $"{(_analysis.FaceDetected ? "✓ মুখ ও গলা শনাক্ত" : "✓ ম্যানুয়াল ফ্রেম")} • {_analysis.GenderLabel}";
+        _lblAiStatus.Text = $"{(_analysis.FaceDetected ? "✓ হিউমান ও মুখ শনাক্ত" : "✓ ম্যানুয়াল ফ্রেম")} • {_analysis.GenderLabel}";
         _lblAttire.Text = _analysis.AttireLabel;
 
         RenderPassportAll();
@@ -370,9 +558,8 @@ public sealed class MainForm : Form
     private void RenderPassportAll()
     {
         if (_rawPassportBmp == null || _analysis == null) return;
-        var preset = _presets[Math.Max(0, _cbPreset.SelectedIndex)];
-        int pxW = (int)Math.Round((preset.WidthMm / 25.4f) * 300f);
-        int pxH = (int)Math.Round((preset.HeightMm / 25.4f) * 300f);
+        int pxW = Math.Max(150, (int)Math.Round((_photoMmW / 25.4f) * 300f));
+        int pxH = Math.Max(150, (int)Math.Round((_photoMmH / 25.4f) * 300f));
 
         var nextSingle = NativeEngine.RenderPassportPhoto(
             _rawPassportBmp, _analysis, pxW, pxH, _userZoom, _panX, _panY, _cbSuit.SelectedIndex, _bgColor, _replaceBg);
@@ -386,13 +573,11 @@ public sealed class MainForm : Form
     private void RenderSheetOnly()
     {
         if (_singlePassportBmp == null) return;
-        var preset = _presets[Math.Max(0, _cbPreset.SelectedIndex)];
-        string paper = _cbPaper.SelectedItem?.ToString() ?? "A4";
         int perRow = int.TryParse(_cbPerRow.SelectedItem?.ToString(), out int p) ? p : 5;
         int rows = _cbRows.SelectedIndex == 4 ? 0 : (_cbRows.SelectedIndex + 1);
 
         var nextSheet = NativeEngine.ComposePrintSheet(
-            _singlePassportBmp, preset.WidthMm, preset.HeightMm, paper, perRow, rows, _chkCutLines.Checked, _chkBorder.Checked);
+            _singlePassportBmp, _photoMmW, _photoMmH, _sheetMmW, _sheetMmH, perRow, rows, _chkCutLines.Checked, _chkBorder.Checked);
         _a4SheetBmp?.Dispose();
         _a4SheetBmp = nextSheet;
         _pbSheet.Image = _a4SheetBmp;
@@ -401,13 +586,10 @@ public sealed class MainForm : Form
     private void SavePassportPdf()
     {
         if (_a4SheetBmp == null) { MessageBox.Show("প্রথমে একটি ছবি ইমপোর্ট করুন!"); return; }
-        string paper = _cbPaper.SelectedItem?.ToString() ?? "A4";
-        using var sfd = new SaveFileDialog { Filter = "PDF Files|*.pdf", FileName = $"camlab_Passport_{paper}.pdf" };
+        using var sfd = new SaveFileDialog { Filter = "PDF Files|*.pdf", FileName = $"camlab_Passport_{Math.Round(_sheetMmW)}x{Math.Round(_sheetMmH)}mm.pdf" };
         if (sfd.ShowDialog() != DialogResult.OK) return;
 
-        double wMm = paper == "4x6" ? 152.4 : (paper == "5x7" ? 177.8 : 210.0);
-        double hMm = paper == "4x6" ? 101.6 : (paper == "5x7" ? 127.0 : 297.0);
-        SimplePdfWriter.SaveBitmapsAsPdf(new[] { _a4SheetBmp }, sfd.FileName, wMm, hMm);
+        SimplePdfWriter.SaveBitmapsAsPdf(new[] { _a4SheetBmp }, sfd.FileName, _sheetMmW, _sheetMmH);
         MessageBox.Show("PDF সফলভাবে সংরক্ষিত হয়েছে!", "camlab");
     }
 

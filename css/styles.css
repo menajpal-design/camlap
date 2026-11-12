@@ -3589,12 +3589,48 @@ body.in-doc-detail .cs-tabbar {
 }
 
 @media (max-width: 767px) {
+    html, body, .cs-app-shell {
+        max-width: 100%;
+        overflow-x: hidden;
+    }
+
     .cs-a4-inline-controls {
         grid-template-columns: 1fr;
     }
 
     .cs-a4-inline-preview-row {
         grid-template-columns: 1fr;
+    }
+
+    .cs-a4-canvas-wrap canvas,
+    #passport-canvas {
+        max-width: 100%;
+        height: auto !important;
+    }
+
+    .cs-passport-canvas-container {
+        min-height: 240px !important;
+        max-height: 360px;
+    }
+
+    .cs-pane-header {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .cs-ai-badges-row,
+    .cs-ai-actions-row,
+    .cs-passport-hints-bar,
+    .cs-sheet-orient-bar {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .modal-content {
+        width: calc(100vw - 20px) !important;
+        max-height: 92vh;
+        overflow-y: auto;
+        padding: 14px !important;
     }
 
     .cs-simple-home-top {
@@ -3605,6 +3641,23 @@ body.in-doc-detail .cs-tabbar {
     .cs-simple-actions-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+}
+
+.cs-sheet-orient-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--cs-border-dark);
+}
+
+.cs-custom-mm-inline {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 /* ==========================================================================

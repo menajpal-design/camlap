@@ -231,7 +231,7 @@ public static class NativeEngine
         return res;
     }
 
-    public static Bitmap ReplaceBackground(Bitmap src, Color bgColor, int tolerance = 36)
+    public static Bitmap ReplaceBackground(Bitmap src, Color bgColor, int tolerance = 38, PortraitAnalysis? info = null)
     {
         var bmp = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
         using (var g = Graphics.FromImage(bmp)) g.DrawImage(src, 0, 0, src.Width, src.Height);
@@ -239,32 +239,40 @@ public static class NativeEngine
         int w = bmp.Width, h = bmp.Height;
         byte[] buf = ExtractBgraBytes(bmp, out int stride);
 
-        int[] corners = {
+        int[] samplePts = {
             2 * stride + 2 * 4,
             2 * stride + Math.Max(2, w - 3) * 4,
-            (int)(h * 0.25) * stride + 2 * 4,
-            (int)(h * 0.25) * stride + Math.Max(2, w - 3) * 4
+            (int)(h * 0.14) * stride + 2 * 4,
+            (int)(h * 0.14) * stride + Math.Max(2, w - 3) * 4,
+            (int)(h * 0.35) * stride + 2 * 4,
+            (int)(h * 0.35) * stride + Math.Max(2, w - 3) * 4
         };
-        int sumB = 0, sumG = 0, sumR = 0;
-        foreach (int c in corners)
+        var swatches = new List<(int B, int G, int R)>(samplePts.Length);
+        foreach (int c in samplePts)
         {
             int idx = Math.Clamp(c, 0, buf.Length - 4);
-            sumB += buf[idx]; sumG += buf[idx + 1]; sumR += buf[idx + 2];
+            swatches.Add((buf[idx], buf[idx + 1], buf[idx + 2]));
         }
-        int bgB = sumB / 4, bgG = sumG / 4, bgR = sumR / 4;
-        double tolSq = tolerance * tolerance * 3.2;
+        double tolSq = tolerance * tolerance * 3.1;
 
+        byte[] mask = new byte[w * h]; // 1 = background
         bool[] visited = new bool[w * h];
         var q = new Queue<int>();
-        for (int x = 0; x < w; x += 2) { q.Enqueue(x); visited[x] = true; }
-        for (int y = 0; y < h; y += 2)
+        for (int x = 0; x < w; x++) { q.Enqueue(x); visited[x] = true; }
+        for (int y = 1; y < (int)(h * 0.88); y++)
         {
             int l = y * w, r = y * w + (w - 1);
             if (!visited[l]) { q.Enqueue(l); visited[l] = true; }
             if (!visited[r]) { q.Enqueue(r); visited[r] = true; }
         }
 
-        float pCx = w * 0.5f, pCy = h * 0.44f, pRx = w * 0.24f, pRy = h * 0.30f;
+        float pCx = info != null ? info.CenterX : w * 0.5f;
+        float fW = info != null ? Math.Max(40f, info.FaceWidth) : w * 0.36f;
+        float fTop = info != null ? info.CrownY : h * 0.16f;
+        float fChin = info != null ? info.ChinY : h * 0.62f;
+        float pCy = (fTop + fChin) * 0.52f;
+        float pRx = Math.Max(26f, fW * 0.48f);
+        float pRy = Math.Max(36f, (fChin - fTop) * 0.52f);
 
         while (q.Count > 0)
         {
@@ -272,16 +280,20 @@ public static class NativeEngine
             int x = idx % w, y = idx / w;
             float ndx = (x - pCx) / pRx, ndy = (y - pCy) / pRy;
             if (ndx * ndx + ndy * ndy < 1.0f) continue;
+            if (y > fChin && Math.Abs(x - pCx) < fW * 0.62f) continue;
 
             int off = y * stride + x * 4;
-            int db = buf[off] - bgB, dg = buf[off + 1] - bgG, dr = buf[off + 2] - bgR;
-            if (db * db + dg * dg + dr * dr > tolSq) continue;
+            int pxB = buf[off], pxG = buf[off + 1], pxR = buf[off + 2];
+            double bestDistSq = double.MaxValue;
+            foreach (var sw in swatches)
+            {
+                int db = pxB - sw.B, dg = pxG - sw.G, dr = pxR - sw.R;
+                double d2 = db * db + dg * dg + dr * dr;
+                if (d2 < bestDistSq) bestDistSq = d2;
+            }
+            if (bestDistSq > tolSq) continue;
 
-            buf[off] = bgColor.B;
-            buf[off + 1] = bgColor.G;
-            buf[off + 2] = bgColor.R;
-            buf[off + 3] = 255;
-
+            mask[idx] = 1;
             int[] nbs = { idx - 1, idx + 1, idx - w, idx + w };
             foreach (int n in nbs)
             {
@@ -289,6 +301,36 @@ public static class NativeEngine
                 {
                     visited[n] = true;
                     q.Enqueue(n);
+                }
+            }
+        }
+
+        // Smooth edge feathering so hair & shoulders blend cleanly onto new studio BG
+        for (int y = 1; y < h - 1; y++)
+        {
+            for (int x = 1; x < w - 1; x++)
+            {
+                int idx = y * w + x;
+                int off = y * stride + x * 4;
+                if (mask[idx] == 1)
+                {
+                    buf[off] = bgColor.B;
+                    buf[off + 1] = bgColor.G;
+                    buf[off + 2] = bgColor.R;
+                    buf[off + 3] = 255;
+                }
+                else
+                {
+                    int bgNbrs = mask[idx - 1] + mask[idx + 1] + mask[idx - w] + mask[idx + w]
+                               + mask[idx - w - 1] + mask[idx - w + 1] + mask[idx + w - 1] + mask[idx + w + 1];
+                    if (bgNbrs > 0)
+                    {
+                        float alpha = (bgNbrs / 8f) * 0.55f;
+                        buf[off] = (byte)Math.Clamp(Math.Round(buf[off] * (1f - alpha) + bgColor.B * alpha), 0, 255);
+                        buf[off + 1] = (byte)Math.Clamp(Math.Round(buf[off + 1] * (1f - alpha) + bgColor.G * alpha), 0, 255);
+                        buf[off + 2] = (byte)Math.Clamp(Math.Round(buf[off + 2] * (1f - alpha) + bgColor.R * alpha), 0, 255);
+                        buf[off + 3] = 255;
+                    }
                 }
             }
         }
@@ -309,22 +351,24 @@ public static class NativeEngine
         Color bgColor,
         bool doReplaceBg)
     {
-        Bitmap working = doReplaceBg ? ReplaceBackground(src, bgColor, 36) : src;
+        Bitmap working = doReplaceBg ? ReplaceBackground(src, bgColor, 38, info) : src;
         try
         {
             var outBmp = new Bitmap(targetW, targetH, PixelFormat.Format32bppArgb);
             using var g = Graphics.FromImage(outBmp);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.InterpolationMode = InterpolationMode.HighQualityBicubic;
-            g.Clear(bgColor);
+            g.Clear(doReplaceBg ? bgColor : working.GetPixel(Math.Min(working.Width - 1, 4), Math.Min(working.Height - 1, 4)));
 
             float headH = Math.Max(40f, info.ChinY - info.CrownY);
-            float fitScale = (targetH * 0.54f) / headH;
+            float headRatio = targetW > targetH ? 0.58f : 0.54f;
+            float fitScale = (targetH * headRatio) / headH;
             float minCoverW = (float)targetW / working.Width;
-            float finalScale = Math.Max(fitScale, minCoverW) * userZoom;
+            float baseScale = doReplaceBg ? Math.Max(fitScale, minCoverW * 0.72f) : Math.Max(fitScale, minCoverW);
+            float finalScale = baseScale * userZoom;
 
             float offX = (targetW * 0.5f) - (info.CenterX * finalScale) + panX;
-            float offY = (targetH * 0.11f) - (info.CrownY * finalScale) + panY;
+            float offY = (targetH * (targetW > targetH ? 0.08f : 0.11f)) - (info.CrownY * finalScale) + panY;
 
             g.DrawImage(working, offX, offY, working.Width * finalScale, working.Height * finalScale);
 
@@ -419,10 +463,26 @@ public static class NativeEngine
         bool cutLines,
         bool hasBorder)
     {
-        const int dpi = 300;
         float sheetMmW = 210f, sheetMmH = 297f;
         if (paperSize == "4x6") { sheetMmW = 152.4f; sheetMmH = 101.6f; }
         else if (paperSize == "5x7") { sheetMmW = 177.8f; sheetMmH = 127f; }
+        return ComposePrintSheet(singlePhoto, photoMmW, photoMmH, sheetMmW, sheetMmH, photosPerRow, rowsWanted, cutLines, hasBorder);
+    }
+
+    public static Bitmap ComposePrintSheet(
+        Bitmap singlePhoto,
+        float photoMmW,
+        float photoMmH,
+        float sheetMmW,
+        float sheetMmH,
+        int photosPerRow,
+        int rowsWanted,
+        bool cutLines,
+        bool hasBorder)
+    {
+        const int dpi = 240;
+        sheetMmW = Math.Clamp(sheetMmW, 40f, 600f);
+        sheetMmH = Math.Clamp(sheetMmH, 40f, 600f);
 
         int sheetW = (int)Math.Round((sheetMmW / 25.4f) * dpi);
         int sheetH = (int)Math.Round((sheetMmH / 25.4f) * dpi);
