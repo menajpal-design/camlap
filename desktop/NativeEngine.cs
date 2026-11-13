@@ -679,10 +679,10 @@ public static class NativeEngine
         using var g = Graphics.FromImage(outBmp);
         using var ia = new ImageAttributes();
 
-        float contrast = mode == 2 ? 1.65f : (mode == 3 ? 1.15f : 1.32f);
-        float t = (-0.5f * contrast + 0.5f) + (mode == 3 ? 0.02f : 0.08f);
+        float contrast = mode == 2 ? 1.65f : (mode == 4 ? 2.10f : (mode == 3 ? 1.15f : (mode == 5 ? 1.18f : 1.32f)));
+        float t = (-0.5f * contrast + 0.5f) + (mode == 3 ? 0.02f : (mode == 5 ? 0.16f : 0.08f));
 
-        ColorMatrix cm = (mode == 2 || mode == 3)
+        ColorMatrix cm = (mode == 2 || mode == 3 || mode == 4)
             ? new ColorMatrix(new[] {
                 new[] { 0.30f * contrast, 0.30f * contrast, 0.30f * contrast, 0f, 0f },
                 new[] { 0.59f * contrast, 0.59f * contrast, 0.59f * contrast, 0f, 0f },
@@ -701,6 +701,163 @@ public static class NativeEngine
         ia.SetColorMatrix(cm);
         g.DrawImage(src, new Rectangle(0, 0, src.Width, src.Height), 0, 0, src.Width, src.Height, GraphicsUnit.Pixel, ia);
         return outBmp;
+    }
+
+    public static Bitmap[] SplitBookPages(Bitmap src)
+    {
+        int w = src.Width, h = src.Height;
+        if (w >= h)
+        {
+            int halfW = Math.Max(1, w / 2);
+            var left = src.Clone(new Rectangle(0, 0, halfW, h), PixelFormat.Format32bppArgb);
+            var right = src.Clone(new Rectangle(halfW, 0, Math.Max(1, w - halfW), h), PixelFormat.Format32bppArgb);
+            return new[] { left, right };
+        }
+        else
+        {
+            int halfH = Math.Max(1, h / 2);
+            var top = src.Clone(new Rectangle(0, 0, w, halfH), PixelFormat.Format32bppArgb);
+            var bottom = src.Clone(new Rectangle(0, halfH, w, Math.Max(1, h - halfH)), PixelFormat.Format32bppArgb);
+            return new[] { top, bottom };
+        }
+    }
+
+    public static Bitmap SmartEraseClean(Bitmap src)
+    {
+        var outBmp = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+        using (var g = Graphics.FromImage(outBmp)) g.DrawImage(src, 0, 0, src.Width, src.Height);
+        byte[] buf = ExtractBgraBytes(outBmp, out int stride);
+        int w = outBmp.Width, h = outBmp.Height;
+        for (int y = 0; y < h; y++)
+        {
+            for (int x = 0; x < w; x++)
+            {
+                int off = y * stride + x * 4;
+                byte b = buf[off], gCol = buf[off + 1], r = buf[off + 2];
+                int lum = (r * 299 + gCol * 587 + b * 114) / 1000;
+                int sat = Math.Max(r, Math.Max(gCol, b)) - Math.Min(r, Math.Min(gCol, b));
+                if (lum > 182 && sat < 42)
+                {
+                    buf[off] = 255; buf[off + 1] = 255; buf[off + 2] = 255;
+                }
+                else if (lum < 88)
+                {
+                    buf[off] = (byte)(b * 0.65); buf[off + 1] = (byte)(gCol * 0.65); buf[off + 2] = (byte)(r * 0.65);
+                }
+            }
+        }
+        WriteBgraBytes(outBmp, buf);
+        return outBmp;
+    }
+
+    public static Bitmap DrawOfficialStamp(Bitmap src, string stampLabel)
+    {
+        var outBmp = new Bitmap(src.Width, src.Height, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(outBmp);
+        g.SmoothingMode = SmoothingMode.AntiAlias;
+        g.DrawImage(src, 0, 0, src.Width, src.Height);
+
+        int w = outBmp.Width, h = outBmp.Height;
+        float radius = Math.Max(55f, Math.Min(w, h) * 0.13f);
+        float cx = w - radius * 1.45f;
+        float cy = h - radius * 1.45f;
+
+        Color stampColor = Color.FromArgb(220, 38, 38);
+        if (string.Equals(stampLabel, "VERIFIED", StringComparison.OrdinalIgnoreCase)) stampColor = Color.FromArgb(0, 137, 108);
+        else if (string.Equals(stampLabel, "PAID", StringComparison.OrdinalIgnoreCase)) stampColor = Color.FromArgb(29, 78, 216);
+
+        var state = g.Save();
+        g.TranslateTransform(cx, cy);
+        g.RotateTransform(-14f);
+
+        using var outerPen = new Pen(stampColor, Math.Max(3f, radius * 0.08f));
+        g.DrawEllipse(outerPen, -radius, -radius, radius * 2f, radius * 2f);
+        using var innerPen = new Pen(stampColor, Math.Max(1.5f, radius * 0.03f));
+        float r2 = radius * 0.86f;
+        g.DrawEllipse(innerPen, -r2, -r2, r2 * 2f, r2 * 2f);
+
+        using var brush = new SolidBrush(stampColor);
+        using var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        using var mainFont = new Font("Segoe UI", Math.Max(10f, radius * 0.22f), FontStyle.Bold);
+        using var subFont = new Font("Segoe UI", Math.Max(8f, radius * 0.13f), FontStyle.Bold);
+
+        g.DrawString("★ camlab ★", subFont, brush, new PointF(0, -radius * 0.42f), sf);
+        g.DrawString(stampLabel.ToUpperInvariant(), mainFont, brush, new PointF(0, 0), sf);
+        g.DrawString(DateTime.Now.ToString("dd/MM/yyyy"), subFont, brush, new PointF(0, radius * 0.42f), sf);
+
+        g.Restore(state);
+        return outBmp;
+    }
+
+    public static Bitmap StitchLongImage(IReadOnlyList<Bitmap> pages)
+    {
+        int targetW = 1080;
+        int gap = 16;
+        int totalH = gap;
+        foreach (var b in pages)
+        {
+            int sh = (int)Math.Round(b.Height * ((double)targetW / b.Width));
+            totalH += sh + gap;
+        }
+        totalH = Math.Min(totalH, 16000);
+        var outBmp = new Bitmap(targetW, Math.Max(100, totalH), PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(outBmp);
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
+        g.Clear(Color.FromArgb(241, 245, 249));
+        int curY = gap;
+        foreach (var b in pages)
+        {
+            int sh = (int)Math.Round(b.Height * ((double)targetW / b.Width));
+            if (curY + sh > totalH) break;
+            g.DrawImage(b, 12, curY, targetW - 24, sh);
+            curY += sh + gap;
+        }
+        return outBmp;
+    }
+
+    public static Bitmap GenerateQrBitmap(string text, int sizePx = 600)
+    {
+        if (string.IsNullOrWhiteSpace(text)) text = "https://camlab.app";
+        int modules = 25;
+        bool[,] grid = new bool[modules, modules];
+        void DrawFinder(int ox, int oy)
+        {
+            for (int r = 0; r < 7; r++)
+                for (int c = 0; c < 7; c++)
+                    grid[oy + r, ox + c] = (r == 0 || r == 6 || c == 0 || c == 6) || (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+        }
+        DrawFinder(0, 0);
+        DrawFinder(modules - 7, 0);
+        DrawFinder(0, modules - 7);
+        for (int i = 8; i < modules - 8; i++) { grid[6, i] = (i % 2 == 0); grid[i, 6] = (i % 2 == 0); }
+
+        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text);
+        int bitIdx = 0;
+        for (int r = 0; r < modules; r++)
+        {
+            for (int c = 0; c < modules; c++)
+            {
+                bool inFinder = (r < 8 && c < 8) || (r < 8 && c >= modules - 8) || (r >= modules - 8 && c < 8) || r == 6 || c == 6;
+                if (inFinder) continue;
+                int b = bytes[(bitIdx / 8) % bytes.Length];
+                bool bit = ((b >> (7 - (bitIdx % 8))) & 1) == 1;
+                bool mask = ((r * c) % 2 + (r * c) % 3) % 2 == 0;
+                grid[r, c] = bit ^ mask;
+                bitIdx++;
+            }
+        }
+
+        var bmp = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(bmp);
+        g.Clear(Color.White);
+        using var dark = new SolidBrush(Color.FromArgb(15, 23, 42));
+        float margin = sizePx * 0.08f;
+        float cell = (sizePx - margin * 2f) / modules;
+        for (int r = 0; r < modules; r++)
+            for (int c = 0; c < modules; c++)
+                if (grid[r, c])
+                    g.FillRectangle(dark, margin + c * cell, margin + r * cell, cell + 0.6f, cell + 0.6f);
+        return bmp;
     }
 
     /// <summary>

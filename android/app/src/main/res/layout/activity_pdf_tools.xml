@@ -236,6 +236,66 @@
                     android:enabled="false" />
             </LinearLayout>
 
+            <!-- Split PDF, Long Image Stitch & JPG Export -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:background="@drawable/bg_card"
+                android:padding="16dp"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✂️ PDF স্প্লিট, লং ইমেজ ও JPG কনভার্টার"
+                    android:textColor="#0F172A"
+                    android:textStyle="bold"
+                    android:textSize="14sp"
+                    android:layout_marginBottom="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginBottom="8dp">
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_pdf_long_img"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:layout_marginEnd="6dp"
+                        android:text="🖼️ লং ইমেজ স্টিচ"
+                        android:textAllCaps="false"
+                        android:textColor="#0F172A"
+                        android:textSize="12sp"
+                        android:background="@drawable/bg_btn_outline" />
+
+                    <androidx.appcompat.widget.AppCompatButton
+                        android:id="@+id/btn_pdf_split_pages"
+                        android:layout_width="0dp"
+                        android:layout_height="40dp"
+                        android:layout_weight="1"
+                        android:text="✂️ পেজ আলাদা (Split)"
+                        android:textAllCaps="false"
+                        android:textColor="#0F172A"
+                        android:textSize="12sp"
+                        android:background="@drawable/bg_btn_outline" />
+                </LinearLayout>
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_pdf_export_jpgs"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:text="🗂️ সব পেজ আলাদা JPG হিসেবে সেভ করুন"
+                    android:textAllCaps="false"
+                    android:textColor="#00896C"
+                    android:textSize="12sp"
+                    android:textStyle="bold"
+                    android:background="@drawable/bg_chip" />
+            </LinearLayout>
+
             <!-- Share Last Export -->
             <LinearLayout
                 android:layout_width="match_parent"

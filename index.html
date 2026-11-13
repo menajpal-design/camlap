@@ -77,9 +77,13 @@
         <button class="cs-pill active" data-category="All Docs">📁 সকল ফাইল (All Docs)</button>
         <button class="cs-pill" data-category="ID Photo">📸 পাসপোর্ট ছবি (ID Photo)</button>
         <button class="cs-pill" data-category="ID Card">🪪 আইডি কার্ড ২-সাইড</button>
-        <button class="cs-pill" data-category="PDF Tools">📑 পিডিএফ টুলস</button>
-        <button class="cs-pill" data-category="Watermark">✍️ ওয়াটারমার্ক ও সিগনেচার</button>
-        <button class="cs-pill" data-category="OCR">🔍 ওসিআর টেক্সট</button>
+        <button class="cs-pill" data-category="Book">📖 বই (Books)</button>
+        <button class="cs-pill" data-category="Receipts">🧾 রসিদ ও বিল</button>
+        <button class="cs-pill" data-category="Official">🏛️ অফিসিয়াল</button>
+        <button class="cs-pill" data-category="PDF Tools">📑 পিডিএফ ও টুলস</button>
+        <button class="cs-pill" data-category="Watermark">✍️ জলছাপ, সীল ও ইরেজার</button>
+        <button class="cs-pill" data-category="OCR">🔍 ওসিআর ও অনুবাদ</button>
+        <button class="cs-pill" data-category="Trash">🗑️ ট্র্যাশ (Recycle Bin)</button>
     </div>
 
     <!-- Main Screens Container -->
@@ -238,12 +242,24 @@
 
             <!-- Multi-page grid header toolbar -->
             <div class="cs-docdetail-toolbar">
-                <div style="display:flex; align-items:center; gap:10px;">
+                <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
                     <span id="docdetail-page-counter" class="cs-page-counter-badge">মোট পেজ: 1</span>
-                    <span style="font-size:0.8rem; color:var(--cs-text-dim);" class="cs-desktop-only">• পেজ পুনর্বিন্যাস ও এডিট করতে পারেন</span>
+                    <select id="docdetail-category-select" class="cs-select-clean" style="padding:4px 10px; font-size:0.78rem; width:auto;" title="ফোল্ডার / ট্যাগ পরিবর্তন করুন">
+                        <option value="All Docs">📁 সকল ফাইল</option>
+                        <option value="Book">📖 বই (Book)</option>
+                        <option value="Receipts">🧾 রসিদ ও বিল</option>
+                        <option value="Official">🏛️ অফিসিয়াল</option>
+                        <option value="ID Card">🪪 আইডি কার্ড</option>
+                        <option value="ID Photo">📸 পাসপোর্ট ছবি</option>
+                    </select>
                 </div>
-                <div style="display:flex; gap:8px;">
-                    <label class="cs-icon-btn" style="padding:6px 14px; font-size:0.82rem; cursor:pointer; background:rgba(0,168,132,0.15); border-color:var(--cs-teal); color:#fff; font-weight:600;" title="একাধিক পেজ একসাথে আপলোড করুন">
+                <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                    <button id="btn-doc-export-word" class="cs-icon-btn" style="padding:5px 10px; font-size:0.78rem;" title="Word (.doc) হিসেবে ডাউনলোড">📝 Word (.doc)</button>
+                    <button id="btn-doc-export-excel" class="cs-icon-btn" style="padding:5px 10px; font-size:0.78rem;" title="Excel (.csv) হিসেবে ডাউনলোড">📊 Excel (.csv)</button>
+                    <button id="btn-doc-export-ppt" class="cs-icon-btn" style="padding:5px 10px; font-size:0.78rem;" title="PPT স্লাইড হিসেবে ডাউনলোড">📽️ PPT স্লাইড</button>
+                    <button id="btn-doc-long-image" class="cs-icon-btn" style="padding:5px 10px; font-size:0.78rem;" title="সব পেজ একত্রে লম্বা ছবি (Long Image)">🖼️ লং ইমেজ</button>
+                    <button id="btn-doc-split-pdf" class="cs-icon-btn" style="padding:5px 10px; font-size:0.78rem;" title="নির্দিষ্ট পেজ আলাদা PDF করুন">✂️ PDF স্প্লিট</button>
+                    <label class="cs-icon-btn" style="padding:5px 12px; font-size:0.78rem; cursor:pointer; background:rgba(0,168,132,0.15); border-color:var(--cs-teal); color:var(--cs-teal); font-weight:700;" title="একাধিক পেজ একসাথে আপলোড করুন">
                         ➕ নতুন পেজ যোগ করুন
                         <input type="file" id="docdetail-add-page-upload" accept="image/*" multiple style="display:none;">
                     </label>
@@ -267,13 +283,13 @@
                     <span class="icon">🔤</span>
                     <span>ওসিআর</span>
                 </button>
-                <button class="cs-doc-bottom-action" id="btn-doc-watermark-trigger" title="জলছাপ দিন">
+                <button class="cs-doc-bottom-action" id="btn-doc-watermark-trigger" title="জলছাপ, ইরেজার ও সীল">
                     <span class="icon">🛡️</span>
-                    <span>জলছাপ</span>
+                    <span>জলছাপ/সীল</span>
                 </button>
-                <button class="cs-doc-bottom-action" id="btn-doc-sign-trigger" title="স্বাক্ষর দিন">
+                <button class="cs-doc-bottom-action" id="btn-doc-sign-trigger" title="স্বাক্ষর ও মার্কআপ">
                     <span class="icon">✍️</span>
-                    <span>স্বাক্ষর</span>
+                    <span>স্বাক্ষর/ইরেজার</span>
                 </button>
                 <button class="cs-doc-bottom-action" id="btn-doc-compress-trigger" title="ফাইল সাইজ কমান">
                     <span class="icon">🗜️</span>
@@ -624,12 +640,12 @@
         </section>
 
         <!-- ============================================================= -->
-        <!-- SCREEN 5: WATERMARK & SIGNATURE STUDIO -->
+        <!-- SCREEN 5: WATERMARK, SIGNATURE, SMART ERASER & MARKUP STUDIO -->
         <!-- ============================================================= -->
         <section id="screen-watermark" class="cs-screen">
             <div class="cs-watermark-layout">
                 <div class="cs-card-panel">
-                    <h3 class="cs-panel-heading">🛡️ অ্যান্টি-কাউন্টারফিট ওয়াটারমার্ক (জলছাপ)</h3>
+                    <h3 class="cs-panel-heading">🛡️ অ্যান্টি-কাউন্টারফিট ওয়াটারমার্ক ও অফিসিয়াল সীল</h3>
                     <label class="cs-field-label">জলছাপের টেক্সট:</label>
                     <input type="text" id="watermark-text" value="FOR VERIFICATION ONLY" class="cs-input-clean">
 
@@ -645,71 +661,122 @@
                     </label>
 
                     <button id="btn-apply-watermark" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); width:100%; justify-content:center; padding:10px; font-weight:700;">🛡️ ডকুমেন্টে ওয়াটারমার্ক যুক্ত করুন</button>
+
+                    <div style="border-top:1px solid var(--cs-border-dark); margin-top:16px; padding-top:14px;">
+                        <label class="cs-field-label">🏛️ অফিসিয়াল সীল / স্ট্যাম্প ও টেক্সট বক্স:</label>
+                        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                            <button type="button" class="cs-icon-btn btn-official-stamp" data-stamp="APPROVED" style="justify-content:center; color:#16a34a; border-color:#16a34a; font-weight:700;">✅ APPROVED সীল</button>
+                            <button type="button" class="cs-icon-btn btn-official-stamp" data-stamp="VERIFIED" style="justify-content:center; color:#00a884; border-color:#00a884; font-weight:700;">🛡️ VERIFIED সীল</button>
+                            <button type="button" class="cs-icon-btn btn-official-stamp" data-stamp="CONFIDENTIAL" style="justify-content:center; color:#dc2626; border-color:#dc2626; font-weight:700;">🔒 CONFIDENTIAL</button>
+                            <button type="button" class="cs-icon-btn btn-official-stamp" data-stamp="PAID" style="justify-content:center; color:#2563eb; border-color:#2563eb; font-weight:700;">💳 PAID সীল</button>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <input type="text" id="custom-textbox-input" placeholder="ডকুমেন্টে লেখার জন্য টেক্সট..." class="cs-input-clean" style="flex:1;">
+                            <button type="button" id="btn-add-textbox" class="cs-icon-btn" style="background:#0f172a; color:#fff; white-space:nowrap;">🔤 টেক্সট বসান</button>
+                        </div>
+                        <div style="display:flex; gap:8px; margin-top:10px;">
+                            <button type="button" id="btn-smart-eraser-clean" class="cs-icon-btn" style="flex:1; justify-content:center; background:#f59e0b; color:#fff; border-color:#f59e0b; font-weight:700;">🧹 স্মার্ট ইরেজার (দাগ ও ছায়া পরিষ্কার)</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="cs-card-panel">
                     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <h3 class="cs-panel-heading" style="margin-bottom:0;">✍️ ডিজিটাল সিগনেচার প্যাড</h3>
+                        <h3 class="cs-panel-heading" style="margin-bottom:0;">✍️ সিগনেচার, অ্যানোটেশন ও ইরেজার প্যাড</h3>
                         <button id="btn-clear-sig" class="cs-icon-btn" style="padding:4px 8px; font-size:0.75rem;">মুছে ফেলুন</button>
                     </div>
 
-                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-                        <div style="display:flex; gap:8px;">
-                            <div class="color-dot pen-color-dot active" style="background:#000;" data-color="#000000"></div>
-                            <div class="color-dot pen-color-dot" style="background:#1e3a8a;" data-color="#1E3A8A"></div>
-                            <div class="color-dot pen-color-dot" style="background:#b91c1c;" data-color="#B91C1C"></div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;">
+                        <div style="display:flex; gap:8px; align-items:center;">
+                            <div class="color-dot pen-color-dot active" style="background:#000;" data-color="#000000" title="কালো কলম"></div>
+                            <div class="color-dot pen-color-dot" style="background:#1e3a8a;" data-color="#1E3A8A" title="নীল কলম"></div>
+                            <div class="color-dot pen-color-dot" style="background:#b91c1c;" data-color="#B91C1C" title="লাল কলম"></div>
+                            <div class="color-dot pen-color-dot" style="background:#eab308;" data-color="#EAB308" title="হাইলাইটার"></div>
+                            <div class="color-dot pen-color-dot" style="background:#ffffff; border:2px dashed #64748b;" data-color="#FFFFFF" title="হোয়াইট ইরেজার ব্রাশ"></div>
                         </div>
                         <div style="display:flex; align-items:center; gap:8px;">
-                            <span style="font-size:0.75rem; color:var(--cs-text-dim);">পেন সাইজ:</span>
-                            <input type="range" id="sig-pen-size" min="1" max="8" value="3" style="width:70px; accent-color:var(--cs-teal);">
+                            <span style="font-size:0.75rem; color:var(--cs-text-dim);">ব্রাশ সাইজ:</span>
+                            <input type="range" id="sig-pen-size" min="1" max="24" value="3" style="width:70px; accent-color:var(--cs-teal);">
                         </div>
                     </div>
 
                     <canvas id="signature-pad" width="450" height="200" class="cs-signature-canvas"></canvas>
 
-                    <button id="btn-stamp-signature" class="cs-icon-btn" style="background:#2563eb; color:#fff; border-color:#2563eb; width:100%; justify-content:center; padding:10px; font-weight:700; margin-top:14px;">🖋️ ডকুমেন্টের নিচে স্বাক্ষরটি স্ট্যাম্প করুন</button>
+                    <button id="btn-stamp-signature" class="cs-icon-btn" style="background:#2563eb; color:#fff; border-color:#2563eb; width:100%; justify-content:center; padding:10px; font-weight:700; margin-top:14px;">🖋️ ডকুমেন্টে স্বাক্ষর / মার্কআপ স্ট্যাম্প করুন</button>
                 </div>
             </div>
         </section>
 
         <!-- ============================================================= -->
-        <!-- SCREEN 6: OCR TEXT EXTRACTOR -->
+        <!-- SCREEN 6: OCR TEXT EXTRACTOR, TRANSLATOR & CONVERTER -->
         <!-- ============================================================= -->
         <section id="screen-ocr" class="cs-screen">
             <div class="cs-ocr-layout">
                 <div class="cs-card-panel">
-                    <h3 class="cs-panel-heading">📄 স্ক্যান করা ডকুমেন্ট</h3>
-                    <p style="font-size:0.85rem; color:var(--cs-text-dim); margin-bottom:12px; line-height:1.5;">লাইব্রেরির সাম্প্রতিক স্ক্যান থেকে স্বয়ংক্রিয়ভাবে টেক্সট রিকগনিশন করা হবে। ইংরেজি ও বাংলা প্রিন্ট টেক্সট সাপোর্ট করে।</p>
+                    <h3 class="cs-panel-heading">📄 স্ক্যান করা ডকুমেন্ট (OCR ও কনভার্টার)</h3>
+                    <p style="font-size:0.85rem; color:var(--cs-text-dim); margin-bottom:10px; line-height:1.5;">লাইব্রেরির স্ক্যান থেকে স্বয়ংক্রিয়ভাবে বাংলা ও ইংরেজি টেক্সট রিকগনিশন, অনুবাদ এবং Word/Excel ফাইলে রূপান্তর করুন।</p>
+                    <div style="display:flex; gap:8px; margin-bottom:10px;">
+                        <select id="ocr-lang-select" class="cs-select-clean" style="flex:1;">
+                            <option value="eng+ben" selected>🌐 বাংলা + English (Auto)</option>
+                            <option value="eng">🔤 English Only</option>
+                            <option value="ben">🇧🇩 বাংলা (Bengali)</option>
+                        </select>
+                    </div>
                     <div style="height:6px; background:var(--cs-bg-dark); border-radius:3px; overflow:hidden; margin-bottom:14px;">
                         <div id="ocr-progress-bar" style="height:100%; width:0%; background:var(--cs-teal); transition:width 0.3s; display:none;"></div>
                     </div>
                     <button id="btn-run-ocr" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); width:100%; justify-content:center; padding:10px; font-weight:700;">🔍 টেক্সট এক্সট্রাক্ট করুন (Run OCR)</button>
+
+                    <!-- QR Code Scanner & Generator Box inside OCR/Tools -->
+                    <div style="border-top:1px solid var(--cs-border-dark); margin-top:16px; padding-top:14px;">
+                        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:8px;">🏁 QR কোড জেনারেটর ও স্ক্যানার</h4>
+                        <div style="display:flex; gap:6px;">
+                            <input type="text" id="qr-custom-input" placeholder="যেকোনো টেক্সট, নাম বা লিংক লিখুন..." class="cs-input-clean" style="flex:1;">
+                            <button type="button" id="btn-generate-qr" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">QR তৈরি</button>
+                        </div>
+                        <div id="qr-generated-wrap" style="display:none; text-align:center; margin-top:10px; padding:10px; background:var(--cs-bg-dark); border-radius:8px;">
+                            <canvas id="qr-custom-canvas" width="140" height="140" style="background:#fff; padding:6px; border-radius:6px;"></canvas>
+                            <div style="margin-top:6px;">
+                                <button type="button" id="btn-save-qr-img" class="cs-icon-btn" style="margin:0 auto; font-size:0.78rem;">💾 QR কোড ডাউনলোড (.PNG)</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="cs-card-panel">
-                    <h3 class="cs-panel-heading">📋 এক্সট্রাক্ট করা টেক্সট</h3>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; flex-wrap:wrap; gap:6px;">
+                        <h3 class="cs-panel-heading" style="margin-bottom:0;">📋 এক্সট্রাক্ট করা টেক্সট</h3>
+                        <span id="ocr-word-count" class="cs-vip-badge">0 শব্দ</span>
+                    </div>
+                    <div style="display:flex; gap:6px; margin-bottom:8px;">
+                        <input type="text" id="ocr-search-input" placeholder="🔎 টেক্সটের ভেতর শব্দ খুঁজুন..." class="cs-input-clean" style="flex:1; padding:6px 10px; font-size:0.8rem;">
+                        <button type="button" id="btn-ocr-clean" class="cs-icon-btn" style="font-size:0.75rem; padding:4px 8px;" title="অতিরিক্ত ফাঁকা লাইন পরিষ্কার করুন">✨ ফরম্যাট</button>
+                        <button type="button" id="btn-ocr-translate" class="cs-icon-btn" style="font-size:0.75rem; padding:4px 8px;" title="বাংলা/ইংরেজি অফলাইন শব্দার্থ ও ট্রান্সলেশন নোট">🌐 অনুবাদ হেল্পার</button>
+                    </div>
                     <textarea id="ocr-output" class="cs-ocr-textarea" placeholder="OCR টেক্সট এখানে প্রদর্শিত হবে..."></textarea>
-                    <div style="display:flex; gap:10px; margin-top:10px;">
-                        <button id="btn-copy-ocr" class="cs-icon-btn" style="flex:1; justify-content:center;">📋 টেক্সট কপি করুন</button>
-                        <button id="btn-download-ocr-txt" class="cs-icon-btn" style="flex:1; justify-content:center; background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">💾 .TXT ডাউনলোড</button>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:10px;">
+                        <button id="btn-copy-ocr" class="cs-icon-btn" style="justify-content:center;">📋 টেক্সট কপি করুন</button>
+                        <button id="btn-download-ocr-txt" class="cs-icon-btn" style="justify-content:center; background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">💾 .TXT ডাউনলোড</button>
+                        <button id="btn-download-ocr-word" class="cs-icon-btn" style="justify-content:center; background:#2563eb; color:#fff; border-color:#2563eb; font-weight:700;">📝 Word (.DOC) সেভ</button>
+                        <button id="btn-download-ocr-excel" class="cs-icon-btn" style="justify-content:center; background:#16a34a; color:#fff; border-color:#16a34a; font-weight:700;">📊 Excel (.CSV) সেভ</button>
                     </div>
                 </div>
             </div>
         </section>
 
         <!-- ============================================================= -->
-        <!-- SCREEN 7: TOOLS HUB -->
+        <!-- SCREEN 7: TOOLS HUB (ALL 7 FEATURE GROUPS - 25+ TOOLS) -->
         <!-- ============================================================= -->
         <section id="screen-tools" class="cs-screen">
             <div class="cs-tools-hub">
                 <div>
                     <div class="cs-tool-section-title">
-                        <span>📸</span> স্ক্যানিং ও ক্যাপচার টুলস
+                        <span>📸</span> ১. স্ক্যানিং ও ক্যাপচার মোড (Scan Modes)
                     </div>
                     <div class="cs-tools-grid">
                         <div class="cs-tool-item" data-action="tool-idphoto">
                             <div class="cs-tool-icon">👤</div>
-                            <span class="cs-tool-name">পাসপোর্ট ফটো মেকার</span>
+                            <span class="cs-tool-name">পাসপোর্ট ফটো মেকার (A4)</span>
                             <span class="cs-tool-badge">PRO</span>
                         </div>
                         <div class="cs-tool-item" data-action="tool-idcard">
@@ -719,40 +786,117 @@
                         </div>
                         <div class="cs-tool-item" data-action="tool-camera-doc">
                             <div class="cs-tool-icon">📄</div>
-                            <span class="cs-tool-name">ডকুমেন্ট স্ক্যান</span>
+                            <span class="cs-tool-name">সিঙ্গেল ও ব্যাচ স্ক্যান</span>
                         </div>
                         <div class="cs-tool-item" data-action="tool-book">
                             <div class="cs-tool-icon">📖</div>
                             <span class="cs-tool-name">বুক স্ক্যান (২ পেজ স্প্লিট)</span>
                         </div>
-                        <div class="cs-tool-item" data-action="tool-ocr">
-                            <div class="cs-tool-icon">🔤</div>
-                            <span class="cs-tool-name">ওসিআর (স্ক্যান টু ওয়ার্ড)</span>
+                        <div class="cs-tool-item" data-action="tool-whiteboard">
+                            <div class="cs-tool-icon">🧑‍🏫</div>
+                            <span class="cs-tool-name">হোয়াইটবোর্ড / প্রশ্নপত্র</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-qr">
+                            <div class="cs-tool-icon">🏁</div>
+                            <span class="cs-tool-name">QR কোড স্ক্যান ও জেনারেটর</span>
                         </div>
                     </div>
                 </div>
 
                 <div>
                     <div class="cs-tool-section-title">
-                        <span>📑</span> পিডিএফ প্রসেসিং ও কনভার্ট
+                        <span>📑</span> ২. পিডিএফ প্রসেসিং টুলস (PDF Tools)
                     </div>
                     <div class="cs-tools-grid">
                         <div class="cs-tool-item" data-action="tool-pdfmerge">
                             <div class="cs-tool-icon">🧩</div>
-                            <span class="cs-tool-name">পিডিএফ মার্জ করুন</span>
+                            <span class="cs-tool-name">পিডিএফ মার্জ (একত্রিত)</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-pdfsplit">
+                            <div class="cs-tool-icon">✂️</div>
+                            <span class="cs-tool-name">পিডিএফ স্প্লিট (আলাদা পেজ)</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-reorder">
+                            <div class="cs-tool-icon">🔢</div>
+                            <span class="cs-tool-name">পেজ রি-অর্ডার ও রোটেশন</span>
                         </div>
                         <div class="cs-tool-item" data-action="tool-compress">
                             <div class="cs-tool-icon">🗜️</div>
                             <span class="cs-tool-name">পিডিএফ কম্প্রেস (সাইজ কমান)</span>
                             <span class="cs-tool-badge">PRO</span>
                         </div>
+                        <div class="cs-tool-item" data-action="tool-pagenum">
+                            <div class="cs-tool-icon">📑</div>
+                            <span class="cs-tool-name">পেজ নম্বর যুক্ত করুন</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-pdfpassword">
+                            <div class="cs-tool-icon">🔐</div>
+                            <span class="cs-tool-name">পিডিএফ পাসওয়ার্ড ও সিকিউরিটি</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cs-tool-section-title">
+                        <span>🔄</span> ৩. কনভার্টার ও এক্সপোর্ট টুলস (Converters)
+                    </div>
+                    <div class="cs-tools-grid">
+                        <div class="cs-tool-item" data-action="tool-to-word">
+                            <div class="cs-tool-icon">📝</div>
+                            <span class="cs-tool-name">ইমেজ/PDF → Word (.doc)</span>
+                            <span class="cs-tool-badge">HOT</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-to-excel">
+                            <div class="cs-tool-icon">📊</div>
+                            <span class="cs-tool-name">টেবিল → Excel (.csv/.xls)</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-to-ppt">
+                            <div class="cs-tool-icon">📽️</div>
+                            <span class="cs-tool-name">ডকুমেন্ট → PPT স্লাইড</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-long-image">
+                            <div class="cs-tool-icon">🖼️</div>
+                            <span class="cs-tool-name">লং ইমেজ স্টিচ (Long Image)</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-pdf-to-jpg">
+                            <div class="cs-tool-icon">🗂️</div>
+                            <span class="cs-tool-name">ডকুমেন্ট → সব পেজ JPG</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-ocr">
+                            <div class="cs-tool-icon">🔤</div>
+                            <span class="cs-tool-name">ওসিআর ও অনুবাদ হেল্পার</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="cs-tool-section-title">
+                        <span>✨</span> ৪. এডিটিং, স্মার্ট ইরেজার, সীল ও ব্যাকআপ
+                    </div>
+                    <div class="cs-tools-grid">
+                        <div class="cs-tool-item" data-action="tool-eraser">
+                            <div class="cs-tool-icon">🧹</div>
+                            <span class="cs-tool-name">স্মার্ট ইরেজার (দাগ মোছা)</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-annotate">
+                            <div class="cs-tool-icon">🖍️</div>
+                            <span class="cs-tool-name">অ্যানোটেশন, হাইলাইট ও টেক্সট</span>
+                        </div>
                         <div class="cs-tool-item" data-action="tool-watermark">
                             <div class="cs-tool-icon">🛡️</div>
                             <span class="cs-tool-name">অ্যান্টি-থেফট ওয়াটারমার্ক</span>
                         </div>
-                        <div class="cs-tool-item" data-action="tool-watermark">
+                        <div class="cs-tool-item" data-action="tool-stamp">
                             <div class="cs-tool-icon">✍️</div>
-                            <span class="cs-tool-name">ই-সিগনেচার ও সীল</span>
+                            <span class="cs-tool-name">ই-সিগনেচার ও অফিসিয়াল সীল</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-trash">
+                            <div class="cs-tool-icon">🗑️</div>
+                            <span class="cs-tool-name">ট্র্যাশ / রিসাইকেল বিন</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-backup-export">
+                            <div class="cs-tool-icon">💾</div>
+                            <span class="cs-tool-name">ভল্ট ব্যাকআপ সেভ (.camlab)</span>
                         </div>
                     </div>
                 </div>
@@ -760,7 +904,7 @@
         </section>
 
         <!-- ============================================================= -->
-        <!-- SCREEN 8: ME / PROFILE -->
+        <!-- SCREEN 8: ME / PROFILE, BACKUP & SETTINGS -->
         <!-- ============================================================= -->
         <section id="screen-me" class="cs-screen">
             <div class="cs-profile-card">
@@ -780,10 +924,41 @@
                     <div style="height:6px; background:#334155; border-radius:3px; overflow:hidden;">
                         <div style="width:25%; height:100%; background:var(--cs-teal);"></div>
                     </div>
+                    <div style="display:flex; gap:8px; margin-top:12px; flex-wrap:wrap;">
+                        <button type="button" id="btn-vault-backup-export" class="cs-icon-btn" style="flex:1; justify-content:center;">💾 ভল্ট ব্যাকআপ ডাউনলোড (.camlab)</button>
+                        <label class="cs-icon-btn" style="flex:1; justify-content:center; cursor:pointer;">
+                            📂 ব্যাকআপ রিস্টোর করুন
+                            <input type="file" id="vault-backup-import-input" accept=".camlab,.json" style="display:none;">
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Scan & App Default Settings -->
+                <div class="cs-card-panel" style="padding:14px;">
+                    <h4 style="font-size:0.95rem; font-weight:700; margin-bottom:10px;">⚙️ স্ক্যান ও অ্যাপ সেটিংস</h4>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+                        <div>
+                            <label style="font-size:0.78rem; color:var(--cs-text-dim);">ডিফল্ট স্ক্যান ফিল্টার:</label>
+                            <select id="setting-default-filter" class="cs-select-clean" style="margin-top:4px;">
+                                <option value="magic" selected>🪄 ম্যাজিক কালার (Magic Color)</option>
+                                <option value="bw">⬛ কালো ও সাদা (B&W)</option>
+                                <option value="lighten">☀️ উজ্জ্বল (Lighten)</option>
+                                <option value="original">🖼️ আসল ছবি (Original)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.78rem; color:var(--cs-text-dim);">ডিফল্ট PDF কোয়ালিটি:</label>
+                            <select id="setting-default-quality" class="cs-select-clean" style="margin-top:4px;">
+                                <option value="original" selected>💎 আসল মান (High 300 DPI)</option>
+                                <option value="medium">⚡ স্ট্যান্ডার্ড (Medium)</option>
+                                <option value="low">🗜️ স্মল সাইজ (Small)</option>
+                            </select>
+                        </div>
+                    </div>
                 </div>
 
                 <div style="font-size:0.85rem; color:var(--cs-text-dim); line-height:1.6;">
-                    <p>• ভার্সন: camlab Studio Pro v6.81.0 Web, Mobile APK & Desktop Edition</p>
+                    <p>• ভার্সন: camlab Studio Pro v6.84.0 Web, Mobile APK & Desktop Edition</p>
                     <p>• ১০০% ক্লায়েন্ট-সাইড অফলাইন প্রাইভেসি এনক্রিপ্টেড। আপনার ডকুমেন্ট কোথাও আপলোড হয় না।</p>
                 </div>
 
@@ -895,7 +1070,9 @@
             <button class="cs-camera-mode-btn" data-mode="book">বুক স্ক্যান (BOOK)</button>
             <button class="cs-camera-mode-btn" data-mode="id_card">আইডি কার্ড (ID CARD)</button>
             <button class="cs-camera-mode-btn" data-mode="id_photo">পাসপোর্ট ছবি (ID PHOTO)</button>
+            <button class="cs-camera-mode-btn" data-mode="whiteboard">হোয়াইটবোর্ড (BOARD)</button>
             <button class="cs-camera-mode-btn" data-mode="to_word">টু ওয়ার্ড (TO WORD)</button>
+            <button class="cs-camera-mode-btn" data-mode="qr">QR কোড (QR)</button>
         </div>
 
         <div class="cs-camera-shutter-bar">
@@ -990,7 +1167,7 @@
                 </div>
                 <span>কালো ও সাদা</span>
             </div>
-            <div class="cs-filter-thumb-card" data-filter="bw">
+            <div class="cs-filter-thumb-card" data-filter="bw2">
                 <div class="cs-filter-thumb-box">
                     <img src="assets/ic_filter_bw2_5213.webp" alt="B&W 2">
                 </div>
@@ -1013,6 +1190,18 @@
                     <img src="assets/ic_filter_original_5213.webp" alt="Original">
                 </div>
                 <span>আসল ছবি</span>
+            </div>
+        </div>
+
+        <!-- Brightness & Contrast Sliders on Filter Screen -->
+        <div style="display:flex; gap:16px; padding:8px 18px; background:rgba(15,23,42,0.85); align-items:center; justify-content:center; flex-wrap:wrap;">
+            <div style="display:flex; align-items:center; gap:8px; color:#fff; font-size:0.78rem;">
+                <span>☀️ উজ্জ্বলতা:</span>
+                <input type="range" id="cs-filter-brightness" min="-60" max="60" value="0" style="width:110px; accent-color:var(--cs-teal);">
+            </div>
+            <div style="display:flex; align-items:center; gap:8px; color:#fff; font-size:0.78rem;">
+                <span>◐ কনট্রাস্ট:</span>
+                <input type="range" id="cs-filter-contrast" min="-60" max="60" value="0" style="width:110px; accent-color:var(--cs-teal);">
             </div>
         </div>
 
@@ -1085,6 +1274,10 @@
                     <input type="checkbox" id="pdf-opt-watermark-note">
                     <span>ডকুমেন্টে camlab ভেরিফাইড সিল যুক্ত করুন</span>
                 </label>
+                <div style="display:flex; align-items:center; gap:8px; margin-top:4px;">
+                    <span style="font-size:0.8rem; color:var(--cs-text-dim); white-space:nowrap;">🔐 পাসওয়ার্ড / কোড:</span>
+                    <input type="password" id="pdf-opt-password" placeholder="ঐচ্ছিক পাসওয়ার্ড দিন..." class="cs-input-clean" style="padding:5px 10px; font-size:0.8rem;">
+                </div>
             </div>
 
             <!-- Actions -->

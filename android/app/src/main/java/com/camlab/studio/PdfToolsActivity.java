@@ -120,11 +120,89 @@ public class PdfToolsActivity extends AppCompatActivity {
 
         btnMergePdf.setOnClickListener(v -> mergePagesToPdf());
         btnCompressPdf.setOnClickListener(v -> compressPagesToLightPdf());
+        findViewById(R.id.btn_pdf_long_img).setOnClickListener(v -> stitchPagesToLongImage());
+        findViewById(R.id.btn_pdf_split_pages).setOnClickListener(v -> splitPagesToIndividualPdfs());
+        findViewById(R.id.btn_pdf_export_jpgs).setOnClickListener(v -> exportAllPagesAsJpg());
 
         // Share existing PDF
         findViewById(R.id.btn_pdf_share_last).setOnClickListener(v -> shareLastExport());
 
         updatePageCount();
+    }
+
+    private void stitchPagesToLongImage() {
+        if (importedPages.isEmpty()) {
+            Toast.makeText(this, "আগে ছবি বা পেজ ইমপোর্ট করুন", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setLoading(true, "লং ইমেজ স্টিচ করা হচ্ছে...");
+        final List<Bitmap> pages = new ArrayList<>(importedPages);
+        executor.execute(() -> {
+            try {
+                String name = "camlab_LongStitch_" + System.currentTimeMillis() + ".jpg";
+                File f = NativePdfUtils.exportLongImage(this, pages, name);
+                long sizeKb = f != null ? f.length() / 1024 : 0;
+                runOnUiThread(() -> {
+                    setLoading(false, "");
+                    tvStatus.setText("✅ লং ইমেজ তৈরি হয়েছে: " + name + " (" + sizeKb + " KB)");
+                    Toast.makeText(this, "✅ লং ইমেজ সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> { setLoading(false, ""); tvStatus.setText("❌ লং ইমেজ ব্যর্থ"); });
+            }
+        });
+    }
+
+    private void splitPagesToIndividualPdfs() {
+        if (importedPages.isEmpty()) {
+            Toast.makeText(this, "আগে ছবি বা পেজ ইমপোর্ট করুন", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setLoading(true, "প্রতিটি পেজ আলাদা PDF করা হচ্ছে...");
+        final List<Bitmap> pages = new ArrayList<>(importedPages);
+        executor.execute(() -> {
+            try {
+                long ts = System.currentTimeMillis();
+                for (int i = 0; i < pages.size(); i++) {
+                    List<Bitmap> single = new ArrayList<>();
+                    single.add(pages.get(i));
+                    String name = "camlab_Split_P" + (i + 1) + "_" + ts + ".pdf";
+                    NativePdfUtils.saveBitmapsToPdf(this, single, name, true);
+                }
+                runOnUiThread(() -> {
+                    setLoading(false, "");
+                    tvStatus.setText("✅ " + pages.size() + "টি আলাদা PDF ফাইল সংরক্ষিত হয়েছে!");
+                    Toast.makeText(this, "✅ সব পেজ আলাদা PDF করা হয়েছে!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> { setLoading(false, ""); tvStatus.setText("❌ স্প্লিট ব্যর্থ"); });
+            }
+        });
+    }
+
+    private void exportAllPagesAsJpg() {
+        if (importedPages.isEmpty()) {
+            Toast.makeText(this, "আগে ছবি বা পেজ ইমপোর্ট করুন", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setLoading(true, "সব পেজ JPG করা হচ্ছে...");
+        final List<Bitmap> pages = new ArrayList<>(importedPages);
+        executor.execute(() -> {
+            try {
+                long ts = System.currentTimeMillis();
+                for (int i = 0; i < pages.size(); i++) {
+                    String name = "camlab_Page_" + (i + 1) + "_" + ts + ".jpg";
+                    NativePdfUtils.saveBitmapImage(this, pages.get(i), name, Bitmap.CompressFormat.JPEG);
+                }
+                runOnUiThread(() -> {
+                    setLoading(false, "");
+                    tvStatus.setText("✅ " + pages.size() + "টি JPG ছবি Downloads/camlab-এ সেভ হয়েছে!");
+                    Toast.makeText(this, "✅ সব পেজ JPG হিসেবে সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> { setLoading(false, ""); tvStatus.setText("❌ JPG সেভ ব্যর্থ"); });
+            }
+        });
     }
 
     private void loadMultipleUris(List<Uri> uris) {

@@ -69,6 +69,14 @@ public final class NativePdfUtils {
             float dx = (pageW - dw) * 0.5f;
             float dy = (pageH - dh) * 0.5f;
             c.drawBitmap(bmp, null, new RectF(dx, dy, dx + dw, dy + dh), paint);
+
+            if (pages.size() > 1) {
+                Paint footerPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+                footerPaint.setColor(android.graphics.Color.parseColor("#64748B"));
+                footerPaint.setTextSize(9f);
+                footerPaint.setTextAlign(Paint.Align.RIGHT);
+                c.drawText("camlab  •  Page " + (i + 1) + " / " + pages.size(), pageW - 18f, pageH - 10f, footerPaint);
+            }
             pdf.finishPage(page);
         }
 
@@ -79,6 +87,88 @@ public final class NativePdfUtils {
         pdf.close();
 
         copyToPublicDownloads(ctx, outFile, fileName, "application/pdf");
+        return outFile;
+    }
+
+    /**
+     * Stitches multiple scanned pages vertically into one continuous Long Image (.jpg).
+     */
+    public static File exportLongImage(Context ctx, List<Bitmap> pages, String fileName) throws Exception {
+        if (pages == null || pages.isEmpty()) return null;
+        int targetW = 1080;
+        int gap = 16;
+        int totalH = gap;
+        for (Bitmap b : pages) {
+            int scaledH = Math.round(b.getHeight() * ((float) targetW / b.getWidth()));
+            totalH += scaledH + gap;
+        }
+        totalH = Math.min(totalH, 14000); // Guard against OOM on huge page counts
+        Bitmap longBmp = Bitmap.createBitmap(targetW, Math.max(100, totalH), Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(longBmp);
+        c.drawColor(android.graphics.Color.parseColor("#F1F5F9"));
+        Paint p = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+        int curY = gap;
+        for (Bitmap b : pages) {
+            int scaledH = Math.round(b.getHeight() * ((float) targetW / b.getWidth()));
+            if (curY + scaledH > totalH) break;
+            c.drawBitmap(b, null, new RectF(12, curY, targetW - 12, curY + scaledH), p);
+            curY += scaledH + gap;
+        }
+        return saveBitmapImage(ctx, longBmp, fileName, Bitmap.CompressFormat.JPEG);
+    }
+
+    /**
+     * Exports OCR text or document metadata as an editable MS Word (.doc) file.
+     */
+    public static File exportToWordDoc(Context ctx, String title, String ocrText, String fileName) throws Exception {
+        String safeTitle = (title == null || title.isEmpty()) ? "camlab Document" : title;
+        String safeBody = (ocrText == null || ocrText.trim().isEmpty())
+                ? "(কোনো টেক্সট পাওয়া যায়নি)"
+                : ocrText.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\n", "<br/>");
+        String html = "<html xmlns:o='urn:schemas-microsoft-com:office:office' "
+                + "xmlns:w='urn:schemas-microsoft-com:office:word' "
+                + "xmlns='http://www.w3.org/TR/REC-html40'>"
+                + "<head><meta charset='utf-8'><title>" + safeTitle + "</title>"
+                + "<style>body{font-family:'Segoe UI',Arial,sans-serif;padding:24pt;color:#0F172A;}"
+                + "h1{color:#00896C;border-bottom:2px solid #00896C;padding-bottom:6pt;}</style></head>"
+                + "<body><h1>" + safeTitle + "</h1>"
+                + "<p style='line-height:1.7;font-size:12pt;'>" + safeBody + "</p>"
+                + "<hr/><p style='font-size:9pt;color:#64748B;'>Exported by camlab Studio</p></body></html>";
+
+        File outFile = new File(getExportsDir(ctx), fileName);
+        try (FileOutputStream fos = new FileOutputStream(outFile)) {
+            fos.write(html.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        copyToPublicDownloads(ctx, outFile, fileName, "application/msword");
+        return outFile;
+    }
+
+    /**
+     * Exports OCR text / table rows into an Excel-compatible UTF-8 CSV (.csv) spreadsheet.
+     */
+    public static File exportToExcelCsv(Context ctx, String ocrText, String fileName) throws Exception {
+        StringBuilder sb = new StringBuilder("\uFEFFRow,Column 1,Column 2,Column 3\n");
+        String[] lines = (ocrText == null ? "" : ocrText).split("\\r?\\n");
+        int rowNum = 1;
+        for (String line : lines) {
+            String trimmed = line.trim();
+            if (trimmed.isEmpty()) continue;
+            String[] cols = trimmed.split("\\s{2,}|\\t|,");
+            sb.append(rowNum++).append(",");
+            for (int i = 0; i < Math.min(3, cols.length); i++) {
+                String cell = cols[i].replace("\"", "\"\"");
+                sb.append("\"").append(cell).append("\"").append(i < 2 ? "," : "");
+            }
+            for (int i = cols.length; i < 3; i++) {
+                sb.append("\"\"\"\"").append(i < 2 ? "," : "");
+            }
+            sb.append("\n");
+        }
+        File outFile = new File(getExportsDir(ctx), fileName);
+        try (FileOutputStream fos = new FileOutputStream(outFile)) {
+            fos.write(sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        copyToPublicDownloads(ctx, outFile, fileName, "text/csv");
         return outFile;
     }
 

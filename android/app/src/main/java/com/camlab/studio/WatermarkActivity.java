@@ -130,6 +130,12 @@ public class WatermarkActivity extends AppCompatActivity {
         etWatermarkText.setOnEditorActionListener((v, actionId, event) -> { applyWatermark(); return false; });
         etWatermarkText.setOnFocusChangeListener((v, hasFocus) -> { if (!hasFocus) applyWatermark(); });
 
+        findViewById(R.id.btn_wm_stamp_approved).setOnClickListener(v -> applyStampToDocument("APPROVED"));
+        findViewById(R.id.btn_wm_stamp_verified).setOnClickListener(v -> applyStampToDocument("VERIFIED"));
+        findViewById(R.id.btn_wm_stamp_paid).setOnClickListener(v -> applyStampToDocument("PAID"));
+        findViewById(R.id.btn_wm_stamp_conf).setOnClickListener(v -> applyStampToDocument("CONFIDENTIAL"));
+        findViewById(R.id.btn_wm_eraser).setOnClickListener(v -> applySmartEraser());
+
         findViewById(R.id.btn_wm_apply).setOnClickListener(v -> applyWatermark());
         findViewById(R.id.btn_wm_save_jpg).setOnClickListener(v -> saveImage());
         findViewById(R.id.btn_wm_save_pdf).setOnClickListener(v -> savePdf());
@@ -137,6 +143,38 @@ public class WatermarkActivity extends AppCompatActivity {
 
         updatePlacementHighlights();
         updateColorHighlights();
+    }
+
+    private void applyStampToDocument(String label) {
+        if (rawBitmap == null) {
+            Toast.makeText(this, "আগে একটি ডকুমেন্ট ছবি ইমপোর্ট করুন!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        executor.execute(() -> {
+            Bitmap stamped = NativeImageUtils.drawOfficialStamp(rawBitmap, label);
+            runOnUiThread(() -> {
+                rawBitmap = stamped;
+                processedBitmap = stamped;
+                ivWatermarkPreview.setImageBitmap(processedBitmap);
+                tvStatus.setText("💮 অফিশিয়াল সিল (" + label + ") যোগ করা হয়েছে!");
+            });
+        });
+    }
+
+    private void applySmartEraser() {
+        if (rawBitmap == null) {
+            Toast.makeText(this, "আগে একটি ডকুমেন্ট ছবি ইমপোর্ট করুন!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        executor.execute(() -> {
+            Bitmap cleaned = NativeImageUtils.smartEraseClean(rawBitmap);
+            runOnUiThread(() -> {
+                rawBitmap = cleaned;
+                processedBitmap = cleaned;
+                ivWatermarkPreview.setImageBitmap(processedBitmap);
+                tvStatus.setText("🧹 স্মার্ট ইরেজার: দাগ ও ছায়া পরিষ্কার হয়েছে!");
+            });
+        });
     }
 
     private void checkCameraAndLaunch() {

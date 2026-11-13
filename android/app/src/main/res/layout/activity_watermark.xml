@@ -290,6 +290,97 @@
             <SeekBar android:id="@+id/sb_wm_font" android:layout_width="match_parent" android:layout_height="wrap_content" />
         </LinearLayout>
 
+        <!-- Official Seals & Smart Eraser -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginHorizontal="12dp"
+            android:layout_marginBottom="12dp"
+            android:background="@drawable/bg_card"
+            android:padding="14dp">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="💮 অফিশিয়াল সিল ও স্মার্ট ইরেজার"
+                android:textColor="#334155"
+                android:textStyle="bold"
+                android:textSize="13sp"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="8dp">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_stamp_approved"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="✅ APPROVED"
+                    android:textAllCaps="false"
+                    android:textSize="11sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_stamp_verified"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:text="🛡️ VERIFIED"
+                    android:textAllCaps="false"
+                    android:textSize="11sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_stamp_paid"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="💳 PAID"
+                    android:textAllCaps="false"
+                    android:textSize="11sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_stamp_conf"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="6dp"
+                    android:text="🔒 CONFIDENTIAL সিল"
+                    android:textAllCaps="false"
+                    android:textSize="11sp"
+                    android:textColor="#0F172A"
+                    android:background="@drawable/bg_btn_outline" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_wm_eraser"
+                    android:layout_width="0dp"
+                    android:layout_height="36dp"
+                    android:layout_weight="1"
+                    android:text="🧹 স্মার্ট ইরেজার (দাগ পরিষ্কার)"
+                    android:textAllCaps="false"
+                    android:textSize="11sp"
+                    android:textColor="#00896C"
+                    android:background="@drawable/bg_chip" />
+            </LinearLayout>
+        </LinearLayout>
+
         <!-- Action Buttons -->
         <LinearLayout
             android:layout_width="match_parent"

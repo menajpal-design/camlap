@@ -11,9 +11,10 @@
 class CamLabEngine {
     constructor() {
         this.documents = [];
+        this.trashDocuments = [];
         this.currentDocId = null;
         this.currentImage = null; // Image/Canvas currently being processed
-        this.activeCameraMode = 'docs'; // 'docs', 'id_photo', 'id_card', 'book', 'to_word', 'qr'
+        this.activeCameraMode = 'docs'; // 'docs', 'id_photo', 'id_card', 'book', 'whiteboard', 'to_word', 'qr'
         this.batchQueue = []; // For batch scanning mode
         this.isBatchMode = false;
 
@@ -32,9 +33,10 @@ class CamLabEngine {
         this.cropRotation = 0;
 
         // Active Enhancement State
-        this.currentFilter = 'magic';
+        this.currentFilter = localStorage.getItem('camlab_default_filter') || 'magic';
         this.brightness = 0;
         this.contrast = 0;
+        this.baseCroppedCanvas = null;
         this.processedCanvas = null;
 
         // Signature & Watermark on Doc
@@ -50,9 +52,14 @@ class CamLabEngine {
             if (saved) {
                 this.documents = JSON.parse(saved);
             }
+            const savedTrash = localStorage.getItem('cs_trash_documents');
+            if (savedTrash) {
+                this.trashDocuments = JSON.parse(savedTrash);
+            }
         } catch (e) {
             console.warn('Could not read documents from localStorage:', e);
             this.documents = [];
+            this.trashDocuments = [];
         }
 
         // Add a sample welcoming document if library is empty
@@ -66,6 +73,8 @@ class CamLabEngine {
             // Keep at most 20 recent documents in storage to prevent quota overflow
             const trimmed = this.documents.slice(0, 20);
             localStorage.setItem('cs_documents', JSON.stringify(trimmed));
+            const trimmedTrash = (this.trashDocuments || []).slice(0, 15);
+            localStorage.setItem('cs_trash_documents', JSON.stringify(trimmedTrash));
         } catch (e) {
             console.warn('Storage limit reached:', e);
         }
@@ -326,10 +335,18 @@ class CamLabEngine {
 
         // Perspective warp homography
         const warped = ImageProcessor.perspectiveWarp(srcCanvas, corners, targetW, targetH);
-        this.processedCanvas = warped;
+        this.baseCroppedCanvas = document.createElement('canvas');
+        this.baseCroppedCanvas.width = warped.width;
+        this.baseCroppedCanvas.height = warped.height;
+        this.baseCroppedCanvas.getContext('2d').drawImage(warped, 0, 0);
 
-        // Apply default Magic Color filter
-        this.applyFilter('magic');
+        this.processedCanvas = warped;
+        this.brightness = 0;
+        this.contrast = 0;
+
+        // Apply default filter
+        const defFilter = localStorage.getItem('camlab_default_filter') || 'magic';
+        this.applyFilter(defFilter);
         return this.processedCanvas;
     }
 
@@ -343,6 +360,10 @@ class CamLabEngine {
         const ctx = this.processedCanvas.getContext('2d');
         const w = this.processedCanvas.width;
         const h = this.processedCanvas.height;
+
+        if (this.baseCroppedCanvas) {
+            ctx.drawImage(this.baseCroppedCanvas, 0, 0);
+        }
 
         let imgData = ctx.getImageData(0, 0, w, h);
         ImageProcessor.applyFilter(imgData, filterName, {
@@ -376,7 +397,7 @@ class CamLabEngine {
         const newDoc = {
             id: 'doc_' + Date.now(),
             title: defaultTitle,
-            category: this.activeCameraMode === 'id_photo' ? 'ID Photo' : (this.activeCameraMode === 'id_card' ? 'ID Card' : 'All Docs'),
+            category: this.activeCameraMode === 'id_photo' ? 'ID Photo' : (this.activeCameraMode === 'id_card' ? 'ID Card' : (this.activeCameraMode === 'book' ? 'Book' : 'All Docs')),
             date: new Date().toLocaleDateString('bn-BD', { month: 'short', day: 'numeric', year: 'numeric' }),
             pageCount: 1,
             thumbnail: dataUrl,
@@ -404,6 +425,47 @@ class CamLabEngine {
     }
 
     /**
+     * Reorder page inside current document (direction: -1 for up/left, +1 for down/right)
+     */
+    movePageInCurrentDocument(pageIndex, direction) {
+        if (!this.currentDocId) return;
+        const doc = this.documents.find(d => d.id === this.currentDocId);
+        if (!doc) return;
+        const targetIndex = pageIndex + direction;
+        if (targetIndex < 0 || targetIndex >= doc.pages.length) return;
+        const temp = doc.pages[pageIndex];
+        doc.pages[pageIndex] = doc.pages[targetIndex];
+        doc.pages[targetIndex] = temp;
+        doc.thumbnail = doc.pages[0];
+        this.saveToStorage();
+        return doc;
+    }
+
+    /**
+     * Rotate a specific page by 90 degrees clockwise in current document
+     */
+    rotatePageInCurrentDocument(pageIndex, callback) {
+        if (!this.currentDocId) return;
+        const doc = this.documents.find(d => d.id === this.currentDocId);
+        if (!doc || !doc.pages[pageIndex]) return;
+        const img = new Image();
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.height;
+            c.height = img.width;
+            const ctx = c.getContext('2d');
+            ctx.translate(c.width / 2, c.height / 2);
+            ctx.rotate(Math.PI / 2);
+            ctx.drawImage(img, -img.width / 2, -img.height / 2);
+            doc.pages[pageIndex] = c.toDataURL('image/jpeg', 0.92);
+            doc.thumbnail = doc.pages[0];
+            this.saveToStorage();
+            if (callback) callback();
+        };
+        img.src = doc.pages[pageIndex];
+    }
+
+    /**
      * Remove a page from current document
      */
     removePageFromCurrentDocument(pageIndex) {
@@ -421,10 +483,29 @@ class CamLabEngine {
     }
 
     /**
-     * Delete document by ID
+     * Delete document by ID (Moves to Trash / Recycle Bin first)
      */
     deleteDocument(id) {
+        const doc = this.documents.find(d => d.id === id);
+        if (doc) {
+            this.trashDocuments = this.trashDocuments || [];
+            this.trashDocuments.unshift(doc);
+        }
         this.documents = this.documents.filter(d => d.id !== id);
+        this.saveToStorage();
+    }
+
+    restoreFromTrash(id) {
+        const doc = (this.trashDocuments || []).find(d => d.id === id);
+        if (doc) {
+            this.documents.unshift(doc);
+            this.trashDocuments = this.trashDocuments.filter(d => d.id !== id);
+            this.saveToStorage();
+        }
+    }
+
+    permanentlyDeleteFromTrash(id) {
+        this.trashDocuments = (this.trashDocuments || []).filter(d => d.id !== id);
         this.saveToStorage();
     }
 

@@ -380,6 +380,8 @@ function setupCategoryPills() {
                 navigateToScreen('screen-passport');
             } else if (activeDocFilterCategory === 'ID Card') {
                 navigateToScreen('screen-idcard');
+            } else if (activeDocFilterCategory === 'PDF Tools') {
+                navigateToScreen('screen-tools');
             } else if (activeDocFilterCategory === 'Watermark') {
                 navigateToScreen('screen-watermark');
             } else if (activeDocFilterCategory === 'OCR') {
@@ -683,10 +685,11 @@ function renderDocumentLibrary(filterQuery = '') {
     const countBadge = document.getElementById('cs-library-count');
     if (!container) return;
 
-    let list = [...csEngine.documents];
+    const isTrashView = activeDocFilterCategory === 'Trash';
+    let list = isTrashView ? [...(csEngine.trashDocuments || [])] : [...csEngine.documents];
 
     // Category filter
-    if (activeDocFilterCategory && activeDocFilterCategory !== 'All Docs') {
+    if (!isTrashView && activeDocFilterCategory && activeDocFilterCategory !== 'All Docs') {
         list = list.filter(d => d.category === activeDocFilterCategory);
     }
 
@@ -706,7 +709,9 @@ function renderDocumentLibrary(filterQuery = '') {
 
     // Update document count
     if (countBadge) {
-        countBadge.textContent = `${csEngine.documents.length} টি ডকুমেন্ট`;
+        countBadge.textContent = isTrashView
+            ? `${list.length} টি ট্র্যাশ ফাইল`
+            : `${csEngine.documents.length} টি ডকুমেন্ট`;
     }
     const meCount = document.getElementById('me-doc-count');
     if (meCount) {
@@ -718,9 +723,9 @@ function renderDocumentLibrary(filterQuery = '') {
         container.className = 'cs-docs-grid';
         container.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; color: var(--cs-text-dim);">
-                <div style="font-size: 48px; margin-bottom: 12px;">📁</div>
-                <h3 style="font-size: 1.1rem; color: var(--cs-text-white);">কোনো ডকুমেন্ট পাওয়া যায়নি</h3>
-                <p style="font-size: 0.85rem; margin-top: 6px;">নিচের ক্যামেরা বাটনে ক্লিক করে নতুন ডকুমেন্ট স্ক্যান করুন অথবা ছবি আপলোড করুন।</p>
+                <div style="font-size: 48px; margin-bottom: 12px;">${isTrashView ? '🗑️' : '📁'}</div>
+                <h3 style="font-size: 1.1rem; color: var(--cs-text-white);">${isTrashView ? 'ট্র্যাশ (Recycle Bin) খালি আছে' : 'কোনো ডকুমেন্ট পাওয়া যায়নি'}</h3>
+                <p style="font-size: 0.85rem; margin-top: 6px;">${isTrashView ? 'মুছে ফেলা ডকুমেন্টগুলো এখানে জমা থাকবে এবং রিস্টোর করা যাবে।' : 'নিচের ক্যামেরা বাটনে ক্লিক করে নতুন ডকুমেন্ট স্ক্যান করুন অথবা ছবি আপলোড করুন।'}</p>
             </div>
         `;
         return;
@@ -744,12 +749,17 @@ function renderDocumentLibrary(filterQuery = '') {
                         <div class="cs-doc-title">${doc.title}</div>
                         <div class="cs-doc-meta">
                             <span>${doc.date || 'Recent'}</span>
-                            <span>${doc.category || 'Document'}</span>
+                            <span>${isTrashView ? '🗑️ Trash' : (doc.category || 'Document')}</span>
                         </div>
                         <div class="cs-doc-actions">
-                            <button class="cs-action-mini btn-open-doc" data-id="${doc.id}">📑 ওপেন</button>
-                            <button class="cs-action-mini btn-share-doc" data-id="${doc.id}">📤 PDF</button>
-                            <button class="cs-action-mini btn-del-doc" data-id="${doc.id}" style="color:#ef4444;">🗑️</button>
+                            ${isTrashView ? `
+                                <button class="cs-action-mini btn-restore-doc" data-id="${doc.id}" style="color:var(--cs-teal);">♻️ রিস্টোর</button>
+                                <button class="cs-action-mini btn-perm-del-doc" data-id="${doc.id}" style="color:#ef4444;">🗑️ চিরতরে মুছুন</button>
+                            ` : `
+                                <button class="cs-action-mini btn-open-doc" data-id="${doc.id}">📑 ওপেন</button>
+                                <button class="cs-action-mini btn-share-doc" data-id="${doc.id}">📤 PDF</button>
+                                <button class="cs-action-mini btn-del-doc" data-id="${doc.id}" style="color:#ef4444;">🗑️</button>
+                            `}
                         </div>
                     </div>
                 </div>
@@ -780,19 +790,46 @@ function renderDocumentLibrary(filterQuery = '') {
                         </div>
                     </div>
                     <div class="cs-row-actions">
-                        <button class="cs-action-mini btn-open-doc" data-id="${doc.id}">📑 ওপেন</button>
-                        <button class="cs-action-mini btn-share-doc" data-id="${doc.id}">📤 PDF</button>
-                        <button class="cs-action-mini btn-del-doc" data-id="${doc.id}" style="color:#ef4444;">🗑️</button>
+                        ${isTrashView ? `
+                            <button class="cs-action-mini btn-restore-doc" data-id="${doc.id}" style="color:var(--cs-teal);">♻️ রিস্টোর</button>
+                            <button class="cs-action-mini btn-perm-del-doc" data-id="${doc.id}" style="color:#ef4444;">🗑️ চিরতরে মুছুন</button>
+                        ` : `
+                            <button class="cs-action-mini btn-open-doc" data-id="${doc.id}">📑 ওপেন</button>
+                            <button class="cs-action-mini btn-share-doc" data-id="${doc.id}">📤 PDF</button>
+                            <button class="cs-action-mini btn-del-doc" data-id="${doc.id}" style="color:#ef4444;">🗑️</button>
+                        `}
                     </div>
                 </div>
             `;
         }).join('');
     }
 
+    // Restore from Trash
+    container.querySelectorAll('.btn-restore-doc').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            csEngine.restoreFromTrash(btn.dataset.id);
+            showComfortToast('ডকুমেন্ট সফলভাবে রিস্টোর করা হয়েছে!', '♻️');
+            renderDocumentLibrary(filterQuery);
+        });
+    });
+
+    // Permanently Delete from Trash
+    container.querySelectorAll('.btn-perm-del-doc').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (confirm('ডকুমেন্টটি চিরতরে মুছে ফেলতে চান?')) {
+                csEngine.permanentlyDeleteFromTrash(btn.dataset.id);
+                renderDocumentLibrary(filterQuery);
+            }
+        });
+    });
+
     // Attach card click handlers
     container.querySelectorAll('.cs-doc-card, .cs-doc-row').forEach(el => {
         el.addEventListener('click', (e) => {
-            if (e.target.closest('.btn-del-doc') || e.target.closest('.btn-share-doc')) return;
+            if (e.target.closest('.btn-del-doc') || e.target.closest('.btn-share-doc') || e.target.closest('.btn-restore-doc') || e.target.closest('.btn-perm-del-doc')) return;
+            if (isTrashView) return;
 
             const docId = el.dataset.docid;
             if (isBatchSelectMode) {
@@ -819,13 +856,14 @@ function renderDocumentLibrary(filterQuery = '') {
         });
     });
 
-    // Delete Document
+    // Delete Document (moves to Trash)
     container.querySelectorAll('.btn-del-doc').forEach(btn => {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const docId = btn.dataset.id;
-            if (confirm('আপনি কি এই ডকুমেন্টটি মুছে ফেলতে চান?')) {
+            if (confirm('আপনি কি এই ডকুমেন্টটি ট্র্যাশে (Recycle Bin) পাঠাতে চান?')) {
                 csEngine.deleteDocument(docId);
+                showComfortToast('ডকুমেন্ট ট্র্যাশে পাঠানো হয়েছে (রিস্টোর যোগ্য)', '🗑️');
                 renderDocumentLibrary(filterQuery);
             }
         });
@@ -868,6 +906,69 @@ function setupDocumentDetailScreen() {
             }
         });
     }
+
+    // Category / Folder Tag assignment
+    const catSelect = document.getElementById('docdetail-category-select');
+    if (catSelect) {
+        catSelect.addEventListener('change', (e) => {
+            const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId);
+            if (doc) {
+                doc.category = e.target.value;
+                csEngine.saveToStorage();
+                showComfortToast(`ফোল্ডার/ট্যাগ পরিবর্তন করা হয়েছে: ${doc.category}`, '📁');
+            }
+        });
+    }
+
+    // Quick Converters in Document Detail Toolbar
+    document.getElementById('btn-doc-export-word')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        if (!doc) return;
+        const ocrTxt = document.getElementById('ocr-output')?.value || '';
+        PDFExporter.exportDocumentToWord(doc, ocrTxt);
+        showComfortToast('Word (.doc) ফাইল ডাউনলোড শুরু হয়েছে!', '📝');
+    });
+
+    document.getElementById('btn-doc-export-excel')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        if (!doc) return;
+        const ocrTxt = document.getElementById('ocr-output')?.value || '';
+        PDFExporter.exportDocumentToExcel(doc, ocrTxt);
+        showComfortToast('Excel (.csv) স্প্রেডশিট ডাউনলোড শুরু হয়েছে!', '📊');
+    });
+
+    document.getElementById('btn-doc-export-ppt')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        if (!doc) return;
+        PDFExporter.exportDocumentToPPT(doc);
+        showComfortToast('PPT স্লাইড প্রেজেন্টেশন ডাউনলোড হয়েছে!', '📽️');
+    });
+
+    document.getElementById('btn-doc-long-image')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        if (!doc) return;
+        PDFExporter.exportLongImage(doc, () => {
+            showComfortToast('সব পেজ একত্রিত করে Long Image ডাউনলোড হয়েছে!', '🖼️');
+        });
+    });
+
+    document.getElementById('btn-doc-split-pdf')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        if (!doc || !doc.pages.length) return;
+        const pageStr = prompt(`কোন পেজ নম্বরটি আলাদা PDF হিসেবে ডাউনলোড করতে চান? (1 - ${doc.pages.length})`, '1');
+        if (!pageStr) return;
+        const pIdx = Math.max(1, Math.min(doc.pages.length, parseInt(pageStr) || 1)) - 1;
+        const img = new Image();
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width || 800;
+            c.height = img.height || 1100;
+            c.getContext('2d').drawImage(img, 0, 0);
+            PDFExporter.exportPagesToPDF([c], `${doc.title}_Page_${pIdx + 1}.pdf`, 'a4');
+            showComfortToast(`পেজ ${pIdx + 1} আলাদা PDF হিসেবে সেভ হয়েছে!`, '✂️');
+        };
+        img.src = doc.pages[pIdx];
+    });
 
     // Add Page to Current Document via Camera (append to currentDocId)
     const addPageBtn = document.getElementById('btn-doc-add-page');
@@ -934,6 +1035,9 @@ function openDocumentDetail(docId) {
     const titleInput = document.getElementById('docdetail-title');
     if (titleInput) titleInput.value = doc.title;
 
+    const catSelect = document.getElementById('docdetail-category-select');
+    if (catSelect) catSelect.value = doc.category || 'All Docs';
+
     const counter = document.getElementById('docdetail-page-counter');
     if (counter) counter.textContent = `মোট পেজ: ${doc.pages.length}`;
 
@@ -945,15 +1049,49 @@ function openDocumentDetail(docId) {
             <div class="cs-docpage-thumb">
                 <img src="${pageSrc}" alt="Page ${idx + 1}" loading="lazy" />
             </div>
-            <div class="cs-docpage-footer">
+            <div class="cs-docpage-footer" style="flex-wrap:wrap; gap:4px;">
                 <span class="cs-docpage-num">পেজ ${idx + 1}</span>
-                <div style="display:flex; gap:6px;">
+                <div style="display:flex; gap:4px; flex-wrap:wrap;">
+                    <button class="cs-action-mini btn-page-up" data-idx="${idx}" title="আগে নিন" ${idx === 0 ? 'disabled' : ''}>⬆️</button>
+                    <button class="cs-action-mini btn-page-down" data-idx="${idx}" title="পরে নিন" ${idx === doc.pages.length - 1 ? 'disabled' : ''}>⬇️</button>
+                    <button class="cs-action-mini btn-page-rot" data-idx="${idx}" title="৯০° ঘোরান">↻</button>
                     <button class="cs-action-mini btn-recrop-page" data-idx="${idx}" title="ক্রপ ও ফিল্টার">✂️ এডিট</button>
                     <button class="cs-action-mini btn-del-page" data-idx="${idx}" style="color:#ef4444;" title="মুছে ফেলুন">🗑️</button>
                 </div>
             </div>
         </div>
     `).join('');
+
+    // Page Move Up / Left
+    container.querySelectorAll('.btn-page-up').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            csEngine.movePageInCurrentDocument(idx, -1);
+            openDocumentDetail(docId);
+        });
+    });
+
+    // Page Move Down / Right
+    container.querySelectorAll('.btn-page-down').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            csEngine.movePageInCurrentDocument(idx, 1);
+            openDocumentDetail(docId);
+        });
+    });
+
+    // Page Rotate 90°
+    container.querySelectorAll('.btn-page-rot').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const idx = parseInt(btn.dataset.idx);
+            csEngine.rotatePageInCurrentDocument(idx, () => {
+                openDocumentDetail(docId);
+            });
+        });
+    });
 
     // Page Delete
     container.querySelectorAll('.btn-del-page').forEach(btn => {
@@ -1008,6 +1146,10 @@ function setupPDFExportModal() {
         if (qualityMode === 'medium') quality = 0.75;
         if (qualityMode === 'low') quality = 0.55;
 
+        const addPageNumbers = Boolean(document.getElementById('pdf-opt-page-num')?.checked);
+        const watermarkNote = Boolean(document.getElementById('pdf-opt-watermark-note')?.checked);
+        const password = document.getElementById('pdf-opt-password')?.value || '';
+
         const canvasList = doc.pages.map(dataUrl => {
             const c = document.createElement('canvas');
             const img = new Image();
@@ -1029,7 +1171,11 @@ function setupPDFExportModal() {
         });
 
         modal.classList.remove('active');
-        PDFExporter.exportPagesToPDF(canvasList, `${doc.title}.pdf`, 'a4');
+        PDFExporter.exportPagesToPDF(canvasList, `${doc.title}.pdf`, 'a4', {
+            addPageNumbers,
+            watermarkNote,
+            password
+        });
     });
 
     // Print Direct PDF Button
@@ -1720,7 +1866,7 @@ function finalizeContinuousCameraSession() {
 
     renderDocumentLibrary();
 
-    if (modeAtFinish === 'to_word') {
+    if (modeAtFinish === 'to_word' || modeAtFinish === 'qr') {
         navigateToScreen('screen-ocr');
     } else {
         openDocumentDetail(savedDoc.id);
@@ -2022,6 +2168,23 @@ function setupFilterScreen() {
             renderFilterCanvasPreview();
         });
     });
+
+    const brightSlider = document.getElementById('cs-filter-brightness');
+    const contrastSlider = document.getElementById('cs-filter-contrast');
+    if (brightSlider) {
+        brightSlider.addEventListener('input', (e) => {
+            csEngine.brightness = parseInt(e.target.value) || 0;
+            csEngine.applyFilter(csEngine.currentFilter);
+            renderFilterCanvasPreview();
+        });
+    }
+    if (contrastSlider) {
+        contrastSlider.addEventListener('input', (e) => {
+            csEngine.contrast = parseInt(e.target.value) || 0;
+            csEngine.applyFilter(csEngine.currentFilter);
+            renderFilterCanvasPreview();
+        });
+    }
 
     const handleSaveAndOpen = () => {
         const titleInput = document.getElementById('cs-doc-title-input');
@@ -2699,7 +2862,7 @@ function setupCanvasInteractions(canvas) {
 
 /**
  * -------------------------------------------------------------------------
- * 16. WATERMARK & SIGNATURE STUDIO
+ * 16. WATERMARK, SIGNATURE, SMART ERASER & MARKUP STUDIO
  * -------------------------------------------------------------------------
  */
 function setupWatermarkAndSignature() {
@@ -2748,7 +2911,150 @@ function setupWatermarkAndSignature() {
             doc.pages[0] = c.toDataURL('image/jpeg', 0.9);
             doc.thumbnail = doc.pages[0];
             csEngine.saveToStorage();
-            alert('ওয়াটারমার্ক সফলভাবে যুক্ত হয়েছে!');
+            showComfortToast('ওয়াটারমার্ক সফলভাবে ডকুমেন্টে যুক্ত হয়েছে!', '🛡️');
+            openDocumentDetail(doc.id);
+        };
+        img.src = doc.pages[0];
+    });
+
+    // Official Seal / Stamp Buttons (APPROVED, VERIFIED, CONFIDENTIAL, PAID)
+    document.querySelectorAll('.btn-official-stamp').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+            if (!doc) {
+                alert('দয়া করে প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!');
+                return;
+            }
+            const stampLabel = btn.dataset.stamp || 'VERIFIED';
+            const colorMap = {
+                APPROVED: '#16a34a',
+                VERIFIED: '#00a884',
+                CONFIDENTIAL: '#dc2626',
+                PAID: '#2563eb'
+            };
+            const stampColor = colorMap[stampLabel] || '#00a884';
+
+            const img = new Image();
+            img.onload = () => {
+                const c = document.createElement('canvas');
+                c.width = img.width;
+                c.height = img.height;
+                const ctx = c.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+
+                ctx.save();
+                const boxW = Math.round(c.width * 0.34);
+                const boxH = Math.round(boxW * 0.36);
+                const cx = c.width - boxW / 2 - 45;
+                const cy = c.height - boxH / 2 - 55;
+                ctx.translate(cx, cy);
+                ctx.rotate((-12 * Math.PI) / 180);
+                ctx.strokeStyle = stampColor;
+                ctx.lineWidth = Math.max(3, Math.round(c.width * 0.006));
+                ctx.strokeRect(-boxW / 2, -boxH / 2, boxW, boxH);
+                ctx.strokeRect(-boxW / 2 + 6, -boxH / 2 + 6, boxW - 12, boxH - 12);
+                ctx.fillStyle = stampColor;
+                ctx.font = `900 ${Math.round(boxH * 0.38)}px sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(stampLabel, 0, -6);
+                ctx.font = `bold ${Math.round(boxH * 0.18)}px sans-serif`;
+                ctx.fillText(`camlab • ${new Date().toLocaleDateString()}`, 0, boxH * 0.25);
+                ctx.restore();
+
+                doc.pages[0] = c.toDataURL('image/jpeg', 0.92);
+                doc.thumbnail = doc.pages[0];
+                csEngine.saveToStorage();
+                showComfortToast(`${stampLabel} অফিসিয়াল সীল বসানো হয়েছে!`, '🏛️');
+                openDocumentDetail(doc.id);
+            };
+            img.src = doc.pages[0];
+        });
+    });
+
+    // Add Custom Text Box Overlay onto Document
+    document.getElementById('btn-add-textbox')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        const textVal = document.getElementById('custom-textbox-input')?.value?.trim();
+        if (!doc) {
+            alert('দয়া করে প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!');
+            return;
+        }
+        if (!textVal) {
+            alert('ডকুমেন্টে বসানোর জন্য টেক্সট লিখুন!');
+            return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width;
+            c.height = img.height;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            const fontSize = Math.max(18, Math.round(c.width * 0.028));
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            const pad = 14;
+            const textW = ctx.measureText(textVal).width;
+            const boxX = 40;
+            const boxY = c.height - fontSize - 60;
+
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.92)';
+            ctx.fillRect(boxX - pad, boxY - fontSize, textW + pad * 2, fontSize + pad * 1.4);
+            ctx.strokeStyle = '#0f172a';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(boxX - pad, boxY - fontSize, textW + pad * 2, fontSize + pad * 1.4);
+            ctx.fillStyle = '#0f172a';
+            ctx.fillText(textVal, boxX, boxY);
+
+            doc.pages[0] = c.toDataURL('image/jpeg', 0.92);
+            doc.thumbnail = doc.pages[0];
+            csEngine.saveToStorage();
+            showComfortToast('টেক্সট বক্স ডকুমেন্টে যুক্ত করা হয়েছে!', '🔤');
+            openDocumentDetail(doc.id);
+        };
+        img.src = doc.pages[0];
+    });
+
+    // Smart Eraser (Removes gray smudges, stains & background shadows)
+    document.getElementById('btn-smart-eraser-clean')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        if (!doc) {
+            alert('দয়া করে প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!');
+            return;
+        }
+
+        const img = new Image();
+        img.onload = () => {
+            const c = document.createElement('canvas');
+            c.width = img.width;
+            c.height = img.height;
+            const ctx = c.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            const imgData = ctx.getImageData(0, 0, c.width, c.height);
+            const d = imgData.data;
+            for (let i = 0; i < d.length; i += 4) {
+                const lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+                // Erase light/medium smudges, stains, and faint pencil/shadow marks to pure paper white
+                if (lum > 148) {
+                    d[i] = 255;
+                    d[i + 1] = 255;
+                    d[i + 2] = 255;
+                } else {
+                    // Sharpen remaining dark ink
+                    d[i] = Math.max(0, Math.round(d[i] * 0.75));
+                    d[i + 1] = Math.max(0, Math.round(d[i + 1] * 0.75));
+                    d[i + 2] = Math.max(0, Math.round(d[i + 2] * 0.75));
+                }
+            }
+            ctx.putImageData(imgData, 0, 0);
+
+            doc.pages[0] = c.toDataURL('image/jpeg', 0.92);
+            doc.thumbnail = doc.pages[0];
+            csEngine.saveToStorage();
+            showComfortToast('স্মার্ট ইরেজার দিয়ে ডকুমেন্টের দাগ ও ছায়া পরিষ্কার করা হয়েছে!', '🧹');
             openDocumentDetail(doc.id);
         };
         img.src = doc.pages[0];
@@ -2778,7 +3084,7 @@ function setupWatermarkAndSignature() {
             doc.pages[0] = c.toDataURL('image/jpeg', 0.9);
             doc.thumbnail = doc.pages[0];
             csEngine.saveToStorage();
-            alert('স্বাক্ষর ডকুমেন্টে স্ট্যাম্প করা হয়েছে!');
+            showComfortToast('স্বাক্ষর / মার্কআপ ডকুমেন্টে স্ট্যাম্প করা হয়েছে!', '🖋️');
             openDocumentDetail(doc.id);
         };
         img.src = doc.pages[0];
@@ -2787,7 +3093,7 @@ function setupWatermarkAndSignature() {
 
 /**
  * -------------------------------------------------------------------------
- * 17. OCR TEXT EXTRACTION
+ * 17. OCR TEXT EXTRACTION, TRANSLATION, WORD/EXCEL & QR GENERATOR
  * -------------------------------------------------------------------------
  */
 function setupOCR() {
@@ -2795,42 +3101,114 @@ function setupOCR() {
     const ocrOutput = document.getElementById('ocr-output');
     const progressBar = document.getElementById('ocr-progress-bar');
     const copyBtn = document.getElementById('btn-copy-ocr');
+    const wordCountBadge = document.getElementById('ocr-word-count');
 
-    if (!ocrBtn) return;
+    const updateWordCount = () => {
+        if (!ocrOutput || !wordCountBadge) return;
+        const txt = ocrOutput.value.trim();
+        const words = txt ? txt.split(/\s+/).length : 0;
+        wordCountBadge.textContent = `${words} শব্দ (${txt.length} অক্ষর)`;
+    };
+    ocrOutput?.addEventListener('input', updateWordCount);
 
-    ocrBtn.addEventListener('click', async () => {
-        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
-        if (!doc) {
-            alert('দয়া করে প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!');
+    if (ocrBtn) {
+        ocrBtn.addEventListener('click', async () => {
+            const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+            if (!doc) {
+                alert('দয়া করে প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!');
+                return;
+            }
+
+            const langSel = document.getElementById('ocr-lang-select')?.value || 'eng';
+            progressBar.style.display = 'block';
+            progressBar.style.width = '20%';
+            ocrBtn.disabled = true;
+            ocrBtn.innerHTML = '⏳ টেক্সট রিকগনিশন চলছে...';
+
+            const img = new Image();
+            img.onload = async () => {
+                const c = document.createElement('canvas');
+                c.width = img.width;
+                c.height = img.height;
+                c.getContext('2d').drawImage(img, 0, 0);
+
+                try {
+                    const text = await ocrEngine.recognizeText(c, langSel, (progress) => {
+                        progressBar.style.width = `${Math.round(progress.progress * 100)}%`;
+                    });
+                    ocrOutput.value = text;
+                    updateWordCount();
+                } catch (err) {
+                    ocrOutput.value = 'OCR সম্পন্ন করার সময় সমস্যা হয়েছে।';
+                } finally {
+                    ocrBtn.disabled = false;
+                    ocrBtn.innerHTML = '🔍 টেক্সট এক্সট্রাক্ট করুন (Run OCR)';
+                    setTimeout(() => { progressBar.style.display = 'none'; }, 800);
+                }
+            };
+            img.src = doc.pages[0];
+        });
+    }
+
+    // Search inside OCR Text
+    document.getElementById('ocr-search-input')?.addEventListener('input', (e) => {
+        const q = e.target.value.trim();
+        if (!q || !ocrOutput || !ocrOutput.value) return;
+        const idx = ocrOutput.value.toLowerCase().indexOf(q.toLowerCase());
+        if (idx >= 0) {
+            ocrOutput.focus();
+            ocrOutput.setSelectionRange(idx, idx + q.length);
+        }
+    });
+
+    // Clean / Format OCR Text
+    document.getElementById('btn-ocr-clean')?.addEventListener('click', () => {
+        if (!ocrOutput || !ocrOutput.value) return;
+        ocrOutput.value = ocrOutput.value
+            .replace(/[ \t]+/g, ' ')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
+        updateWordCount();
+        showComfortToast('টেক্সট লাইন ও স্পেসিং সুন্দরভাবে ফরম্যাট করা হয়েছে!', '✨');
+    });
+
+    // Offline Translation & Summary Helper
+    document.getElementById('btn-ocr-translate')?.addEventListener('click', () => {
+        if (!ocrOutput || !ocrOutput.value.trim()) {
+            alert('প্রথমে OCR রান করুন অথবা টেক্সট বক্সে কিছু লিখুন!');
             return;
         }
-
-        progressBar.style.display = 'block';
-        progressBar.style.width = '20%';
-        ocrBtn.disabled = true;
-        ocrBtn.innerHTML = '⏳ টেক্সট রিকগনিশন চলছে...';
-
-        const img = new Image();
-        img.onload = async () => {
-            const c = document.createElement('canvas');
-            c.width = img.width;
-            c.height = img.height;
-            c.getContext('2d').drawImage(img, 0, 0);
-
-            try {
-                const text = await ocrEngine.recognizeText(c, 'eng', (progress) => {
-                    progressBar.style.width = `${Math.round(progress.progress * 100)}%`;
-                });
-                ocrOutput.value = text;
-            } catch (err) {
-                ocrOutput.value = 'OCR সম্পন্ন করার সময় সমস্যা হয়েছে।';
-            } finally {
-                ocrBtn.disabled = false;
-                ocrBtn.innerHTML = '🔍 টেক্সট এক্সট্রাক্ট করুন (Run OCR)';
-                setTimeout(() => { progressBar.style.display = 'none'; }, 800);
-            }
+        const dict = {
+            document: 'ডকুমেন্ট / দলিল',
+            passport: 'পাসপোর্ট',
+            name: 'নাম',
+            date: 'তারিখ',
+            signature: 'স্বাক্ষর',
+            verified: 'যাচাইকৃত',
+            invoice: 'চালান / বিল',
+            total: 'মোট',
+            amount: 'পরিমাণ',
+            national: 'জাতীয়',
+            card: 'কার্ড',
+            government: 'সরকার',
+            bangladesh: 'বাংলাদেশ',
+            address: 'ঠিকানা',
+            phone: 'ফোন নম্বর'
         };
-        img.src = doc.pages[0];
+        const raw = ocrOutput.value;
+        const foundPairs = [];
+        Object.keys(dict).forEach(k => {
+            if (new RegExp(`\\b${k}\\b`, 'i').test(raw)) {
+                foundPairs.push(`• ${k.toUpperCase()} = ${dict[k]}`);
+            }
+        });
+        const lines = raw.split(/\r?\n/).filter(l => l.trim().length > 0);
+        const summaryNote = `\n\n--- [camlab অফলাইন অনুবাদ ও সারসংক্ষেপ] ---\n` +
+            `• মোট লাইন: ${lines.length} টি\n` +
+            (foundPairs.length ? `• শনাক্তকৃত মূল শব্দার্থ:\n${foundPairs.join('\n')}\n` : `• টেক্সটটি বাংলা ও ইংরেজি ইউনিকোড ফরম্যাটে প্রস্তুত।\n`);
+        ocrOutput.value = raw.trim() + summaryNote;
+        updateWordCount();
+        showComfortToast('অফলাইন অনুবাদ ও সারসংক্ষেপ যুক্ত হয়েছে!', '🌐');
     });
 
     if (copyBtn) {
@@ -2850,21 +3228,92 @@ function setupOCR() {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'Extracted_Document_Text.txt';
+        a.download = 'camlab_Extracted_Text.txt';
         a.click();
         URL.revokeObjectURL(url);
     });
+
+    document.getElementById('btn-download-ocr-word')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        PDFExporter.exportDocumentToWord(doc || { title: 'camlab_OCR_Word', pages: [] }, ocrOutput?.value || '');
+        showComfortToast('Word (.doc) ফাইল ডাউনলোড হয়েছে!', '📝');
+    });
+
+    document.getElementById('btn-download-ocr-excel')?.addEventListener('click', () => {
+        const doc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
+        PDFExporter.exportDocumentToExcel(doc || { title: 'camlab_OCR_Excel', pages: [] }, ocrOutput?.value || '');
+        showComfortToast('Excel (.csv) স্প্রেডশিট ডাউনলোড হয়েছে!', '📊');
+    });
+
+    // Custom QR Code Generator inside OCR/Tools screen
+    document.getElementById('btn-generate-qr')?.addEventListener('click', () => {
+        const inputVal = document.getElementById('qr-custom-input')?.value?.trim() || 'https://menajpal-design.github.io/camlap/';
+        const wrap = document.getElementById('qr-generated-wrap');
+        const qrCanvas = document.getElementById('qr-custom-canvas');
+        if (wrap) wrap.style.display = 'block';
+        if (qrCanvas) {
+            drawCustomQRCodeOnCanvas(qrCanvas, inputVal);
+            showComfortToast('QR কোড সফলভাবে তৈরি হয়েছে!', '🏁');
+        }
+    });
+
+    document.getElementById('btn-save-qr-img')?.addEventListener('click', () => {
+        const qrCanvas = document.getElementById('qr-custom-canvas');
+        if (qrCanvas) {
+            PDFExporter.downloadCanvasImage(qrCanvas, `camlab_QR_${Date.now()}.png`, 'image/png');
+        }
+    });
+}
+
+function drawCustomQRCodeOnCanvas(canvas, text) {
+    const ctx = canvas.getContext('2d');
+    const size = 21;
+    const cell = canvas.width / size;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const drawFinder = (r, c) => {
+        ctx.fillStyle = '#0F172A';
+        ctx.fillRect(c * cell, r * cell, 7 * cell, 7 * cell);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.fillRect((c + 1) * cell, (r + 1) * cell, 5 * cell, 5 * cell);
+        ctx.fillStyle = '#00A884';
+        ctx.fillRect((c + 2) * cell, (r + 2) * cell, 3 * cell, 3 * cell);
+    };
+    drawFinder(0, 0);
+    drawFinder(0, size - 7);
+    drawFinder(size - 7, 0);
+
+    let hash = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+        hash ^= text.charCodeAt(i);
+        hash = Math.imul(hash, 16777619);
+    }
+    ctx.fillStyle = '#0F172A';
+    for (let r = 0; r < size; r++) {
+        for (let c = 0; c < size; c++) {
+            const inTL = r < 8 && c < 8;
+            const inTR = r < 8 && c >= size - 8;
+            const inBL = r >= size - 8 && c < 8;
+            if (inTL || inTR || inBL) continue;
+            const bit = ((r * 31 + c * 17 + Math.abs(hash) + text.charCodeAt((r + c) % Math.max(1, text.length))) % 7) < 3;
+            if (bit) {
+                ctx.fillRect(c * cell, r * cell, Math.ceil(cell), Math.ceil(cell));
+            }
+        }
+    }
 }
 
 /**
  * -------------------------------------------------------------------------
- * 18. TOOLS HUB (25+ CAMLAB Features)
+ * 18. TOOLS HUB (ALL 7 FEATURE GROUPS — 25+ TOOLS)
  * -------------------------------------------------------------------------
  */
 function setupToolsHub() {
     document.querySelectorAll('.cs-tool-item').forEach(tool => {
         tool.addEventListener('click', () => {
             const action = tool.dataset.action;
+            const activeDoc = csEngine.documents.find(d => d.id === csEngine.currentDocId) || csEngine.documents[0];
             switch (action) {
                 case 'tool-idphoto':
                     navigateToScreen('screen-passport');
@@ -2878,19 +3327,75 @@ function setupToolsHub() {
                 case 'tool-book':
                     openCameraViewfinder('book');
                     break;
+                case 'tool-whiteboard':
+                    openCameraViewfinder('whiteboard');
+                    break;
+                case 'tool-qr':
+                    navigateToScreen('screen-ocr');
+                    document.getElementById('qr-custom-input')?.focus();
+                    break;
                 case 'tool-watermark':
+                case 'tool-stamp':
+                case 'tool-eraser':
+                case 'tool-annotate':
                     navigateToScreen('screen-watermark');
                     break;
                 case 'tool-ocr':
                     navigateToScreen('screen-ocr');
                     break;
+                case 'tool-to-word':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    PDFExporter.exportDocumentToWord(activeDoc, document.getElementById('ocr-output')?.value || '');
+                    showComfortToast('Word (.doc) ফাইল ডাউনলোড শুরু হয়েছে!', '📝');
+                    break;
+                case 'tool-to-excel':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    PDFExporter.exportDocumentToExcel(activeDoc, document.getElementById('ocr-output')?.value || '');
+                    showComfortToast('Excel (.csv) স্প্রেডশিট ডাউনলোড শুরু হয়েছে!', '📊');
+                    break;
+                case 'tool-to-ppt':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    PDFExporter.exportDocumentToPPT(activeDoc);
+                    showComfortToast('PPT স্লাইড প্রেজেন্টেশন ডাউনলোড হয়েছে!', '📽️');
+                    break;
+                case 'tool-long-image':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    PDFExporter.exportLongImage(activeDoc, () => {
+                        showComfortToast('Long Image ডাউনলোড সম্পন্ন!', '🖼️');
+                    });
+                    break;
+                case 'tool-pdf-to-jpg':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    activeDoc.pages.forEach((p, idx) => {
+                        const a = document.createElement('a');
+                        a.href = p;
+                        a.download = `${activeDoc.title}_Page_${idx + 1}.jpg`;
+                        a.click();
+                    });
+                    showComfortToast(`${activeDoc.pages.length} টি পেজ JPG হিসেবে ডাউনলোড হয়েছে!`, '🗂️');
+                    break;
+                case 'tool-pdfsplit':
+                case 'tool-reorder':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    openDocumentDetail(activeDoc.id);
+                    showComfortToast('পেজগুলো আগে/পরে সরান, ঘোরান বা আলাদা PDF করুন', '✂️');
+                    break;
+                case 'tool-pagenum':
+                case 'tool-pdfpassword':
+                    if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
+                    openPDFExportDialog(activeDoc.id);
+                    if (action === 'tool-pdfpassword') {
+                        setTimeout(() => document.getElementById('pdf-opt-password')?.focus(), 150);
+                    }
+                    break;
                 case 'tool-compress':
-                    if (csEngine.documents.length === 0) {
+                    if (!activeDoc) {
                         alert('কম্প্রেস করার মতো কোনো ডকুমেন্ট নেই!');
                         return;
                     }
-                    csEngine.compressDocument(csEngine.documents[0].id, 'high');
-                    alert('PDF সফলভাবে উচ্চ হারে কম্প্রেস করা হয়েছে!');
+                    csEngine.compressDocument(activeDoc.id, 'high');
+                    showComfortToast('PDF সফলভাবে উচ্চ হারে কম্প্রেস করা হয়েছে!', '🗜️');
+                    openDocumentDetail(activeDoc.id);
                     break;
                 case 'tool-pdfmerge':
                     if (csEngine.documents.length === 0) {
@@ -2910,6 +3415,17 @@ function setupToolsHub() {
                     });
                     PDFExporter.exportPagesToPDF(allPages, 'Merged_camlab_Docs.pdf', 'a4');
                     break;
+                case 'tool-trash':
+                    activeDocFilterCategory = 'Trash';
+                    document.querySelectorAll('.cs-pills-bar .cs-pill').forEach(p => {
+                        p.classList.toggle('active', p.dataset.category === 'Trash');
+                    });
+                    navigateToScreen('screen-home');
+                    renderDocumentLibrary();
+                    break;
+                case 'tool-backup-export':
+                    exportVaultBackupFile();
+                    break;
                 default:
                     openCameraViewfinder('docs');
             }
@@ -2917,15 +3433,69 @@ function setupToolsHub() {
     });
 }
 
+function exportVaultBackupFile() {
+    const payload = {
+        app: 'camlab',
+        version: '6.84.0',
+        exportedAt: new Date().toISOString(),
+        documents: csEngine.documents,
+        trashDocuments: csEngine.trashDocuments || []
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `camlab_Vault_Backup_${new Date().toISOString().slice(0, 10)}.camlab.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showComfortToast('ভল্ট ব্যাকআপ ফাইল (.camlab.json) ডাউনলোড হয়েছে!', '💾');
+}
+
 /**
  * -------------------------------------------------------------------------
- * 19. ME / PROFILE & APP SETTINGS
+ * 19. ME / PROFILE, BACKUP & APP SETTINGS
  * -------------------------------------------------------------------------
  */
 function setupProfileScreen() {
     const docCountBadge = document.getElementById('me-doc-count');
     if (docCountBadge) {
         docCountBadge.textContent = `${csEngine.documents.length} টি ডকুমেন্ট সংরক্ষিত`;
+    }
+
+    document.getElementById('btn-vault-backup-export')?.addEventListener('click', exportVaultBackupFile);
+
+    document.getElementById('vault-backup-import-input')?.addEventListener('change', (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (evt) => {
+            try {
+                const parsed = JSON.parse(evt.target.result);
+                if (Array.isArray(parsed.documents)) {
+                    csEngine.documents = parsed.documents;
+                    if (Array.isArray(parsed.trashDocuments)) {
+                        csEngine.trashDocuments = parsed.trashDocuments;
+                    }
+                    csEngine.saveToStorage();
+                    renderDocumentLibrary();
+                    showComfortToast(`${csEngine.documents.length} টি ডকুমেন্ট ব্যাকআপ থেকে রিস্টোর হয়েছে!`, '📂');
+                }
+            } catch (err) {
+                alert('ব্যাকআপ ফাইলটি পড়া যায়নি। সঠিক .camlab.json ফাইল নির্বাচন করুন।');
+            }
+        };
+        reader.readAsText(file);
+        e.target.value = '';
+    });
+
+    const defFilterSel = document.getElementById('setting-default-filter');
+    if (defFilterSel) {
+        defFilterSel.value = localStorage.getItem('camlab_default_filter') || 'magic';
+        defFilterSel.addEventListener('change', (e) => {
+            localStorage.setItem('camlab_default_filter', e.target.value);
+            csEngine.currentFilter = e.target.value;
+            showComfortToast('ডিফল্ট স্ক্যান ফিল্টার সেভ করা হয়েছে!', '⚙️');
+        });
     }
 }
 

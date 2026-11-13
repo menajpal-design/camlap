@@ -81,6 +81,15 @@ public class InAppCameraActivity extends AppCompatActivity {
         btnSwitch.setOnClickListener(v -> toggleCameraLens());
         btnShutter.setOnClickListener(v -> capturePhoto());
 
+        View btnGrid = findViewById(R.id.btn_cam_grid);
+        if (btnGrid != null) {
+            btnGrid.setOnClickListener(v -> {
+                boolean vis = viewScanGuide.getVisibility() == View.VISIBLE;
+                viewScanGuide.setVisibility(vis ? View.INVISIBLE : View.VISIBLE);
+                Toast.makeText(this, vis ? "গ্রিড বন্ধ" : "গ্রিড ও বর্ডার চালু", Toast.LENGTH_SHORT).show();
+            });
+        }
+
         permLauncher = registerForActivityResult(new ActivityResultContracts.RequestPermission(), granted -> {
             if (granted) {
                 startCamera();

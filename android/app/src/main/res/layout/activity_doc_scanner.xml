@@ -89,81 +89,138 @@
         android:paddingVertical="10dp"
         android:elevation="4dp">
 
-        <!-- Capture Row -->
+        <!-- Capture & Page Navigation Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="6dp">
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_camera"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_height="38dp"
+                android:layout_weight="1.2"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_btn_outline"
                 android:text="📷 ক্যামেরা"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_gallery"
                 android:layout_width="0dp"
-                android:layout_height="40dp"
-                android:layout_weight="1"
+                android:layout_height="38dp"
+                android:layout_weight="1.2"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_btn_outline"
                 android:text="🖼️ গ্যালারি"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_doc_prev"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="◀"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_doc_next"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="▶"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_doc_del_page"
+                android:layout_width="38dp"
+                android:layout_height="38dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="🗑️"
+                android:textAllCaps="false"
+                android:textColor="#EF4444"
+                android:textSize="12sp" />
         </LinearLayout>
 
-        <!-- Edit & OCR Row -->
+        <!-- Edit, Book Split, Smart Eraser & OCR Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginBottom="8dp">
+            android:layout_marginBottom="6dp">
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_autocrop"
                 android:layout_width="0dp"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_btn_outline"
-                android:text="✂️ অটো ক্রপ"
+                android:text="✂️ ক্রপ"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_doc_book_split"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1.15"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="📖 বুক স্প্লিট"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="11sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_doc_eraser"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="🧹 ইরেজার"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="11sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_rotate"
                 android:layout_width="0dp"
-                android:layout_height="38dp"
-                android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_height="36dp"
+                android:layout_weight="0.85"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_btn_outline"
                 android:text="↻ ৯০°"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_ocr"
                 android:layout_width="0dp"
-                android:layout_height="38dp"
-                android:layout_weight="1"
+                android:layout_height="36dp"
+                android:layout_weight="0.9"
                 android:background="@drawable/bg_btn_outline"
-                android:text="🔤 OCR টেক্সট"
+                android:text="🔤 OCR"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
         </LinearLayout>
 
-        <!-- Filters Row -->
+        <!-- All 6 Signature Filters Row -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -173,37 +230,73 @@
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_filter_orig"
                 android:layout_width="0dp"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:layout_weight="1"
-                android:layout_marginEnd="6dp"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_btn_outline"
                 android:text="আসল"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_filter_magic"
                 android:layout_width="0dp"
-                android:layout_height="38dp"
-                android:layout_weight="1.2"
-                android:layout_marginEnd="6dp"
+                android:layout_height="36dp"
+                android:layout_weight="1.15"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_chip"
-                android:text="ম্যাজিক কালার"
+                android:text="ম্যাজিক"
                 android:textAllCaps="false"
                 android:textColor="#00896C"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_filter_bw"
                 android:layout_width="0dp"
-                android:layout_height="38dp"
+                android:layout_height="36dp"
                 android:layout_weight="1"
+                android:layout_marginEnd="4dp"
                 android:background="@drawable/bg_btn_outline"
-                android:text="সাদা-কালো"
+                android:text="B&amp;W"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
-                android:textSize="12sp" />
+                android:textSize="11sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_filter_bw2"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="B&amp;W2"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="11sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_filter_gray"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="4dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="গ্রে"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="11sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_filter_light"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_btn_outline"
+                android:text="উজ্জ্বল"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <!-- Export Row -->
@@ -215,27 +308,40 @@
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_save_pdf"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1.3"
-                android:layout_marginEnd="8dp"
+                android:layout_height="42dp"
+                android:layout_weight="1.25"
+                android:layout_marginEnd="6dp"
                 android:background="@drawable/bg_btn_primary"
-                android:text="📄 PDF সেভ করুন"
+                android:text="📄 PDF সেভ"
                 android:textAllCaps="false"
                 android:textColor="#FFFFFF"
                 android:textStyle="bold"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_doc_long_img"
+                android:layout_width="0dp"
+                android:layout_height="42dp"
+                android:layout_weight="1.1"
+                android:layout_marginEnd="6dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="🖼️ লং ইমেজ"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textStyle="bold"
+                android:textSize="12sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btn_doc_print"
                 android:layout_width="0dp"
-                android:layout_height="44dp"
-                android:layout_weight="1"
+                android:layout_height="42dp"
+                android:layout_weight="0.9"
                 android:background="@drawable/bg_btn_outline"
                 android:text="🖨️ প্রিন্ট"
                 android:textAllCaps="false"
                 android:textColor="#0F172A"
                 android:textStyle="bold"
-                android:textSize="13sp" />
+                android:textSize="12sp" />
         </LinearLayout>
     </LinearLayout>
 </LinearLayout>

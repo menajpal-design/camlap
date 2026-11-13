@@ -26,6 +26,7 @@ public class MainActivity extends AppCompatActivity {
 
     private LinearLayout savedFilesContainer;
     private TextView tvFileCount;
+    private String currentVaultFilter = "all";
     private ActivityResultLauncher<String[]> permissionLauncher;
 
     @Override
@@ -70,6 +71,11 @@ public class MainActivity extends AppCompatActivity {
                     startActivity(new Intent(this, DocScannerActivity.class))
             );
         }
+
+        findViewById(R.id.btn_vault_all).setOnClickListener(v -> { currentVaultFilter = "all"; refreshSavedFilesList(); });
+        findViewById(R.id.btn_vault_pdf).setOnClickListener(v -> { currentVaultFilter = "pdf"; refreshSavedFilesList(); });
+        findViewById(R.id.btn_vault_img).setOnClickListener(v -> { currentVaultFilter = "img"; refreshSavedFilesList(); });
+        findViewById(R.id.btn_vault_doc).setOnClickListener(v -> { currentVaultFilter = "doc"; refreshSavedFilesList(); });
     }
 
     @Override
@@ -118,12 +124,36 @@ public class MainActivity extends AppCompatActivity {
         }
 
         Arrays.sort(files, (a, b) -> Long.compare(b.lastModified(), a.lastModified()));
+        java.util.List<File> filtered = new java.util.ArrayList<>();
+        for (File f : files) {
+            String n = f.getName().toLowerCase(Locale.ROOT);
+            if ("pdf".equals(currentVaultFilter) && !n.endsWith(".pdf")) continue;
+            if ("img".equals(currentVaultFilter) && !(n.endsWith(".jpg") || n.endsWith(".png"))) continue;
+            if ("doc".equals(currentVaultFilter) && !(n.endsWith(".doc") || n.endsWith(".csv") || n.endsWith(".txt"))) continue;
+            filtered.add(f);
+        }
+
+        if (tvFileCount != null) {
+            tvFileCount.setText(String.valueOf(filtered.size()));
+        }
+
+        if (filtered.isEmpty()) {
+            TextView empty = new TextView(this);
+            empty.setText("এই ক্যাটাগরিতে কোনো ফাইল নেই।");
+            empty.setTextColor(Color.parseColor("#64748B"));
+            empty.setTextSize(13f);
+            empty.setPadding(24, 32, 24, 32);
+            empty.setBackgroundResource(R.drawable.bg_card);
+            savedFilesContainer.addView(empty);
+            return;
+        }
+
         SimpleDateFormat sdf = new SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault());
 
         // Show at most 20 recent files
-        int shown = Math.min(files.length, 20);
+        int shown = Math.min(filtered.size(), 20);
         for (int i = 0; i < shown; i++) {
-            File file = files[i];
+            File file = filtered.get(i);
             LinearLayout row = new LinearLayout(this);
             row.setOrientation(LinearLayout.VERTICAL);
             row.setBackgroundResource(R.drawable.bg_card);
@@ -138,7 +168,9 @@ public class MainActivity extends AppCompatActivity {
             String name = file.getName();
             String icon;
             if (name.endsWith(".pdf")) icon = "📄 ";
-            else if (name.endsWith(".txt")) icon = "📝 ";
+            else if (name.endsWith(".doc")) icon = "📝 ";
+            else if (name.endsWith(".csv")) icon = "📊 ";
+            else if (name.endsWith(".txt")) icon = "🗒️ ";
             else icon = "🖼️ ";
 
             TextView title = new TextView(this);
@@ -151,7 +183,7 @@ public class MainActivity extends AppCompatActivity {
 
             TextView meta = new TextView(this);
             long kb = Math.max(1, file.length() / 1024);
-            meta.setText(sdf.format(new Date(file.lastModified())) + "  •  " + kb + " KB  •  টাপ করে খুলুন");
+            meta.setText(sdf.format(new Date(file.lastModified())) + "  •  " + kb + " KB  •  টাপ করে খুলুন / লং-প্রেস অপশন");
             meta.setTextColor(Color.parseColor("#64748B"));
             meta.setTextSize(11f);
             meta.setPadding(0, 6, 0, 0);
@@ -162,6 +194,8 @@ public class MainActivity extends AppCompatActivity {
                 try {
                     String mime;
                     if (name.endsWith(".pdf")) mime = "application/pdf";
+                    else if (name.endsWith(".doc")) mime = "application/msword";
+                    else if (name.endsWith(".csv")) mime = "text/csv";
                     else if (name.endsWith(".txt")) mime = "text/plain";
                     else mime = "image/*";
                     NativePdfUtils.shareFile(this, file, mime);
@@ -170,11 +204,22 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
             row.setOnLongClickListener(v -> {
-                // Long press to delete
+                android.widget.EditText input = new android.widget.EditText(this);
+                input.setText(name);
                 new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("ফাইল মুছুন?")
-                        .setMessage(name + " মুছে ফেলতে চান?")
-                        .setPositiveButton("মুছুন", (d, w) -> {
+                        .setTitle("ফাইল ম্যানেজার (রিনেম / মুছুন)")
+                        .setView(input)
+                        .setPositiveButton("✏️ রিনেম", (d, w) -> {
+                            String newName = input.getText().toString().trim();
+                            if (!newName.isEmpty() && !newName.equals(name)) {
+                                File dest = new File(file.getParentFile(), newName);
+                                if (file.renameTo(dest)) {
+                                    refreshSavedFilesList();
+                                    Toast.makeText(this, "✅ নাম পরিবর্তন হয়েছে", Toast.LENGTH_SHORT).show();
+                                }
+                            }
+                        })
+                        .setNeutralButton("🗑️ মুছুন", (d, w) -> {
                             file.delete();
                             refreshSavedFilesList();
                             Toast.makeText(this, "✅ ফাইল মুছে গেছে", Toast.LENGTH_SHORT).show();

@@ -547,46 +547,58 @@ public sealed class MainForm : Form
         var topBar = new FlowLayoutPanel
         {
             Dock = DockStyle.Top,
-            Height = 54,
+            Height = 94,
             BackColor = Color.White,
-            Padding = new Padding(10, 8, 10, 8)
+            Padding = new Padding(10, 6, 10, 6)
         };
 
-        var btnAddDocs = CreateAccentButton("📁 ছবি যোগ করুন", 150);
+        var btnAddDocs = CreateAccentButton("📁 ছবি যোগ করুন", 130);
         btnAddDocs.Click += (s, e) => ImportDocPages();
 
-        var btnAutoCrop = CreateOutlineButton("✂️ অটো ক্রপ", 105);
+        var btnAutoCrop = CreateOutlineButton("✂️ অটো ক্রপ", 92);
         btnAutoCrop.Click += (s, e) => AutoCropCurrentDoc();
 
-        var btnOrig = CreateOutlineButton("আসল", 70);
+        var btnBookSplit = CreateOutlineButton("📖 বুক স্প্লিট", 104);
+        btnBookSplit.Click += (s, e) => SplitBookCurrentDoc();
+
+        var btnEraser = CreateOutlineButton("🧹 ইরেজার", 86);
+        btnEraser.Click += (s, e) => SmartEraseCurrentDoc();
+
+        var btnOrig = CreateOutlineButton("আসল", 60);
         btnOrig.Click += (s, e) => SetDocFilter(0);
-        var btnMagic = CreateOutlineButton("✨ ম্যাজিক কালার", 120);
+        var btnMagic = CreateOutlineButton("✨ ম্যাজিক", 88);
         btnMagic.Click += (s, e) => SetDocFilter(1);
-        var btnBw = CreateOutlineButton("সাদা-কালো", 95);
+        var btnBw = CreateOutlineButton("B&W", 58);
         btnBw.Click += (s, e) => SetDocFilter(2);
-        var btnGray = CreateOutlineButton("গ্রেস্কেল", 85);
+        var btnBw2 = CreateOutlineButton("B&W2", 62);
+        btnBw2.Click += (s, e) => SetDocFilter(4);
+        var btnGray = CreateOutlineButton("গ্রে", 56);
         btnGray.Click += (s, e) => SetDocFilter(3);
-        var btnRot = CreateOutlineButton("↻ ৯০°", 72);
+        var btnLight = CreateOutlineButton("উজ্জ্বল", 64);
+        btnLight.Click += (s, e) => SetDocFilter(5);
+        var btnRot = CreateOutlineButton("↻ ৯০°", 64);
         btnRot.Click += (s, e) => RotateCurrentDoc();
 
-        var btnPrev = CreateOutlineButton("◀", 42);
+        var btnPrev = CreateOutlineButton("◀", 38);
         btnPrev.Click += (s, e) => { if (_docCurrentIndex > 0) { _docCurrentIndex--; RefreshDocPreview(); } };
-        var btnNext = CreateOutlineButton("▶", 42);
+        var btnNext = CreateOutlineButton("▶", 38);
         btnNext.Click += (s, e) => { if (_docCurrentIndex < _docFilteredPages.Count - 1) { _docCurrentIndex++; RefreshDocPreview(); } };
-        var btnDel = CreateOutlineButton("🗑️", 46);
+        var btnDel = CreateOutlineButton("🗑️", 42);
         btnDel.Click += (s, e) => DeleteCurrentDocPage();
 
-        var btnSavePdf = CreateAccentButton("📄 PDF সেভ করুন", 145);
+        var btnSavePdf = CreateAccentButton("📄 PDF সেভ করুন", 132);
         btnSavePdf.Click += (s, e) => SaveDocsPdf();
-        var btnPrintDoc = CreateOutlineButton("🖨️ প্রিন্ট", 90);
+        var btnLongImg = CreateOutlineButton("🖼️ লং ইমেজ", 98);
+        btnLongImg.Click += (s, e) => SaveDocsLongImage();
+        var btnPrintDoc = CreateOutlineButton("🖨️ প্রিন্ট", 80);
         btnPrintDoc.Click += (s, e) => PrintBitmap(_docFilteredPages.Count > 0 ? _docFilteredPages[_docCurrentIndex] : null);
 
         _lblDocCount = new Label { Text = "0 পেজ", AutoSize = true, Padding = new Padding(8, 8, 0, 0), ForeColor = _teal, Font = new Font("Segoe UI", 10f, FontStyle.Bold) };
 
         topBar.Controls.AddRange(new Control[]
         {
-            btnAddDocs, btnAutoCrop, btnOrig, btnMagic, btnBw, btnGray, btnRot,
-            btnPrev, btnNext, btnDel, btnSavePdf, btnPrintDoc, _lblDocCount
+            btnAddDocs, btnAutoCrop, btnBookSplit, btnEraser, btnOrig, btnMagic, btnBw, btnBw2, btnGray, btnLight, btnRot,
+            btnPrev, btnNext, btnDel, btnSavePdf, btnLongImg, btnPrintDoc, _lblDocCount
         });
 
         _pbDocPreview = new PictureBox
@@ -598,6 +610,39 @@ public sealed class MainForm : Form
 
         page.Controls.Add(_pbDocPreview);
         page.Controls.Add(topBar);
+    }
+
+    private void SplitBookCurrentDoc()
+    {
+        if (_docRawPages.Count == 0) { MessageBox.Show("আগে একটি বইয়ের পেজ যোগ করুন!"); return; }
+        var halves = NativeEngine.SplitBookPages(_docRawPages[_docCurrentIndex]);
+        if (halves.Length == 2)
+        {
+            _docRawPages[_docCurrentIndex].Dispose();
+            _docFilteredPages[_docCurrentIndex].Dispose();
+            _docRawPages[_docCurrentIndex] = halves[0];
+            _docFilteredPages[_docCurrentIndex] = NativeEngine.ApplyDocFilter(halves[0], _docFilterMode);
+            _docRawPages.Insert(_docCurrentIndex + 1, halves[1]);
+            _docFilteredPages.Insert(_docCurrentIndex + 1, NativeEngine.ApplyDocFilter(halves[1], _docFilterMode));
+            RefreshDocPreview();
+            MessageBox.Show("📖 বইয়ের বাম ও ডান পেজ ২ ভাগে আলাদা করা হয়েছে!", "camlab");
+        }
+    }
+
+    private void SmartEraseCurrentDoc()
+    {
+        if (_docFilteredPages.Count == 0) { MessageBox.Show("আগে একটি ডকুমেন্ট যোগ করুন!"); return; }
+        var cleaned = NativeEngine.SmartEraseClean(_docFilteredPages[_docCurrentIndex]);
+        _docFilteredPages[_docCurrentIndex].Dispose();
+        _docFilteredPages[_docCurrentIndex] = cleaned;
+        RefreshDocPreview();
+    }
+
+    private void SaveDocsLongImage()
+    {
+        if (_docFilteredPages.Count == 0) { MessageBox.Show("প্রথমে ডকুমেন্ট ছবি যোগ করুন!"); return; }
+        using var stitched = NativeEngine.StitchLongImage(_docFilteredPages);
+        SaveImageFile(stitched, $"camlab_LongImage_{DateTime.Now:yyyyMMdd_HHmm}.jpg", ImageFormat.Jpeg);
     }
 
     // =========================================================================
@@ -853,6 +898,37 @@ public sealed class MainForm : Form
         btnClearSig.Click += (s, e) => { _sigStrokes.Clear(); _pbSignaturePad.Invalidate(); UpdateWatermarkPreview(); };
         flow.Controls.Add(btnClearSig);
 
+        flow.Controls.Add(CreateFieldLabel("💮 অফিশিয়াল সিল ও স্মার্ট ইরেজার:"));
+        var stampRow = new FlowLayoutPanel { Width = 315, AutoSize = true };
+        void AddStampBtn(string txt, string stampKey)
+        {
+            var b = CreateOutlineButton(txt, 98);
+            b.Click += (s, e) =>
+            {
+                if (_wmRawBmp == null) { MessageBox.Show("প্রথমে ছবি ইমপোর্ট করুন!"); return; }
+                var next = NativeEngine.DrawOfficialStamp(_wmRawBmp, stampKey);
+                _wmRawBmp.Dispose();
+                _wmRawBmp = next;
+                UpdateWatermarkPreview();
+            };
+            stampRow.Controls.Add(b);
+        }
+        AddStampBtn("✅ APPROVED", "APPROVED");
+        AddStampBtn("🛡️ VERIFIED", "VERIFIED");
+        AddStampBtn("💳 PAID", "PAID");
+        flow.Controls.Add(stampRow);
+
+        var btnWmEraser = CreateOutlineButton("🧹 স্মার্ট ইরেজার (দাগ ও ছায়া পরিষ্কার)", 315);
+        btnWmEraser.Click += (s, e) =>
+        {
+            if (_wmRawBmp == null) { MessageBox.Show("প্রথমে ছবি ইমপোর্ট করুন!"); return; }
+            var cleaned = NativeEngine.SmartEraseClean(_wmRawBmp);
+            _wmRawBmp.Dispose();
+            _wmRawBmp = cleaned;
+            UpdateWatermarkPreview();
+        };
+        flow.Controls.Add(btnWmEraser);
+
         var expRow = new FlowLayoutPanel { Width = 315, AutoSize = true, Margin = new Padding(0, 10, 0, 0) };
         var btnWmPdf = CreateAccentButton("📄 PDF সেভ", 102);
         btnWmPdf.Click += (s, e) =>
@@ -921,7 +997,7 @@ public sealed class MainForm : Form
             MessageBox.Show("✅ টেক্সট ক্লিপবোর্ডে কপি করা হয়েছে!", "camlab");
         };
 
-        var btnOcrTxt = CreateOutlineButton("💾 TXT সেভ", 110);
+        var btnOcrTxt = CreateOutlineButton("💾 TXT সেভ", 92);
         btnOcrTxt.Click += (s, e) =>
         {
             if (string.IsNullOrWhiteSpace(_txtOcrResult.Text)) return;
@@ -932,8 +1008,47 @@ public sealed class MainForm : Form
             MessageBox.Show("✅ TXT ফাইল সংরক্ষিত হয়েছে!", "camlab");
         };
 
-        _txtOcrSearch = new TextBox { Width = 160, PlaceholderText = "টেক্সটে খুঁজুন...", Font = new Font("Segoe UI", 10f), Margin = new Padding(12, 4, 4, 0) };
-        var btnFind = CreateOutlineButton("🔍 খুঁজুন", 80);
+        var btnOcrDoc = CreateOutlineButton("📝 Word (.doc)", 110);
+        btnOcrDoc.Click += (s, e) =>
+        {
+            if (string.IsNullOrWhiteSpace(_txtOcrResult.Text)) return;
+            using var sfd = new SaveFileDialog { Filter = "Word Document|*.doc", FileName = $"camlab_Word_{DateTime.Now:yyyyMMdd_HHmm}.doc" };
+            if (sfd.ShowDialog() != DialogResult.OK) return;
+            string safeBody = System.Net.WebUtility.HtmlEncode(_txtOcrResult.Text).Replace("\n", "<br/>");
+            string html = $"<html><head><meta charset='utf-8'></head><body style='font-family:Segoe UI,Arial;padding:24pt;'><h2 style='color:#00896C;'>camlab OCR Document</h2><p>{safeBody}</p></body></html>";
+            File.WriteAllText(sfd.FileName, html, Encoding.UTF8);
+            SaveCopyToVault(sfd.FileName);
+            MessageBox.Show("✅ Word (.doc) ফাইল সংরক্ষিত হয়েছে!", "camlab");
+        };
+
+        var btnOcrCsv = CreateOutlineButton("📊 Excel (.csv)", 110);
+        btnOcrCsv.Click += (s, e) =>
+        {
+            if (string.IsNullOrWhiteSpace(_txtOcrResult.Text)) return;
+            using var sfd = new SaveFileDialog { Filter = "CSV Spreadsheet|*.csv", FileName = $"camlab_Excel_{DateTime.Now:yyyyMMdd_HHmm}.csv" };
+            if (sfd.ShowDialog() != DialogResult.OK) return;
+            var sb = new StringBuilder("\uFEFFRow,Text\n");
+            int r = 1;
+            foreach (var line in _txtOcrResult.Text.Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries))
+                sb.Append(r++).Append(",\"").Append(line.Replace("\"", "\"\"")).AppendLine("\"");
+            File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
+            SaveCopyToVault(sfd.FileName);
+            MessageBox.Show("✅ Excel (.csv) ফাইল সংরক্ষিত হয়েছে!", "camlab");
+        };
+
+        var btnOcrQr = CreateOutlineButton("🏁 QR তৈরি", 92);
+        btnOcrQr.Click += (s, e) =>
+        {
+            string txt = string.IsNullOrWhiteSpace(_txtOcrResult.Text) ? _txtOcrSearch.Text : _txtOcrResult.Text;
+            var qr = NativeEngine.GenerateQrBitmap(txt, 600);
+            _ocrSourceBmp?.Dispose();
+            _ocrSourceBmp = qr;
+            _pbOcrPreview.Image = _ocrSourceBmp;
+            SaveImageFile(qr, $"camlab_QR_{DateTime.Now:yyyyMMdd_HHmm}.png", ImageFormat.Png);
+        };
+
+        _txtOcrSearch = new TextBox { Width = 140, PlaceholderText = "টেক্সটে খুঁজুন...", Font = new Font("Segoe UI", 10f), Margin = new Padding(8, 4, 4, 0) };
+        var btnFind = CreateOutlineButton("🔍 খুঁজুন", 74);
         btnFind.Click += (s, e) =>
         {
             string q = _txtOcrSearch.Text.Trim();
@@ -948,9 +1063,9 @@ public sealed class MainForm : Form
             else MessageBox.Show($"\"{q}\" পাওয়া যায়নি।", "camlab");
         };
 
-        _lblOcrStatus = new Label { Text = "ছবি ইমপোর্ট করলে স্বয়ংক্রিয়ভাবে অফলাইন OCR চলবে", AutoSize = true, Padding = new Padding(10, 8, 0, 0), ForeColor = _teal };
+        _lblOcrStatus = new Label { Text = "অফলাইন OCR, Word, Excel ও QR জেনারেটর", AutoSize = true, Padding = new Padding(8, 8, 0, 0), ForeColor = _teal };
 
-        topBar.Controls.AddRange(new Control[] { btnOcrImp, btnOcrRun, btnOcrCopy, btnOcrTxt, _txtOcrSearch, btnFind, _lblOcrStatus });
+        topBar.Controls.AddRange(new Control[] { btnOcrImp, btnOcrRun, btnOcrCopy, btnOcrTxt, btnOcrDoc, btnOcrCsv, btnOcrQr, _txtOcrSearch, btnFind, _lblOcrStatus });
 
         var split = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 1 };
         split.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 48));
@@ -1078,6 +1193,30 @@ public sealed class MainForm : Form
             MessageBox.Show($"✅ কম্প্রেসড PDF সংরক্ষিত হয়েছে ({kb} KB)!", "camlab");
         };
         flow.Controls.Add(btnCompress);
+
+        var extraToolsRow = new FlowLayoutPanel { Width = 340, AutoSize = true, Margin = new Padding(0, 8, 0, 0) };
+        var btnStitchTool = CreateOutlineButton("🖼️ লং ইমেজ স্টিচ", 164);
+        btnStitchTool.Click += (s, e) =>
+        {
+            if (_pdfToolPages.Count == 0) { MessageBox.Show("প্রথমে ছবি যোগ করুন!"); return; }
+            using var longImg = NativeEngine.StitchLongImage(_pdfToolPages);
+            SaveImageFile(longImg, $"camlab_LongStitch_{DateTime.Now:yyyyMMdd_HHmm}.jpg", ImageFormat.Jpeg);
+        };
+        var btnSplitTool = CreateOutlineButton("✂️ আলাদা PDF স্প্লিট", 164);
+        btnSplitTool.Click += (s, e) =>
+        {
+            if (_pdfToolPages.Count == 0) { MessageBox.Show("প্রথমে ছবি যোগ করুন!"); return; }
+            string vault = GetVaultDir();
+            for (int i = 0; i < _pdfToolPages.Count; i++)
+            {
+                string path = Path.Combine(vault, $"camlab_Split_P{i + 1}_{DateTime.Now:HHmmss}.pdf");
+                SimplePdfWriter.SaveBitmapsAsPdf(new[] { _pdfToolPages[i] }, path, 210.0, 297.0, 90L);
+            }
+            RefreshVaultList();
+            MessageBox.Show($"✅ {_pdfToolPages.Count}টি আলাদা PDF ফাইল সংরক্ষিত হয়েছে!", "camlab");
+        };
+        extraToolsRow.Controls.AddRange(new Control[] { btnStitchTool, btnSplitTool });
+        flow.Controls.Add(extraToolsRow);
 
         _lblPdfToolStatus = new Label { Text = "একাধিক ছবি একসাথে একটি PDF-এ মার্জ বা কম্প্রেস করুন।", AutoSize = true, ForeColor = Color.FromArgb(100, 116, 139), Margin = new Padding(0, 14, 0, 0) };
         flow.Controls.Add(_lblPdfToolStatus);

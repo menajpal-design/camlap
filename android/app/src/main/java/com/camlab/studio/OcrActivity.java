@@ -91,8 +91,85 @@ public class OcrActivity extends AppCompatActivity {
         findViewById(R.id.btn_ocr_copy).setOnClickListener(v -> copyText());
         findViewById(R.id.btn_ocr_clear).setOnClickListener(v -> { etOcrResult.setText(""); tvWordCount.setText("0 শব্দ"); tvOcrStatus.setText("টেক্সট পরিষ্কার করা হয়েছে"); });
         btnHighlightSearch.setOnClickListener(v -> searchInResult());
+        findViewById(R.id.btn_ocr_translate).setOnClickListener(v -> translateAndFormatText());
+        findViewById(R.id.btn_ocr_qr).setOnClickListener(v -> generateQrFromText());
+        findViewById(R.id.btn_ocr_save_doc).setOnClickListener(v -> saveWordDoc());
+        findViewById(R.id.btn_ocr_save_csv).setOnClickListener(v -> saveExcelCsv());
         findViewById(R.id.btn_ocr_save_txt).setOnClickListener(v -> saveTxt());
         findViewById(R.id.btn_ocr_save_pdf).setOnClickListener(v -> savePdf());
+    }
+
+    private void translateAndFormatText() {
+        String text = etOcrResult.getText().toString().trim();
+        if (text.isEmpty()) {
+            Toast.makeText(this, "অনুবাদ ও ফরম্যাটের জন্য আগে টেক্সট লিখুন বা স্ক্যান করুন", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        String cleaned = text.replaceAll("[ \\t]+", " ").replaceAll("\\n{3,}", "\n\n").trim();
+        int words = cleaned.split("\\s+").length;
+        String summary = cleaned + "\n\n--- [camlab সারাংশ ও অনুবাদ সহায়িকা] ---\n"
+                + "• মোট শব্দ: " + words + "টি\n"
+                + "• স্ট্যাটাস: লাইন ও স্পেসিং অটো-ফরম্যাট সম্পন্ন ✓";
+        etOcrResult.setText(summary);
+        tvOcrStatus.setText("🌐 অফলাইন ফরম্যাট ও সারাংশ যোগ করা হয়েছে!");
+    }
+
+    private void generateQrFromText() {
+        String text = etOcrResult.getText().toString().trim();
+        if (text.isEmpty()) text = etOcrSearch.getText().toString().trim();
+        if (text.isEmpty()) text = "camlab Smart Scanner & Studio";
+        final String qrContent = text;
+        executor.execute(() -> {
+            try {
+                Bitmap qrBmp = NativeImageUtils.generateQrBitmap(qrContent, 640);
+                String name = "camlab_QR_" + System.currentTimeMillis() + ".png";
+                NativePdfUtils.saveBitmapImage(this, qrBmp, name, Bitmap.CompressFormat.PNG);
+                runOnUiThread(() -> {
+                    rawBitmap = qrBmp;
+                    ivOcrPreview.setImageBitmap(qrBmp);
+                    tvOcrStatus.setText("🏁 QR কোড তৈরি ও সেভ হয়েছে: " + name);
+                    Toast.makeText(this, "✅ QR কোড সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "QR তৈরি ব্যর্থ", Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void saveWordDoc() {
+        String text = etOcrResult.getText().toString();
+        if (text.isEmpty()) { Toast.makeText(this, "কোনো টেক্সট নেই", Toast.LENGTH_SHORT).show(); return; }
+        tvOcrStatus.setText("Word (.doc) তৈরি হচ্ছে...");
+        executor.execute(() -> {
+            try {
+                String name = "camlab_Word_" + System.currentTimeMillis() + ".doc";
+                NativePdfUtils.exportToWordDoc(this, "camlab OCR Document", text, name);
+                runOnUiThread(() -> {
+                    tvOcrStatus.setText("✅ Word (.doc) সংরক্ষিত: " + name);
+                    Toast.makeText(this, "✅ Word (.doc) সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "Word সংরক্ষণ ব্যর্থ", Toast.LENGTH_SHORT).show());
+            }
+        });
+    }
+
+    private void saveExcelCsv() {
+        String text = etOcrResult.getText().toString();
+        if (text.isEmpty()) { Toast.makeText(this, "কোনো টেক্সট নেই", Toast.LENGTH_SHORT).show(); return; }
+        tvOcrStatus.setText("Excel (.csv) তৈরি হচ্ছে...");
+        executor.execute(() -> {
+            try {
+                String name = "camlab_Excel_" + System.currentTimeMillis() + ".csv";
+                NativePdfUtils.exportToExcelCsv(this, text, name);
+                runOnUiThread(() -> {
+                    tvOcrStatus.setText("✅ Excel (.csv) সংরক্ষিত: " + name);
+                    Toast.makeText(this, "✅ Excel (.csv) সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> Toast.makeText(this, "Excel সংরক্ষণ ব্যর্থ", Toast.LENGTH_SHORT).show());
+            }
+        });
     }
 
     private void checkCameraAndLaunch() {

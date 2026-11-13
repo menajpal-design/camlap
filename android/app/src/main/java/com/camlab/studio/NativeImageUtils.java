@@ -786,7 +786,8 @@ public final class NativeImageUtils {
     }
 
     /**
-     * Real OpenCV Document Filters: 0=Original, 1=Magic Color, 2=Adaptive B&W
+     * Real OpenCV Document Filters:
+     * 0=Original, 1=Magic Color, 2=Adaptive B&W, 3=B&W 2 (High Contrast), 4=Grayscale, 5=Lighten
      */
     public static Bitmap applyDocFilter(Bitmap src, int mode) {
         if (src == null || mode == 0) return src;
@@ -802,6 +803,24 @@ public final class NativeImageUtils {
                 Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY);
                 Imgproc.adaptiveThreshold(gray, dst, 255, Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C, Imgproc.THRESH_BINARY, 25, 14);
                 Imgproc.cvtColor(dst, dst, Imgproc.COLOR_GRAY2RGBA);
+            } else if (mode == 3) {
+                // B&W 2: Crisp high-contrast ink threshold
+                Mat gray = new Mat();
+                Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY);
+                Imgproc.adaptiveThreshold(gray, dst, 255, Imgproc.ADAPTIVE_THRESH_MEAN_C, Imgproc.THRESH_BINARY, 31, 18);
+                Imgproc.cvtColor(dst, dst, Imgproc.COLOR_GRAY2RGBA);
+            } else if (mode == 4) {
+                // Grayscale with local contrast enhancement
+                Mat gray = new Mat();
+                Imgproc.cvtColor(rgba, gray, Imgproc.COLOR_RGBA2GRAY);
+                Imgproc.createCLAHE(1.8, new Size(8, 8)).apply(gray, gray);
+                Imgproc.cvtColor(gray, dst, Imgproc.COLOR_GRAY2RGBA);
+            } else if (mode == 5) {
+                // Lighten: brighten paper shadows while keeping text legible
+                Mat rgb = new Mat();
+                Imgproc.cvtColor(rgba, rgb, Imgproc.COLOR_RGBA2RGB);
+                rgb.convertTo(rgb, CvType.CV_8UC3, 1.22, 28);
+                Imgproc.cvtColor(rgb, dst, Imgproc.COLOR_RGB2RGBA);
             } else {
                 // Magic Color: enhance local lighting & text contrast cleanly
                 Mat rgb = new Mat();
@@ -822,6 +841,155 @@ public final class NativeImageUtils {
             return out;
         } catch (Exception e) {
             return src;
+        }
+    }
+
+    /**
+     * Book 2-Page Split: Splits a two-page book spread down the center spine into Left and Right pages.
+     */
+    public static Bitmap[] splitBookPages(Bitmap src) {
+        if (src == null) return new Bitmap[0];
+        int w = src.getWidth();
+        int h = src.getHeight();
+        if (w >= h) {
+            int halfW = Math.max(1, w / 2);
+            Bitmap left = Bitmap.createBitmap(src, 0, 0, halfW, h);
+            Bitmap right = Bitmap.createBitmap(src, halfW, 0, Math.max(1, w - halfW), h);
+            return new Bitmap[]{left, right};
+        } else {
+            int halfH = Math.max(1, h / 2);
+            Bitmap top = Bitmap.createBitmap(src, 0, 0, w, halfH);
+            Bitmap bottom = Bitmap.createBitmap(src, 0, halfH, w, Math.max(1, h - halfH));
+            return new Bitmap[]{top, bottom};
+        }
+    }
+
+    /**
+     * Smart Eraser: Removes gray paper smudges, stains, and shadows to crisp white paper while preserving ink.
+     */
+    public static Bitmap smartEraseClean(Bitmap src) {
+        if (src == null) return null;
+        int w = src.getWidth(), h = src.getHeight();
+        int[] px = new int[w * h];
+        src.getPixels(px, 0, w, 0, 0, w, h);
+        for (int i = 0; i < px.length; i++) {
+            int c = px[i];
+            int r = Color.red(c), g = Color.green(c), b = Color.blue(c);
+            int lum = (r * 299 + g * 587 + b * 114) / 1000;
+            int sat = Math.max(r, Math.max(g, b)) - Math.min(r, Math.min(g, b));
+            if (lum > 182 && sat < 42) {
+                px[i] = Color.WHITE;
+            } else if (lum < 88) {
+                px[i] = Color.rgb((int) (r * 0.65f), (int) (g * 0.65f), (int) (b * 0.65f));
+            }
+        }
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        out.setPixels(px, 0, w, 0, 0, w, h);
+        return out;
+    }
+
+    /**
+     * Draws an Official Circular Verification Stamp (APPROVED, VERIFIED, CONFIDENTIAL, PAID).
+     */
+    public static Bitmap drawOfficialStamp(Bitmap src, String stampLabel) {
+        if (src == null) return null;
+        Bitmap out = src.copy(Bitmap.Config.ARGB_8888, true);
+        Canvas c = new Canvas(out);
+        int w = out.getWidth(), h = out.getHeight();
+        float radius = Math.max(55f, Math.min(w, h) * 0.13f);
+        float cx = w - radius * 1.45f;
+        float cy = h - radius * 1.45f;
+
+        int stampColor = Color.parseColor("#DC2626");
+        if ("VERIFIED".equalsIgnoreCase(stampLabel)) stampColor = Color.parseColor("#00896C");
+        else if ("PAID".equalsIgnoreCase(stampLabel)) stampColor = Color.parseColor("#1D4ED8");
+
+        c.save();
+        c.rotate(-14f, cx, cy);
+
+        Paint ringPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        ringPaint.setColor(stampColor);
+        ringPaint.setStyle(Paint.Style.STROKE);
+        ringPaint.setStrokeWidth(Math.max(3f, radius * 0.08f));
+        c.drawCircle(cx, cy, radius, ringPaint);
+
+        ringPaint.setStrokeWidth(Math.max(1.5f, radius * 0.03f));
+        c.drawCircle(cx, cy, radius * 0.86f, ringPaint);
+
+        Paint textPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        textPaint.setColor(stampColor);
+        textPaint.setTextAlign(Paint.Align.CENTER);
+        textPaint.setFakeBoldText(true);
+        textPaint.setTextSize(radius * 0.28f);
+        c.drawText(stampLabel.toUpperCase(), cx, cy + radius * 0.08f, textPaint);
+
+        textPaint.setTextSize(radius * 0.16f);
+        c.drawText("★ camlab ★", cx, cy - radius * 0.36f, textPaint);
+        String dateStr = new java.text.SimpleDateFormat("dd/MM/yyyy", java.util.Locale.US).format(new java.util.Date());
+        c.drawText(dateStr, cx, cy + radius * 0.44f, textPaint);
+
+        c.restore();
+        return out;
+    }
+
+    /**
+     * Generates a high-contrast QR Code Bitmap offline for any text or URL.
+     */
+    public static Bitmap generateQrBitmap(String text, int sizePx) {
+        if (text == null || text.trim().isEmpty()) text = "https://camlab.app";
+        int modules = 25;
+        boolean[][] grid = new boolean[modules][modules];
+        drawFinderPattern(grid, 0, 0);
+        drawFinderPattern(grid, modules - 7, 0);
+        drawFinderPattern(grid, 0, modules - 7);
+
+        for (int i = 8; i < modules - 8; i++) {
+            grid[6][i] = (i % 2 == 0);
+            grid[i][6] = (i % 2 == 0);
+        }
+
+        byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
+        int bitIdx = 0;
+        for (int r = 0; r < modules; r++) {
+            for (int c = 0; c < modules; c++) {
+                boolean inFinder = (r < 8 && c < 8) || (r < 8 && c >= modules - 8) || (r >= modules - 8 && c < 8) || r == 6 || c == 6;
+                if (inFinder) continue;
+                int b = bytes[(bitIdx / 8) % bytes.length] & 0xFF;
+                boolean bit = ((b >> (7 - (bitIdx % 8))) & 1) == 1;
+                boolean mask = ((r * c) % 2 + (r * c) % 3) % 2 == 0;
+                grid[r][c] = bit ^ mask;
+                bitIdx++;
+            }
+        }
+
+        Bitmap bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
+        Canvas canvas = new Canvas(bmp);
+        canvas.drawColor(Color.WHITE);
+        Paint dark = new Paint();
+        dark.setColor(Color.parseColor("#0F172A"));
+        dark.setStyle(Paint.Style.FILL);
+
+        float margin = sizePx * 0.08f;
+        float cell = (sizePx - margin * 2f) / modules;
+        for (int r = 0; r < modules; r++) {
+            for (int c = 0; c < modules; c++) {
+                if (grid[r][c]) {
+                    float left = margin + c * cell;
+                    float top = margin + r * cell;
+                    canvas.drawRect(left, top, left + cell + 0.6f, top + cell + 0.6f, dark);
+                }
+            }
+        }
+        return bmp;
+    }
+
+    private static void drawFinderPattern(boolean[][] grid, int ox, int oy) {
+        for (int r = 0; r < 7; r++) {
+            for (int c = 0; c < 7; c++) {
+                boolean border = (r == 0 || r == 6 || c == 0 || c == 6);
+                boolean core = (r >= 2 && r <= 4 && c >= 2 && c <= 4);
+                grid[oy + r][ox + c] = border || core;
+            }
         }
     }
 

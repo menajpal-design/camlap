@@ -354,6 +354,62 @@
                     android:textSize="12sp" />
             </LinearLayout>
 
+            <!-- Category Filter Pills for Saved Vault -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="10dp">
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_vault_all"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_chip"
+                    android:text="📁 সকল"
+                    android:textAllCaps="false"
+                    android:textColor="#00896C"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_vault_pdf"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:text="📄 PDF"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_vault_img"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1"
+                    android:layout_marginEnd="4dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:text="🖼️ ছবি"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_vault_doc"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="1.15"
+                    android:background="@drawable/bg_btn_outline"
+                    android:text="📝 Word/CSV"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
             <!-- Files List (dynamic) -->
             <LinearLayout
                 android:id="@+id/saved_files_container"
