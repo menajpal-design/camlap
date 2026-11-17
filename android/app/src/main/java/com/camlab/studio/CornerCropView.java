@@ -166,3 +166,4 @@ public class CornerCropView extends View {
         return super.onTouchEvent(event);
     }
 }
+

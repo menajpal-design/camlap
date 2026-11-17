@@ -262,18 +262,24 @@ public class InAppCameraActivity extends AppCompatActivity {
                         PointF[] quad = NativeImageUtils.detectDocumentQuadLive(bmp);
                         if (quad != null) {
                             boolean steady = isQuadSteady(prevQuad, quad);
+                            if (prevQuad != null) {
+                                for (int i = 0; i < 4; i++) {
+                                    quad[i].x = prevQuad[i].x * 0.50f + quad[i].x * 0.50f;
+                                    quad[i].y = prevQuad[i].y * 0.50f + quad[i].y * 0.50f;
+                                }
+                            }
                             prevQuad = quad;
                             steadyCount = steady ? (steadyCount + 1) : 1;
-                            boolean locked = steadyCount >= 3;
-                            liveQuadOverlay.setDetectedQuad(quad, locked);
+                            boolean locked = steadyCount >= 2;
+                            liveQuadOverlay.setDetectedQuad(quad, locked, bmp.getWidth(), bmp.getHeight());
                             runOnUiThread(() -> {
                                 if (!isCapturing) {
                                     tvHint.setText(autoSelectEnabled
-                                            ? "✨ ডকুমেন্ট শনাক্ত (" + Math.min(3, steadyCount) + "/3) — স্থির রাখুন"
+                                            ? "✨ ডকুমেন্ট শনাক্ত (" + Math.min(2, steadyCount) + "/2) — স্থির রাখুন"
                                             : "✨ ডকুমেন্ট সীমানা শনাক্ত হয়েছে — স্ক্যান চাপুন");
                                 }
                             });
-                            if (autoSelectEnabled && steadyCount >= 3 && !isCapturing) {
+                            if (autoSelectEnabled && steadyCount >= 2 && !isCapturing) {
                                 runOnUiThread(this::capturePhoto);
                             }
                         } else {

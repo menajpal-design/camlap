@@ -707,68 +707,9 @@ public final class NativeImageUtils {
     public static Bitmap autoPerspectiveCropDoc(Bitmap src) {
         if (src == null || !ensureOpenCV()) return src;
         try {
-            Mat rgba = new Mat();
-            Utils.bitmapToMat(src, rgba);
-
-            double procW = 600.0;
-            double ratio = Math.max(1.0, rgba.width() / procW);
-            Mat small = new Mat();
-            Imgproc.resize(rgba, small, new Size(rgba.width() / ratio, rgba.height() / ratio));
-
-            Mat gray = new Mat();
-            Imgproc.cvtColor(small, gray, Imgproc.COLOR_RGBA2GRAY);
-            Imgproc.GaussianBlur(gray, gray, new Size(5, 5), 0);
-
-            Mat edges = new Mat();
-            Imgproc.Canny(gray, edges, 60, 180);
-            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
-            Imgproc.dilate(edges, edges, kernel);
-
-            List<MatOfPoint> contours = new ArrayList<>();
-            Imgproc.findContours(edges, contours, new Mat(), Imgproc.RETR_LIST, Imgproc.CHAIN_APPROX_SIMPLE);
-            contours.sort((a, b) -> Double.compare(Imgproc.contourArea(b), Imgproc.contourArea(a)));
-
-            double minArea = small.width() * small.height() * 0.18;
-            Point[] bestQuad = null;
-
-            for (int i = 0; i < Math.min(8, contours.size()); i++) {
-                MatOfPoint2f c2f = new MatOfPoint2f(contours.get(i).toArray());
-                double peri = Imgproc.arcLength(c2f, true);
-                MatOfPoint2f approx = new MatOfPoint2f();
-                Imgproc.approxPolyDP(c2f, approx, 0.02 * peri, true);
-                if (approx.total() == 4 && Imgproc.contourArea(contours.get(i)) > minArea) {
-                    Point[] pts = approx.toArray();
-                    for (Point p : pts) { p.x *= ratio; p.y *= ratio; }
-                    bestQuad = orderQuadPoints(pts);
-                    break;
-                }
-            }
-
-            if (bestQuad == null) return src;
-
-            double wTop = Math.hypot(bestQuad[1].x - bestQuad[0].x, bestQuad[1].y - bestQuad[0].y);
-            double wBot = Math.hypot(bestQuad[2].x - bestQuad[3].x, bestQuad[2].y - bestQuad[3].y);
-            int targetW = Math.max(200, (int) Math.round(Math.max(wTop, wBot)));
-
-            double hLeft = Math.hypot(bestQuad[3].x - bestQuad[0].x, bestQuad[3].y - bestQuad[0].y);
-            double hRight = Math.hypot(bestQuad[2].x - bestQuad[1].x, bestQuad[2].y - bestQuad[1].y);
-            int targetH = Math.max(200, (int) Math.round(Math.max(hLeft, hRight)));
-
-            MatOfPoint2f srcMat = new MatOfPoint2f(bestQuad);
-            MatOfPoint2f dstMat = new MatOfPoint2f(
-                    new Point(0, 0),
-                    new Point(targetW - 1, 0),
-                    new Point(targetW - 1, targetH - 1),
-                    new Point(0, targetH - 1)
-            );
-
-            Mat perspective = Imgproc.getPerspectiveTransform(srcMat, dstMat);
-            Mat warped = new Mat();
-            Imgproc.warpPerspective(rgba, warped, perspective, new Size(targetW, targetH));
-
-            Bitmap out = Bitmap.createBitmap(warped.cols(), warped.rows(), Bitmap.Config.ARGB_8888);
-            Utils.matToBitmap(warped, out);
-            return out;
+            PointF[] norm = detectDocumentQuadLive(src);
+            if (norm == null) return src;
+            return perspectiveCropWithQuad(src, norm);
         } catch (Exception e) {
             return src;
         }
@@ -785,8 +726,69 @@ public final class NativeImageUtils {
         return sorted;
     }
 
+    private static PointF[] extractQuadFromContours(List<MatOfPoint> contours, int sw, int sh) {
+        double totalArea = sw * (double) sh;
+        double minArea = totalArea * 0.12;
+        double maxArea = totalArea * 0.96;
+
+        contours.sort((a, b) -> Double.compare(Imgproc.contourArea(b), Imgproc.contourArea(a)));
+        for (int i = 0; i < Math.min(6, contours.size()); i++) {
+            MatOfPoint cnt = contours.get(i);
+            double area = Imgproc.contourArea(cnt);
+            if (area < minArea) break;
+            if (area > maxArea) continue;
+
+            // Compute convex hull so fingers/shadows on border don't break the 4-corner polygon
+            org.opencv.core.MatOfInt hullIdx = new org.opencv.core.MatOfInt();
+            Imgproc.convexHull(cnt, hullIdx);
+            Point[] cntPts = cnt.toArray();
+            int[] indices = hullIdx.toArray();
+            Point[] hullPts = new Point[indices.length];
+            for (int j = 0; j < indices.length; j++) hullPts[j] = cntPts[indices[j]];
+            hullIdx.release();
+
+            MatOfPoint2f hull2f = new MatOfPoint2f(hullPts);
+            double peri = Imgproc.arcLength(hull2f, true);
+            for (double eps : new double[]{0.02, 0.035, 0.05, 0.07}) {
+                MatOfPoint2f approx = new MatOfPoint2f();
+                Imgproc.approxPolyDP(hull2f, approx, eps * peri, true);
+                if (approx.total() == 4) {
+                    Point[] pts = orderQuadPoints(approx.toArray());
+                    hull2f.release();
+                    approx.release();
+                    return normalizeQuad(pts, sw, sh);
+                }
+                approx.release();
+            }
+
+            // Fallback: Rotated minimum-area bounding rectangle of the document contour
+            if (area >= totalArea * 0.18) {
+                org.opencv.core.RotatedRect rr = Imgproc.minAreaRect(hull2f);
+                Point[] rectPts = new Point[4];
+                rr.points(rectPts);
+                hull2f.release();
+                return normalizeQuad(orderQuadPoints(rectPts), sw, sh);
+            }
+            hull2f.release();
+        }
+        return null;
+    }
+
+    private static PointF[] normalizeQuad(Point[] pts, int sw, int sh) {
+        PointF[] out = new PointF[4];
+        for (int k = 0; k < 4; k++) {
+            out[k] = new PointF(
+                    Math.max(0.01f, Math.min(0.99f, (float) (pts[k].x / sw))),
+                    Math.max(0.01f, Math.min(0.99f, (float) (pts[k].y / sh)))
+            );
+        }
+        return out;
+    }
+
     /**
-     * Fast live CameraX frame quad detector returning normalized [0..1] corners [TL, TR, BR, BL], or null if no document found.
+     * CamScanner-style robust OpenCV live document quad detector:
+     * Morphological Close (erases interior text) -> Auto-Canny + Multi-Epsilon Hull -> Otsu Paper Segmentation fallback.
+     * Returns normalized [0..1] corners [TL, TR, BR, BL], or null if no document found.
      */
     public static PointF[] detectDocumentQuadLive(Bitmap frame) {
         if (frame == null || !ensureOpenCV()) return null;
@@ -794,7 +796,7 @@ public final class NativeImageUtils {
             Mat rgba = new Mat();
             Utils.bitmapToMat(frame, rgba);
             int w = rgba.width(), h = rgba.height();
-            double scale = Math.min(1.0, 260.0 / Math.max(w, h));
+            double scale = Math.min(1.0, 280.0 / Math.max(w, h));
             int sw = Math.max(48, (int) Math.round(w * scale));
             int sh = Math.max(48, (int) Math.round(h * scale));
 
@@ -802,39 +804,35 @@ public final class NativeImageUtils {
             Imgproc.resize(rgba, small, new Size(sw, sh));
             Mat gray = new Mat();
             Imgproc.cvtColor(small, gray, Imgproc.COLOR_RGBA2GRAY);
-            Imgproc.GaussianBlur(gray, gray, new Size(5, 5), 0);
 
+            // 1. Morphological Close removes printed text/lines inside the page
+            Mat closeKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(9, 9));
+            Mat closed = new Mat();
+            Imgproc.morphologyEx(gray, closed, Imgproc.MORPH_CLOSE, closeKernel);
+            Imgproc.GaussianBlur(closed, closed, new Size(5, 5), 0);
+
+            // 2. Stage A: Canny Edge + Dilate
             Mat edges = new Mat();
-            Imgproc.Canny(gray, edges, 45, 145);
-            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
-            Imgproc.dilate(edges, edges, kernel);
+            Imgproc.Canny(closed, edges, 35, 120);
+            Mat dilKernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
+            Imgproc.dilate(edges, edges, dilKernel);
 
-            List<MatOfPoint> contours = new ArrayList<>();
-            Imgproc.findContours(edges, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
-            contours.sort((a, b) -> Double.compare(Imgproc.contourArea(b), Imgproc.contourArea(a)));
+            List<MatOfPoint> edgeContours = new ArrayList<>();
+            Imgproc.findContours(edges, edgeContours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            PointF[] out = extractQuadFromContours(edgeContours, sw, sh);
 
-            double minArea = sw * sh * 0.16;
-            PointF[] out = null;
-            for (int i = 0; i < Math.min(6, contours.size()); i++) {
-                double area = Imgproc.contourArea(contours.get(i));
-                if (area < minArea) break;
-                MatOfPoint2f c2f = new MatOfPoint2f(contours.get(i).toArray());
-                double peri = Imgproc.arcLength(c2f, true);
-                MatOfPoint2f approx = new MatOfPoint2f();
-                Imgproc.approxPolyDP(c2f, approx, 0.025 * peri, true);
-                if (approx.total() == 4) {
-                    Point[] pts = orderQuadPoints(approx.toArray());
-                    out = new PointF[4];
-                    for (int k = 0; k < 4; k++) {
-                        out[k] = new PointF(
-                                Math.max(0f, Math.min(1f, (float) (pts[k].x / sw))),
-                                Math.max(0f, Math.min(1f, (float) (pts[k].y / sh)))
-                        );
-                    }
-                    break;
-                }
+            // 3. Stage B: Otsu Bright-Paper Threshold fallback (handles soft shadows & textured desks)
+            if (out == null) {
+                Mat thresh = new Mat();
+                Imgproc.threshold(closed, thresh, 0, 255, Imgproc.THRESH_BINARY | Imgproc.THRESH_OTSU);
+                List<MatOfPoint> paperContours = new ArrayList<>();
+                Imgproc.findContours(thresh, paperContours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+                out = extractQuadFromContours(paperContours, sw, sh);
+                thresh.release();
             }
-            rgba.release(); small.release(); gray.release(); edges.release(); kernel.release();
+
+            rgba.release(); small.release(); gray.release(); closeKernel.release();
+            closed.release(); edges.release(); dilKernel.release();
             return out;
         } catch (Exception e) {
             return null;

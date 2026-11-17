@@ -14,7 +14,9 @@ import android.view.View;
  */
 public class LiveQuadOverlayView extends View {
 
-    private PointF[] normalizedQuad = null; // 4 corners in [0..1] view coordinates
+    private PointF[] normalizedQuad = null; // 4 corners in [0..1] frame coordinates
+    private int frameW = 0;
+    private int frameH = 0;
     private boolean isLocked = false;
     private boolean showGrid = true;
 
@@ -60,8 +62,14 @@ public class LiveQuadOverlayView extends View {
     }
 
     public void setDetectedQuad(PointF[] quad, boolean locked) {
+        setDetectedQuad(quad, locked, 0, 0);
+    }
+
+    public void setDetectedQuad(PointF[] quad, boolean locked, int srcFrameW, int srcFrameH) {
         this.normalizedQuad = quad;
         this.isLocked = locked;
+        this.frameW = srcFrameW;
+        this.frameH = srcFrameH;
         if (locked) {
             fillPaint.setColor(Color.argb(70, 16, 185, 129));
             strokePaint.setColor(Color.parseColor("#10B981"));
@@ -91,18 +99,29 @@ public class LiveQuadOverlayView extends View {
         }
 
         if (normalizedQuad != null && normalizedQuad.length == 4) {
+            float dispW = w;
+            float dispH = h;
+            float offX = 0f;
+            float offY = 0f;
+            if (frameW > 0 && frameH > 0) {
+                float sc = Math.max((float) w / frameW, (float) h / frameH);
+                dispW = frameW * sc;
+                dispH = frameH * sc;
+                offX = (w - dispW) * 0.5f;
+                offY = (h - dispH) * 0.5f;
+            }
             quadPath.reset();
-            quadPath.moveTo(normalizedQuad[0].x * w, normalizedQuad[0].y * h);
-            quadPath.lineTo(normalizedQuad[1].x * w, normalizedQuad[1].y * h);
-            quadPath.lineTo(normalizedQuad[2].x * w, normalizedQuad[2].y * h);
-            quadPath.lineTo(normalizedQuad[3].x * w, normalizedQuad[3].y * h);
+            quadPath.moveTo(offX + normalizedQuad[0].x * dispW, offY + normalizedQuad[0].y * dispH);
+            quadPath.lineTo(offX + normalizedQuad[1].x * dispW, offY + normalizedQuad[1].y * dispH);
+            quadPath.lineTo(offX + normalizedQuad[2].x * dispW, offY + normalizedQuad[2].y * dispH);
+            quadPath.lineTo(offX + normalizedQuad[3].x * dispW, offY + normalizedQuad[3].y * dispH);
             quadPath.close();
 
             canvas.drawPath(quadPath, fillPaint);
             canvas.drawPath(quadPath, strokePaint);
 
             for (PointF pt : normalizedQuad) {
-                canvas.drawCircle(pt.x * w, pt.y * h, isLocked ? 14f : 11f, cornerPaint);
+                canvas.drawCircle(offX + pt.x * dispW, offY + pt.y * dispH, isLocked ? 15f : 11f, cornerPaint);
             }
         }
     }

@@ -137,7 +137,7 @@ class ImageProcessor {
         // 5. Locate 8 Perspective Boundary Segments (allows slanted/skewed books & pages)
         const findPeakY = (yStart, yEnd, step, x0, x1, dirY, fallbackY) => {
             let bestY = fallbackY;
-            let bestScore = 10; // minimum confidence threshold
+            let bestScore = 5; // responsive threshold for real-world desk lighting
             for (let y = yStart; step > 0 ? y <= yEnd : y >= yEnd; y += step) {
                 const s = scoreHorizBand(y, x0, x1, dirY);
                 if (s > bestScore) {
@@ -145,12 +145,12 @@ class ImageProcessor {
                     bestY = y;
                 }
             }
-            return { pos: bestY, found: bestScore > 10 };
+            return { pos: bestY, found: bestScore > 5 };
         };
 
         const findPeakX = (xStart, xEnd, step, y0, y1, dirX, fallbackX) => {
             let bestX = fallbackX;
-            let bestScore = 10;
+            let bestScore = 5;
             for (let x = xStart; step > 0 ? x <= xEnd : x >= xEnd; x += step) {
                 const s = scoreVertBand(x, y0, y1, dirX);
                 if (s > bestScore) {
@@ -158,7 +158,7 @@ class ImageProcessor {
                     bestX = x;
                 }
             }
-            return { pos: bestX, found: bestScore > 10 };
+            return { pos: bestX, found: bestScore > 5 };
         };
 
         const topL = findPeakY(Math.round(dh * 0.03), Math.round(dh * 0.42), 1, Math.round(dw * 0.16), Math.round(dw * 0.48), 1, Math.round(dh * 0.06));
@@ -228,14 +228,78 @@ class ImageProcessor {
         // Determine whether a real document/book is present in the frame
         const quadW = ((trX - tlX) + (brX - blX)) / 2;
         const quadH = ((blY - tlY) + (brY - trY)) / 2;
-        const validSize = quadW > w * 0.25 && quadH > h * 0.25;
-        const hasDocStructure = (sidesFound >= 2 && (textDensity > 0.015 || centerPaperLum > 85)) ||
-                                (sidesFound >= 3) ||
-                                (textDensity > 0.045 && centerPaperLum > 95);
+        const validSize = quadW > w * 0.20 && quadH > h * 0.20;
+        const hasDocStructure = (sidesFound >= 2) ||
+                                (textDensity > 0.025 && centerPaperLum > 80);
+
+        // Camera previews often contain low-contrast pages where the directional
+        // paper/background test above is inconclusive. Use a second, conservative
+        // boundary-strength pass before falling back to the full frame.
+        let fallbackDetected = false;
+        if (!hasDocStructure) {
+            const rowScores = new Float32Array(dh);
+            const colScores = new Float32Array(dw);
+            const x0 = Math.round(dw * 0.10);
+            const x1 = Math.round(dw * 0.90);
+            const y0 = Math.round(dh * 0.10);
+            const y1 = Math.round(dh * 0.90);
+
+            for (let y = 1; y < dh - 1; y++) {
+                let score = 0;
+                for (let x = x0; x <= x1; x++) score += edges[y * dw + x];
+                rowScores[y] = score / Math.max(1, x1 - x0 + 1);
+            }
+            for (let x = 1; x < dw - 1; x++) {
+                let score = 0;
+                for (let y = y0; y <= y1; y++) score += edges[y * dw + x];
+                colScores[x] = score / Math.max(1, y1 - y0 + 1);
+            }
+
+            const peak = (values, start, end) => {
+                let best = start;
+                for (let i = start + 1; i <= end; i++) {
+                    if (values[i] > values[best]) best = i;
+                }
+                return best;
+            };
+
+            const fallbackTop = peak(rowScores, Math.round(dh * 0.03), Math.round(dh * 0.45));
+            const fallbackBottom = peak(rowScores, Math.round(dh * 0.55), Math.round(dh * 0.97));
+            const fallbackLeft = peak(colScores, Math.round(dw * 0.03), Math.round(dw * 0.45));
+            const fallbackRight = peak(colScores, Math.round(dw * 0.55), Math.round(dw * 0.97));
+            const minRowStrength = Math.max(7, maxGrad * 0.08);
+            const minColStrength = Math.max(7, maxGrad * 0.08);
+            const separated = fallbackBottom - fallbackTop > dh * 0.30 &&
+                              fallbackRight - fallbackLeft > dw * 0.30;
+
+            fallbackDetected = separated &&
+                rowScores[fallbackTop] >= minRowStrength &&
+                rowScores[fallbackBottom] >= minRowStrength &&
+                colScores[fallbackLeft] >= minColStrength &&
+                colScores[fallbackRight] >= minColStrength;
+
+            if (fallbackDetected) {
+                const fx0 = fallbackLeft * invScale;
+                const fx1 = fallbackRight * invScale;
+                const fy0 = fallbackTop * invScale;
+                const fy1 = fallbackBottom * invScale;
+                const fallbackCorners = [
+                    { x: Math.round(fx0), y: Math.round(fy0), id: 'tl' },
+                    { x: Math.round((fx0 + fx1) / 2), y: Math.round(fy0), id: 't' },
+                    { x: Math.round(fx1), y: Math.round(fy0), id: 'tr' },
+                    { x: Math.round(fx1), y: Math.round((fy0 + fy1) / 2), id: 'r' },
+                    { x: Math.round(fx1), y: Math.round(fy1), id: 'br' },
+                    { x: Math.round((fx0 + fx1) / 2), y: Math.round(fy1), id: 'b' },
+                    { x: Math.round(fx0), y: Math.round(fy1), id: 'bl' },
+                    { x: Math.round(fx0), y: Math.round((fy0 + fy1) / 2), id: 'l' }
+                ];
+                corners.splice(0, corners.length, ...fallbackCorners);
+            }
+        }
 
         return {
             corners,
-            detected: Boolean(validSize && hasDocStructure),
+            detected: Boolean(validSize && (hasDocStructure || fallbackDetected)),
             sidesFound,
             textDensity,
             grayBuffer: gray
