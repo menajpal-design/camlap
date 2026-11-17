@@ -108,60 +108,168 @@
         android:textColor="#ECFDF5"
         android:textSize="12sp" />
 
-    <!-- Bottom Capture Bar -->
+    <!-- Bottom Camera Mode Carousel + Capture Bar (CamScanner Style) -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:background="#CC0F172A"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:paddingHorizontal="20dp"
-        android:paddingVertical="18dp">
+        android:background="#D90F172A"
+        android:orientation="vertical"
+        android:paddingTop="8dp"
+        android:paddingBottom="14dp">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_cam_switch"
-            android:layout_width="wrap_content"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_btn_outline"
-            android:paddingHorizontal="12dp"
-            android:text="🔄"
-            android:textAllCaps="false"
-            android:textColor="#0F172A"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="8dp"
+            android:paddingHorizontal="10dp">
 
-        <View
-            android:layout_width="8dp"
-            android:layout_height="1dp" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_cam_autoselect"
-            android:layout_width="wrap_content"
-            android:layout_height="44dp"
-            android:background="@drawable/bg_chip"
-            android:paddingHorizontal="12dp"
-            android:text="✨ অটো: চালু"
-            android:textAllCaps="false"
-            android:textColor="#00896C"
-            android:textSize="12sp"
-            android:textStyle="bold" />
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_mode_doc"
+                    android:layout_width="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_chip"
+                    android:paddingHorizontal="12dp"
+                    android:text="ডকুমেন্ট"
+                    android:textAllCaps="false"
+                    android:textColor="#00896C"
+                    android:textSize="11sp"
+                    android:textStyle="bold" />
 
-        <View
-            android:layout_width="8dp"
-            android:layout_height="1dp" />
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_mode_book"
+                    android:layout_width="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:paddingHorizontal="12dp"
+                    android:text="বই ২-পেজ"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btn_cam_shutter"
-            android:layout_width="0dp"
-            android:layout_height="54dp"
-            android:layout_weight="1"
-            android:background="@drawable/bg_btn_primary"
-            android:text="📸 স্ক্যান করুন"
-            android:textAllCaps="false"
-            android:textColor="#FFFFFF"
-            android:textSize="15sp"
-            android:textStyle="bold" />
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_mode_board"
+                    android:layout_width="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:paddingHorizontal="12dp"
+                    android:text="হোয়াইটবোর্ড"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_mode_id"
+                    android:layout_width="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:paddingHorizontal="12dp"
+                    android:text="আইডি কার্ড"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_mode_passport"
+                    android:layout_width="wrap_content"
+                    android:layout_height="30dp"
+                    android:layout_marginEnd="6dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:paddingHorizontal="12dp"
+                    android:text="পাসপোর্ট"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_mode_ocr"
+                    android:layout_width="wrap_content"
+                    android:layout_height="30dp"
+                    android:background="@drawable/bg_btn_outline"
+                    android:paddingHorizontal="12dp"
+                    android:text="OCR"
+                    android:textAllCaps="false"
+                    android:textColor="#0F172A"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp">
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_cam_switch"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_btn_outline"
+                android:text="🔄"
+                android:textAllCaps="false"
+                android:textColor="#0F172A"
+                android:textSize="15sp" />
+
+            <View
+                android:layout_width="6dp"
+                android:layout_height="1dp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_cam_autoselect"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_chip"
+                android:paddingHorizontal="10dp"
+                android:text="✨ অটো"
+                android:textAllCaps="false"
+                android:textColor="#00896C"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="6dp"
+                android:layout_height="1dp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_cam_shutter"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:background="@drawable/bg_btn_primary"
+                android:text="📸 স্ক্যান"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="15sp"
+                android:textStyle="bold" />
+
+            <View
+                android:layout_width="6dp"
+                android:layout_height="1dp" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btn_cam_done"
+                android:layout_width="wrap_content"
+                android:layout_height="44dp"
+                android:background="@drawable/bg_btn_primary"
+                android:paddingHorizontal="10dp"
+                android:text="✓ (0)"
+                android:textAllCaps="false"
+                android:textColor="#FFFFFF"
+                android:textSize="12sp"
+                android:textStyle="bold"
+                android:visibility="gone" />
+        </LinearLayout>
     </LinearLayout>
 
 </FrameLayout>

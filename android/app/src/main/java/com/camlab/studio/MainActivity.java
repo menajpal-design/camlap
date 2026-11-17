@@ -77,6 +77,16 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_vault_img).setOnClickListener(v -> { currentVaultFilter = "img"; refreshSavedFilesList(); });
         findViewById(R.id.btn_vault_doc).setOnClickListener(v -> { currentVaultFilter = "doc"; refreshSavedFilesList(); });
         findViewById(R.id.btn_vault_trash).setOnClickListener(v -> { currentVaultFilter = "trash"; refreshSavedFilesList(); });
+
+        findViewById(R.id.btn_nav_home).setOnClickListener(v -> { currentVaultFilter = "all"; refreshSavedFilesList(); });
+        findViewById(R.id.btn_nav_pdf).setOnClickListener(v -> startActivity(new Intent(this, PdfToolsActivity.class)));
+        findViewById(R.id.btn_nav_camera_fab).setOnClickListener(v -> {
+            Intent i = new Intent(this, DocScannerActivity.class);
+            i.putExtra("auto_camera", true);
+            startActivity(i);
+        });
+        findViewById(R.id.btn_nav_ocr).setOnClickListener(v -> startActivity(new Intent(this, OcrActivity.class)));
+        findViewById(R.id.btn_nav_passport).setOnClickListener(v -> startActivity(new Intent(this, PassportStudioActivity.class)));
     }
 
     @Override

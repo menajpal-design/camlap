@@ -41,6 +41,7 @@ import java.util.concurrent.Executors;
 public class InAppCameraActivity extends AppCompatActivity {
 
     public static final String EXTRA_SCAN_MODE = "scan_mode";
+    public static final String EXTRA_BATCH_URIS = "batch_uris";
 
     private PreviewView viewFinder;
     private LiveQuadOverlayView liveQuadOverlay;
@@ -51,6 +52,10 @@ public class InAppCameraActivity extends AppCompatActivity {
     private Button btnSwitch;
     private Button btnAutoSelect;
     private Button btnShutter;
+    private Button btnDone;
+
+    private final java.util.ArrayList<String> capturedUris = new java.util.ArrayList<>();
+    private long captureCooldownUntil = 0L;
 
     private ImageCapture imageCapture;
     private int lensFacing = CameraSelector.LENS_FACING_BACK;
@@ -80,6 +85,18 @@ public class InAppCameraActivity extends AppCompatActivity {
         btnSwitch = findViewById(R.id.btn_cam_switch);
         btnAutoSelect = findViewById(R.id.btn_cam_autoselect);
         btnShutter = findViewById(R.id.btn_cam_shutter);
+        btnDone = findViewById(R.id.btn_cam_done);
+
+        if (btnDone != null) {
+            btnDone.setOnClickListener(v -> finishBatchReturn());
+        }
+
+        findViewById(R.id.btn_mode_doc).setOnClickListener(v -> switchMode("doc"));
+        findViewById(R.id.btn_mode_book).setOnClickListener(v -> switchMode("book"));
+        findViewById(R.id.btn_mode_board).setOnClickListener(v -> switchMode("whiteboard"));
+        findViewById(R.id.btn_mode_id).setOnClickListener(v -> switchMode("id_front"));
+        findViewById(R.id.btn_mode_passport).setOnClickListener(v -> switchMode("passport"));
+        findViewById(R.id.btn_mode_ocr).setOnClickListener(v -> switchMode("ocr"));
 
         String modeExtra = getIntent().getStringExtra(EXTRA_SCAN_MODE);
         if (modeExtra != null && !modeExtra.isEmpty()) {
@@ -100,7 +117,7 @@ public class InAppCameraActivity extends AppCompatActivity {
         if (btnAutoSelect != null) {
             btnAutoSelect.setOnClickListener(v -> {
                 autoSelectEnabled = !autoSelectEnabled;
-                btnAutoSelect.setText(autoSelectEnabled ? "✨ অটো: চালু" : "✨ অটো: বন্ধ");
+                btnAutoSelect.setText(autoSelectEnabled ? "✨ অটো" : "🖐️ ম্যানুয়াল");
                 steadyCount = 0;
                 Toast.makeText(this, autoSelectEnabled ? "অটো ডকুমেন্ট সিলেক্ট ও ক্যাপচার চালু" : "ম্যানুয়াল ক্যাপচার চালু", Toast.LENGTH_SHORT).show();
             });
@@ -131,6 +148,30 @@ public class InAppCameraActivity extends AppCompatActivity {
         } else {
             permLauncher.launch(Manifest.permission.CAMERA);
         }
+    }
+
+    private void switchMode(String mode) {
+        scanMode = mode;
+        steadyCount = 0;
+        configureGuideForMode(mode);
+    }
+
+    private boolean isBatchMode() {
+        return "doc".equals(scanMode) || "book".equals(scanMode) || "whiteboard".equals(scanMode);
+    }
+
+    private void finishBatchReturn() {
+        Intent data = new Intent();
+        if (!capturedUris.isEmpty()) {
+            data.setData(Uri.parse(capturedUris.get(0)));
+            data.putStringArrayListExtra(EXTRA_BATCH_URIS, capturedUris);
+            data.putExtra(EXTRA_SCAN_MODE, scanMode);
+            data.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            setResult(RESULT_OK, data);
+        } else {
+            setResult(RESULT_CANCELED);
+        }
+        finish();
     }
 
     private void configureGuideForMode(String mode) {
@@ -209,7 +250,7 @@ public class InAppCameraActivity extends AppCompatActivity {
 
                 imageAnalysis.setAnalyzer(analysisExecutor, imageProxy -> {
                     long now = System.currentTimeMillis();
-                    if (isCapturing || "passport".equals(scanMode) || (now - lastAnalysisMs) < 180) {
+                    if (isCapturing || now < captureCooldownUntil || "passport".equals(scanMode) || (now - lastAnalysisMs) < 180) {
                         imageProxy.close();
                         return;
                     }
@@ -302,8 +343,24 @@ public class InAppCameraActivity extends AppCompatActivity {
                                 getPackageName() + ".fileprovider",
                                 photoFile
                         );
+                        if (isBatchMode()) {
+                            capturedUris.add(fileUri.toString());
+                            isCapturing = false;
+                            steadyCount = 0;
+                            captureCooldownUntil = System.currentTimeMillis() + 2000L;
+                            btnShutter.setEnabled(true);
+                            btnShutter.setText("📸 স্ক্যান");
+                            if (btnDone != null) {
+                                btnDone.setVisibility(View.VISIBLE);
+                                btnDone.setText("✓ (" + capturedUris.size() + ")");
+                            }
+                            tvHint.setText("✅ " + capturedUris.size() + "টি পেজ স্ক্যান হয়েছে — পরের পেজ ধরুন বা ✓ চাপুন");
+                            Toast.makeText(InAppCameraActivity.this, "✅ পেজ " + capturedUris.size() + " যুক্ত হয়েছে!", Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                         Intent data = new Intent();
                         data.setData(fileUri);
+                        data.putExtra(EXTRA_SCAN_MODE, scanMode);
                         data.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
                         setResult(RESULT_OK, data);
                         finish();

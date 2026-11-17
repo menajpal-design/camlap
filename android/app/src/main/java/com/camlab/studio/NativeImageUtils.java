@@ -842,6 +842,48 @@ public final class NativeImageUtils {
     }
 
     /**
+     * Warps a document Bitmap using user-adjusted normalized [0..1] 4-corner quad [TL, TR, BR, BL].
+     */
+    public static Bitmap perspectiveCropWithQuad(Bitmap src, PointF[] normQuad) {
+        if (src == null || normQuad == null || normQuad.length != 4 || !ensureOpenCV()) return src;
+        try {
+            Mat rgba = new Mat();
+            Utils.bitmapToMat(src, rgba);
+            int w = rgba.width(), h = rgba.height();
+
+            Point[] pts = new Point[4];
+            for (int i = 0; i < 4; i++) {
+                pts[i] = new Point(normQuad[i].x * w, normQuad[i].y * h);
+            }
+            double wTop = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+            double wBot = Math.hypot(pts[2].x - pts[3].x, pts[2].y - pts[3].y);
+            int targetW = Math.max(200, (int) Math.round(Math.max(wTop, wBot)));
+
+            double hLeft = Math.hypot(pts[3].x - pts[0].x, pts[3].y - pts[0].y);
+            double hRight = Math.hypot(pts[2].x - pts[1].x, pts[2].y - pts[1].y);
+            int targetH = Math.max(200, (int) Math.round(Math.max(hLeft, hRight)));
+
+            MatOfPoint2f srcMat = new MatOfPoint2f(pts);
+            MatOfPoint2f dstMat = new MatOfPoint2f(
+                    new Point(0, 0),
+                    new Point(targetW - 1, 0),
+                    new Point(targetW - 1, targetH - 1),
+                    new Point(0, targetH - 1)
+            );
+            Mat perspective = Imgproc.getPerspectiveTransform(srcMat, dstMat);
+            Mat warped = new Mat();
+            Imgproc.warpPerspective(rgba, warped, perspective, new Size(targetW, targetH));
+
+            Bitmap out = Bitmap.createBitmap(warped.cols(), warped.rows(), Bitmap.Config.ARGB_8888);
+            Utils.matToBitmap(warped, out);
+            rgba.release(); perspective.release(); warped.release();
+            return out;
+        } catch (Exception e) {
+            return src;
+        }
+    }
+
+    /**
      * Real OpenCV Document Filters:
      * 0=Original, 1=Magic Color, 2=Adaptive B&W, 3=B&W 2 (High Contrast), 4=Grayscale, 5=Lighten
      */

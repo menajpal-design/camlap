@@ -107,3 +107,4 @@ public class LiveQuadOverlayView extends View {
         }
     }
 }
+

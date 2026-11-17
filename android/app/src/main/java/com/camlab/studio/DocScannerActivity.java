@@ -29,6 +29,7 @@ import java.util.concurrent.Executors;
 
 public class DocScannerActivity extends AppCompatActivity {
 
+    private final List<Bitmap> uncroppedPages = new ArrayList<>();
     private final List<Bitmap> rawPages = new ArrayList<>();
     private final List<Bitmap> filteredPages = new ArrayList<>();
     private int currentPageIdx = 0;
@@ -54,14 +55,21 @@ public class DocScannerActivity extends AppCompatActivity {
         tvCount = findViewById(R.id.tv_doc_count);
 
         cameraLauncher = registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), res -> {
-            if (res.getResultCode() == RESULT_OK && res.getData() != null && res.getData().getData() != null) {
-                loadUriPage(res.getData().getData());
+            if (res.getResultCode() == RESULT_OK && res.getData() != null) {
+                Intent d = res.getData();
+                String mode = d.getStringExtra(InAppCameraActivity.EXTRA_SCAN_MODE);
+                java.util.ArrayList<String> batch = d.getStringArrayListExtra(InAppCameraActivity.EXTRA_BATCH_URIS);
+                if (batch != null && !batch.isEmpty()) {
+                    loadBatchUriPages(batch, "book".equals(mode));
+                } else if (d.getData() != null) {
+                    loadUriPage(d.getData(), "book".equals(mode));
+                }
             }
         });
 
         galleryLauncher = registerForActivityResult(new ActivityResultContracts.GetContent(), uri -> {
             if (uri != null) {
-                loadUriPage(uri);
+                loadUriPage(uri, false);
             }
         });
 
@@ -78,7 +86,7 @@ public class DocScannerActivity extends AppCompatActivity {
         findViewById(R.id.btn_doc_next).setOnClickListener(v -> navigatePage(1));
         findViewById(R.id.btn_doc_del_page).setOnClickListener(v -> deleteCurrentPage());
 
-        findViewById(R.id.btn_doc_autocrop).setOnClickListener(v -> autoCropLastPage());
+        findViewById(R.id.btn_doc_autocrop).setOnClickListener(v -> openInteractiveCropDialog());
         findViewById(R.id.btn_doc_book_split).setOnClickListener(v -> splitCurrentBookPage());
         findViewById(R.id.btn_doc_eraser).setOnClickListener(v -> eraseSmudgesOnCurrentPage());
         findViewById(R.id.btn_doc_rotate).setOnClickListener(v -> rotateLastPage());
@@ -94,6 +102,10 @@ public class DocScannerActivity extends AppCompatActivity {
         findViewById(R.id.btn_doc_save_pdf).setOnClickListener(v -> saveCurrentPdf());
         findViewById(R.id.btn_doc_long_img).setOnClickListener(v -> saveLongImage());
         findViewById(R.id.btn_doc_print).setOnClickListener(v -> printCurrentPage());
+
+        if (getIntent().getBooleanExtra("auto_camera", false)) {
+            checkCameraAndLaunch();
+        }
     }
 
     private void navigatePage(int delta) {
@@ -104,6 +116,7 @@ public class DocScannerActivity extends AppCompatActivity {
 
     private void deleteCurrentPage() {
         if (filteredPages.isEmpty()) return;
+        if (currentPageIdx < uncroppedPages.size()) uncroppedPages.remove(currentPageIdx);
         rawPages.remove(currentPageIdx);
         filteredPages.remove(currentPageIdx);
         if (currentPageIdx >= filteredPages.size() && currentPageIdx > 0) {
@@ -184,13 +197,60 @@ public class DocScannerActivity extends AppCompatActivity {
         cameraLauncher.launch(intent);
     }
 
-    private void loadUriPage(Uri uri) {
+    private void loadBatchUriPages(List<String> uriStrings, boolean bookSplit) {
+        executor.execute(() -> {
+            for (String s : uriStrings) {
+                Bitmap bmp = NativeImageUtils.loadBitmapSafe(this, Uri.parse(s), 1600);
+                if (bmp == null) continue;
+                Bitmap cropped = NativeImageUtils.autoPerspectiveCropDoc(bmp);
+                if (bookSplit) {
+                    Bitmap[] halves = NativeImageUtils.splitBookPages(cropped);
+                    for (Bitmap h : halves) {
+                        Bitmap proc = NativeImageUtils.applyDocFilter(h, currentFilterMode);
+                        runOnUiThread(() -> {
+                            uncroppedPages.add(h);
+                            rawPages.add(h);
+                            filteredPages.add(proc);
+                        });
+                    }
+                } else {
+                    Bitmap proc = NativeImageUtils.applyDocFilter(cropped, currentFilterMode);
+                    runOnUiThread(() -> {
+                        uncroppedPages.add(bmp);
+                        rawPages.add(cropped);
+                        filteredPages.add(proc);
+                    });
+                }
+            }
+            runOnUiThread(() -> {
+                if (!filteredPages.isEmpty()) currentPageIdx = filteredPages.size() - 1;
+                refreshPreview();
+                Toast.makeText(this, "✅ " + uriStrings.size() + "টি পেজ ব্যাচ স্ক্যান সম্পন্ন!", Toast.LENGTH_SHORT).show();
+            });
+        });
+    }
+
+    private void loadUriPage(Uri uri, boolean bookSplit) {
         executor.execute(() -> {
             Bitmap bmp = NativeImageUtils.loadBitmapSafe(this, uri, 1600);
             if (bmp == null) return;
             Bitmap cropped = NativeImageUtils.autoPerspectiveCropDoc(bmp);
+            if (bookSplit) {
+                Bitmap[] halves = NativeImageUtils.splitBookPages(cropped);
+                runOnUiThread(() -> {
+                    for (Bitmap h : halves) {
+                        uncroppedPages.add(h);
+                        rawPages.add(h);
+                        filteredPages.add(NativeImageUtils.applyDocFilter(h, currentFilterMode));
+                    }
+                    currentPageIdx = filteredPages.size() - 1;
+                    refreshPreview();
+                });
+                return;
+            }
             Bitmap proc = NativeImageUtils.applyDocFilter(cropped, currentFilterMode);
             runOnUiThread(() -> {
+                uncroppedPages.add(bmp);
                 rawPages.add(cropped);
                 filteredPages.add(proc);
                 currentPageIdx = filteredPages.size() - 1;
@@ -199,19 +259,50 @@ public class DocScannerActivity extends AppCompatActivity {
         });
     }
 
-    private void autoCropLastPage() {
+    private void openInteractiveCropDialog() {
         if (rawPages.isEmpty()) return;
-        executor.execute(() -> {
-            int last = currentPageIdx;
-            Bitmap cropped = NativeImageUtils.autoPerspectiveCropDoc(rawPages.get(last));
-            Bitmap proc = NativeImageUtils.applyDocFilter(cropped, currentFilterMode);
-            runOnUiThread(() -> {
-                rawPages.set(last, cropped);
-                filteredPages.set(last, proc);
-                refreshPreview();
-                Toast.makeText(this, "✂️ অটো বর্ডার ক্রপ সম্পন্ন!", Toast.LENGTH_SHORT).show();
-            });
-        });
+        final int idx = currentPageIdx;
+        final Bitmap srcBmp = (idx < uncroppedPages.size()) ? uncroppedPages.get(idx) : rawPages.get(idx);
+
+        CornerCropView cropView = new CornerCropView(this);
+        cropView.setBackgroundColor(android.graphics.Color.parseColor("#0F172A"));
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(
+                android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                Math.round(420 * getResources().getDisplayMetrics().density)
+        );
+        cropView.setLayoutParams(lp);
+        android.graphics.PointF[] detected = NativeImageUtils.detectDocumentQuadLive(srcBmp);
+        cropView.setImageAndCorners(srcBmp, detected);
+
+        new AlertDialog.Builder(this)
+                .setTitle("✂️ ৪-কোনা ড্র্যাগ ক্রপ (টেনে ঠিক করুন)")
+                .setView(cropView)
+                .setPositiveButton("✓ ক্রপ সম্পন্ন", (d, w) -> {
+                    android.graphics.PointF[] pts = cropView.getNormalizedCorners();
+                    executor.execute(() -> {
+                        Bitmap warped = NativeImageUtils.perspectiveCropWithQuad(srcBmp, pts);
+                        Bitmap proc = NativeImageUtils.applyDocFilter(warped, currentFilterMode);
+                        runOnUiThread(() -> {
+                            rawPages.set(idx, warped);
+                            filteredPages.set(idx, proc);
+                            refreshPreview();
+                            Toast.makeText(this, "✂️ পার্সপেক্টিভ ক্রপ সম্পন্ন!", Toast.LENGTH_SHORT).show();
+                        });
+                    });
+                })
+                .setNeutralButton("✨ অটো ক্রপ", (d, w) -> {
+                    executor.execute(() -> {
+                        Bitmap cropped = NativeImageUtils.autoPerspectiveCropDoc(srcBmp);
+                        Bitmap proc = NativeImageUtils.applyDocFilter(cropped, currentFilterMode);
+                        runOnUiThread(() -> {
+                            rawPages.set(idx, cropped);
+                            filteredPages.set(idx, proc);
+                            refreshPreview();
+                        });
+                    });
+                })
+                .setNegativeButton("বাতিল", null)
+                .show();
     }
 
     private void runOcrOnLastPage() {
