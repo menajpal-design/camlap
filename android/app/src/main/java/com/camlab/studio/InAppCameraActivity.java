@@ -3,6 +3,8 @@ package com.camlab.studio;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.PointF;
 import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
@@ -17,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageCapture;
 import androidx.camera.core.ImageCaptureException;
 import androidx.camera.core.Preview;
@@ -28,6 +31,8 @@ import androidx.core.content.FileProvider;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 /**
  * Native In-App CameraX Scanner inside camlab (no external camera app needed).
@@ -38,17 +43,26 @@ public class InAppCameraActivity extends AppCompatActivity {
     public static final String EXTRA_SCAN_MODE = "scan_mode";
 
     private PreviewView viewFinder;
+    private LiveQuadOverlayView liveQuadOverlay;
     private View viewScanGuide;
     private TextView tvTitle;
     private TextView tvHint;
     private Button btnFlash;
     private Button btnSwitch;
+    private Button btnAutoSelect;
     private Button btnShutter;
 
     private ImageCapture imageCapture;
     private int lensFacing = CameraSelector.LENS_FACING_BACK;
     private int flashMode = ImageCapture.FLASH_MODE_AUTO;
     private String scanMode = "doc";
+
+    private boolean autoSelectEnabled = true;
+    private volatile boolean isCapturing = false;
+    private long lastAnalysisMs = 0L;
+    private PointF[] prevQuad = null;
+    private int steadyCount = 0;
+    private final ExecutorService analysisExecutor = Executors.newSingleThreadExecutor();
 
     private ActivityResultLauncher<String> permLauncher;
 
@@ -58,11 +72,13 @@ public class InAppCameraActivity extends AppCompatActivity {
         setContentView(R.layout.activity_in_app_camera);
 
         viewFinder = findViewById(R.id.view_finder);
+        liveQuadOverlay = findViewById(R.id.live_quad_overlay);
         viewScanGuide = findViewById(R.id.view_scan_guide);
         tvTitle = findViewById(R.id.tv_cam_title);
         tvHint = findViewById(R.id.tv_cam_hint);
         btnFlash = findViewById(R.id.btn_cam_flash);
         btnSwitch = findViewById(R.id.btn_cam_switch);
+        btnAutoSelect = findViewById(R.id.btn_cam_autoselect);
         btnShutter = findViewById(R.id.btn_cam_shutter);
 
         String modeExtra = getIntent().getStringExtra(EXTRA_SCAN_MODE);
@@ -81,12 +97,22 @@ public class InAppCameraActivity extends AppCompatActivity {
         btnSwitch.setOnClickListener(v -> toggleCameraLens());
         btnShutter.setOnClickListener(v -> capturePhoto());
 
+        if (btnAutoSelect != null) {
+            btnAutoSelect.setOnClickListener(v -> {
+                autoSelectEnabled = !autoSelectEnabled;
+                btnAutoSelect.setText(autoSelectEnabled ? "✨ অটো: চালু" : "✨ অটো: বন্ধ");
+                steadyCount = 0;
+                Toast.makeText(this, autoSelectEnabled ? "অটো ডকুমেন্ট সিলেক্ট ও ক্যাপচার চালু" : "ম্যানুয়াল ক্যাপচার চালু", Toast.LENGTH_SHORT).show();
+            });
+        }
+
         View btnGrid = findViewById(R.id.btn_cam_grid);
         if (btnGrid != null) {
             btnGrid.setOnClickListener(v -> {
-                boolean vis = viewScanGuide.getVisibility() == View.VISIBLE;
-                viewScanGuide.setVisibility(vis ? View.INVISIBLE : View.VISIBLE);
-                Toast.makeText(this, vis ? "গ্রিড বন্ধ" : "গ্রিড ও বর্ডার চালু", Toast.LENGTH_SHORT).show();
+                boolean next = !liveQuadOverlay.isShowGrid();
+                liveQuadOverlay.setShowGrid(next);
+                viewScanGuide.setVisibility(next ? View.VISIBLE : View.INVISIBLE);
+                Toast.makeText(this, next ? "গ্রিড ও বর্ডার চালু" : "গ্রিড বন্ধ", Toast.LENGTH_SHORT).show();
             });
         }
 
@@ -177,12 +203,55 @@ public class InAppCameraActivity extends AppCompatActivity {
                         .setFlashMode(flashMode)
                         .build();
 
+                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build();
+
+                imageAnalysis.setAnalyzer(analysisExecutor, imageProxy -> {
+                    long now = System.currentTimeMillis();
+                    if (isCapturing || "passport".equals(scanMode) || (now - lastAnalysisMs) < 180) {
+                        imageProxy.close();
+                        return;
+                    }
+                    lastAnalysisMs = now;
+                    try {
+                        Bitmap bmp = imageProxy.toBitmap();
+                        int rot = imageProxy.getImageInfo().getRotationDegrees();
+                        if (rot != 0) bmp = NativeImageUtils.rotateBitmap(bmp, rot);
+                        PointF[] quad = NativeImageUtils.detectDocumentQuadLive(bmp);
+                        if (quad != null) {
+                            boolean steady = isQuadSteady(prevQuad, quad);
+                            prevQuad = quad;
+                            steadyCount = steady ? (steadyCount + 1) : 1;
+                            boolean locked = steadyCount >= 3;
+                            liveQuadOverlay.setDetectedQuad(quad, locked);
+                            runOnUiThread(() -> {
+                                if (!isCapturing) {
+                                    tvHint.setText(autoSelectEnabled
+                                            ? "✨ ডকুমেন্ট শনাক্ত (" + Math.min(3, steadyCount) + "/3) — স্থির রাখুন"
+                                            : "✨ ডকুমেন্ট সীমানা শনাক্ত হয়েছে — স্ক্যান চাপুন");
+                                }
+                            });
+                            if (autoSelectEnabled && steadyCount >= 3 && !isCapturing) {
+                                runOnUiThread(this::capturePhoto);
+                            }
+                        } else {
+                            prevQuad = null;
+                            steadyCount = 0;
+                            liveQuadOverlay.setDetectedQuad(null, false);
+                        }
+                    } catch (Exception ignored) {
+                    } finally {
+                        imageProxy.close();
+                    }
+                });
+
                 CameraSelector selector = new CameraSelector.Builder()
                         .requireLensFacing(lensFacing)
                         .build();
 
                 provider.unbindAll();
-                provider.bindToLifecycle(this, selector, preview, imageCapture);
+                provider.bindToLifecycle(this, selector, preview, imageCapture, imageAnalysis);
             } catch (Exception e) {
                 // Fallback if front/back lens not available
                 try {
@@ -199,11 +268,21 @@ public class InAppCameraActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
+    private boolean isQuadSteady(PointF[] a, PointF[] b) {
+        if (a == null || b == null || a.length != 4 || b.length != 4) return false;
+        float maxDelta = 0f;
+        for (int i = 0; i < 4; i++) {
+            float d = (float) Math.hypot(a[i].x - b[i].x, a[i].y - b[i].y);
+            if (d > maxDelta) maxDelta = d;
+        }
+        return maxDelta < 0.045f;
+    }
+
     private void capturePhoto() {
-        if (imageCapture == null) {
-            Toast.makeText(this, "ক্যামেরা প্রস্তুত হচ্ছে...", Toast.LENGTH_SHORT).show();
+        if (imageCapture == null || isCapturing) {
             return;
         }
+        isCapturing = true;
 
         btnShutter.setEnabled(false);
         btnShutter.setText("⏳ স্ক্যান হচ্ছে...");
@@ -232,14 +311,22 @@ public class InAppCameraActivity extends AppCompatActivity {
 
                     @Override
                     public void onError(@NonNull ImageCaptureException exception) {
+                        isCapturing = false;
+                        steadyCount = 0;
                         btnShutter.setEnabled(true);
-                        btnShutter.setText("📸 ছবি তুলুন / স্ক্যান করুন");
+                        btnShutter.setText("📸 স্ক্যান করুন");
                         Toast.makeText(InAppCameraActivity.this,
                                 "ছবি তোলা ব্যর্থ: " + exception.getMessage(),
                                 Toast.LENGTH_SHORT).show();
                     }
                 }
         );
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        analysisExecutor.shutdown();
     }
 }
 

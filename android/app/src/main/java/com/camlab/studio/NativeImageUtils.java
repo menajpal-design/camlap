@@ -786,6 +786,62 @@ public final class NativeImageUtils {
     }
 
     /**
+     * Fast live CameraX frame quad detector returning normalized [0..1] corners [TL, TR, BR, BL], or null if no document found.
+     */
+    public static PointF[] detectDocumentQuadLive(Bitmap frame) {
+        if (frame == null || !ensureOpenCV()) return null;
+        try {
+            Mat rgba = new Mat();
+            Utils.bitmapToMat(frame, rgba);
+            int w = rgba.width(), h = rgba.height();
+            double scale = Math.min(1.0, 260.0 / Math.max(w, h));
+            int sw = Math.max(48, (int) Math.round(w * scale));
+            int sh = Math.max(48, (int) Math.round(h * scale));
+
+            Mat small = new Mat();
+            Imgproc.resize(rgba, small, new Size(sw, sh));
+            Mat gray = new Mat();
+            Imgproc.cvtColor(small, gray, Imgproc.COLOR_RGBA2GRAY);
+            Imgproc.GaussianBlur(gray, gray, new Size(5, 5), 0);
+
+            Mat edges = new Mat();
+            Imgproc.Canny(gray, edges, 45, 145);
+            Mat kernel = Imgproc.getStructuringElement(Imgproc.MORPH_RECT, new Size(5, 5));
+            Imgproc.dilate(edges, edges, kernel);
+
+            List<MatOfPoint> contours = new ArrayList<>();
+            Imgproc.findContours(edges, contours, new Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE);
+            contours.sort((a, b) -> Double.compare(Imgproc.contourArea(b), Imgproc.contourArea(a)));
+
+            double minArea = sw * sh * 0.16;
+            PointF[] out = null;
+            for (int i = 0; i < Math.min(6, contours.size()); i++) {
+                double area = Imgproc.contourArea(contours.get(i));
+                if (area < minArea) break;
+                MatOfPoint2f c2f = new MatOfPoint2f(contours.get(i).toArray());
+                double peri = Imgproc.arcLength(c2f, true);
+                MatOfPoint2f approx = new MatOfPoint2f();
+                Imgproc.approxPolyDP(c2f, approx, 0.025 * peri, true);
+                if (approx.total() == 4) {
+                    Point[] pts = orderQuadPoints(approx.toArray());
+                    out = new PointF[4];
+                    for (int k = 0; k < 4; k++) {
+                        out[k] = new PointF(
+                                Math.max(0f, Math.min(1f, (float) (pts[k].x / sw))),
+                                Math.max(0f, Math.min(1f, (float) (pts[k].y / sh)))
+                        );
+                    }
+                    break;
+                }
+            }
+            rgba.release(); small.release(); gray.release(); edges.release(); kernel.release();
+            return out;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    /**
      * Real OpenCV Document Filters:
      * 0=Original, 1=Magic Color, 2=Adaptive B&W, 3=B&W 2 (High Contrast), 4=Grayscale, 5=Lighten
      */

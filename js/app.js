@@ -1379,7 +1379,7 @@ function updateIDCardA4Preview() {
  */
 let cameraDetectTimer = null;
 let consecutiveDetections = 0;
-let autoCaptureActive = false; // OFF by default — user presses shutter; auto-crop still happens
+let autoCaptureActive = true; // ON by default like CamScanner Auto-Select
 
 // Continuous Scanning & Background Auto-Crop Session State
 let cameraSessionPages = [];
@@ -1449,10 +1449,9 @@ function setupCameraViewfinder() {
 
     // Auto-capture toggle — default OFF; user presses shutter; auto-crop still happens on capture
     if (autoCapBtn) {
-        // Sync button visual state with the default OFF
-        autoCapBtn.classList.remove('active');
-        autoCapBtn.textContent = '⚡ অটো-ক্যাপচার: বন্ধ (OFF)';
-        autoCapBtn.style.background = 'rgba(255,255,255,0.1)';
+        autoCapBtn.classList.toggle('active', autoCaptureActive);
+        autoCapBtn.textContent = autoCaptureActive ? '⚡ অটো-ক্যাপচার: চালু (ON)' : '⚡ অটো-ক্যাপচার: বন্ধ (OFF)';
+        autoCapBtn.style.background = autoCaptureActive ? 'rgba(0,168,132,0.25)' : 'rgba(255,255,255,0.1)';
 
         autoCapBtn.addEventListener('click', () => {
             autoCaptureActive = !autoCaptureActive;
@@ -1939,10 +1938,10 @@ function startCameraDetectionLoop() {
                 const modeLabel = mode === 'book' ? 'বইয়ের ২ পৃষ্ঠা' : 'ডকুমেন্ট সীমানা';
                 if (autoCaptureActive) {
                     if (statusText) {
-                        statusText.textContent = `${modeLabel} শনাক্ত হয়েছে (${Math.min(3, consecutiveDetections)}/3)... অটো-ক্রপের জন্য স্থির রাখুন`;
+                        statusText.textContent = `${modeLabel} শনাক্ত হয়েছে (${Math.min(2, consecutiveDetections)}/2)... অটো-ক্রপের জন্য স্থির রাখুন`;
                     }
 
-                    if (consecutiveDetections >= 3) {
+                    if (consecutiveDetections >= 2) {
                         consecutiveDetections = 0;
                         lastCapturedGray = analysis.grayBuffer;
                         captureCooldownUntil = Date.now() + 2200;
@@ -1989,7 +1988,7 @@ function startCameraDetectionLoop() {
         } catch (e) {
             // Frame processing catch
         }
-    }, 320);
+    }, 200);
 }
 
 function stopCameraDetectionLoop() {

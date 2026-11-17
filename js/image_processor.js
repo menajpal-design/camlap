@@ -137,31 +137,28 @@ class ImageProcessor {
         // 5. Locate 8 Perspective Boundary Segments (allows slanted/skewed books & pages)
         const findPeakY = (yStart, yEnd, step, x0, x1, dirY, fallbackY) => {
             let bestY = fallbackY;
-            let bestScore = 8; // minimum confidence threshold
+            let bestScore = 10; // minimum confidence threshold
             for (let y = yStart; step > 0 ? y <= yEnd : y >= yEnd; y += step) {
                 const s = scoreHorizBand(y, x0, x1, dirY);
                 if (s > bestScore) {
                     bestScore = s;
                     bestY = y;
-                    // Prefer outermost strong boundary edge of the page
-                    if (s > edgeThreshold * 1.15) break;
                 }
             }
-            return { pos: bestY, found: bestScore > 8 };
+            return { pos: bestY, found: bestScore > 10 };
         };
 
         const findPeakX = (xStart, xEnd, step, y0, y1, dirX, fallbackX) => {
             let bestX = fallbackX;
-            let bestScore = 8;
+            let bestScore = 10;
             for (let x = xStart; step > 0 ? x <= xEnd : x >= xEnd; x += step) {
                 const s = scoreVertBand(x, y0, y1, dirX);
                 if (s > bestScore) {
                     bestScore = s;
                     bestX = x;
-                    if (s > edgeThreshold * 1.15) break;
                 }
             }
-            return { pos: bestX, found: bestScore > 8 };
+            return { pos: bestX, found: bestScore > 10 };
         };
 
         const topL = findPeakY(Math.round(dh * 0.03), Math.round(dh * 0.42), 1, Math.round(dw * 0.16), Math.round(dw * 0.48), 1, Math.round(dh * 0.06));
