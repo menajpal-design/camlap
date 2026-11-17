@@ -258,3 +258,4 @@
 
     global.CamLabQR = { createQRMatrix, drawToCanvas };
 })(window);
+

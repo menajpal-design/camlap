@@ -78,3 +78,4 @@ public class SignaturePadView extends View {
         return bmp;
     }
 }
+
