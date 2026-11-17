@@ -123,6 +123,8 @@ public class PdfToolsActivity extends AppCompatActivity {
         findViewById(R.id.btn_pdf_long_img).setOnClickListener(v -> stitchPagesToLongImage());
         findViewById(R.id.btn_pdf_split_pages).setOnClickListener(v -> splitPagesToIndividualPdfs());
         findViewById(R.id.btn_pdf_export_jpgs).setOnClickListener(v -> exportAllPagesAsJpg());
+        findViewById(R.id.btn_pdf_collage).setOnClickListener(v -> createCollagePdf());
+        findViewById(R.id.btn_pdf_ppt).setOnClickListener(v -> exportPptSlides());
 
         // Share existing PDF
         findViewById(R.id.btn_pdf_share_last).setOnClickListener(v -> shareLastExport());
@@ -214,6 +216,13 @@ public class PdfToolsActivity extends AppCompatActivity {
                 try {
                     getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
                 } catch (Exception ignored) {}
+                String mime = getContentResolver().getType(uri);
+                if (mime != null && mime.toLowerCase().contains("pdf")) {
+                    List<Bitmap> pdfPages = NativePdfUtils.renderPdfPagesFromUri(this, uri);
+                    importedPages.addAll(pdfPages);
+                    loaded += pdfPages.size();
+                    continue;
+                }
                 Bitmap bmp = NativeImageUtils.loadBitmapSafe(this, uri, 2000);
                 if (bmp != null) {
                     // Auto perspective crop for documents
@@ -299,6 +308,53 @@ public class PdfToolsActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> { setLoading(false, ""); tvStatus.setText("❌ কম্প্রেস ব্যর্থ"); });
+            }
+        });
+    }
+
+    private void createCollagePdf() {
+        if (importedPages.isEmpty()) {
+            Toast.makeText(this, "আগে ছবি বা পেজ ইমপোর্ট করুন", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setLoading(true, "কোলাজ A4 তৈরি হচ্ছে...");
+        final List<Bitmap> pages = new ArrayList<>(importedPages);
+        executor.execute(() -> {
+            try {
+                Bitmap collage = NativeImageUtils.composeCollageSheet(pages);
+                List<Bitmap> out = new ArrayList<>();
+                if (collage != null) out.add(collage);
+                String name = "camlab_Collage_A4_" + System.currentTimeMillis() + ".pdf";
+                NativePdfUtils.saveBitmapsToPdf(this, out, name, true);
+                runOnUiThread(() -> {
+                    setLoading(false, "");
+                    tvStatus.setText("✅ কোলাজ A4 PDF সেভ হয়েছে: " + name);
+                    Toast.makeText(this, "✅ কোলাজ A4 PDF সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> { setLoading(false, ""); tvStatus.setText("❌ কোলাজ ব্যর্থ"); });
+            }
+        });
+    }
+
+    private void exportPptSlides() {
+        if (importedPages.isEmpty()) {
+            Toast.makeText(this, "আগে ছবি বা পেজ ইমপোর্ট করুন", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setLoading(true, "PPT স্লাইড তৈরি হচ্ছে...");
+        final List<Bitmap> pages = new ArrayList<>(importedPages);
+        executor.execute(() -> {
+            try {
+                String name = "camlab_Slides_" + System.currentTimeMillis() + ".html";
+                NativePdfUtils.exportToPptHtml(this, "camlab Presentation", pages, name);
+                runOnUiThread(() -> {
+                    setLoading(false, "");
+                    tvStatus.setText("✅ PPT স্লাইড সেভ হয়েছে: " + name);
+                    Toast.makeText(this, "✅ PPT স্লাইড সংরক্ষিত!", Toast.LENGTH_SHORT).show();
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> { setLoading(false, ""); tvStatus.setText("❌ PPT তৈরি ব্যর্থ"); });
             }
         });
     }

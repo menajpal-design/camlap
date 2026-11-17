@@ -3263,44 +3263,41 @@ function setupOCR() {
             PDFExporter.downloadCanvasImage(qrCanvas, `camlab_QR_${Date.now()}.png`, 'image/png');
         }
     });
+
+    // Real QR Code Image Scanner (uses native BarcodeDetector API)
+    document.getElementById('qr-scan-upload')?.addEventListener('change', async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const img = new Image();
+        img.onload = async () => {
+            if ('BarcodeDetector' in window) {
+                try {
+                    const detector = new BarcodeDetector({ formats: ['qr_code', 'code_128', 'ean_13'] });
+                    const codes = await detector.detect(img);
+                    if (codes.length > 0) {
+                        const val = codes.map(c => c.rawValue).join('\n');
+                        if (ocrOutput) ocrOutput.value = val;
+                        const inp = document.getElementById('qr-custom-input');
+                        if (inp) inp.value = codes[0].rawValue;
+                        showComfortToast('QR কোড স্ক্যান সম্পন্ন!', '🏁');
+                        return;
+                    }
+                    alert('ছবিতে কোনো স্পষ্ট QR বা বারকোড পাওয়া যায়নি।');
+                    return;
+                } catch (err) {
+                    console.warn('BarcodeDetector error:', err);
+                }
+            }
+            alert('এই ব্রাউজারে অফলাইন BarcodeDetector সমর্থিত নয় — Android camlab.apk অ্যাপের ইন-অ্যাপ QR স্ক্যানার ব্যবহার করুন।');
+        };
+        img.src = URL.createObjectURL(file);
+        e.target.value = '';
+    });
 }
 
 function drawCustomQRCodeOnCanvas(canvas, text) {
-    const ctx = canvas.getContext('2d');
-    const size = 21;
-    const cell = canvas.width / size;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const drawFinder = (r, c) => {
-        ctx.fillStyle = '#0F172A';
-        ctx.fillRect(c * cell, r * cell, 7 * cell, 7 * cell);
-        ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect((c + 1) * cell, (r + 1) * cell, 5 * cell, 5 * cell);
-        ctx.fillStyle = '#00A884';
-        ctx.fillRect((c + 2) * cell, (r + 2) * cell, 3 * cell, 3 * cell);
-    };
-    drawFinder(0, 0);
-    drawFinder(0, size - 7);
-    drawFinder(size - 7, 0);
-
-    let hash = 2166136261;
-    for (let i = 0; i < text.length; i++) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
-    }
-    ctx.fillStyle = '#0F172A';
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            const inTL = r < 8 && c < 8;
-            const inTR = r < 8 && c >= size - 8;
-            const inBL = r >= size - 8 && c < 8;
-            if (inTL || inTR || inBL) continue;
-            const bit = ((r * 31 + c * 17 + Math.abs(hash) + text.charCodeAt((r + c) % Math.max(1, text.length))) % 7) < 3;
-            if (bit) {
-                ctx.fillRect(c * cell, r * cell, Math.ceil(cell), Math.ceil(cell));
-            }
-        }
+    if (window.CamLabQR) {
+        window.CamLabQR.drawToCanvas(canvas, text || 'https://menajpal-design.github.io/camlap/', '#0F172A', '#FFFFFF');
     }
 }
 
@@ -3374,6 +3371,13 @@ function setupToolsHub() {
                     });
                     showComfortToast(`${activeDoc.pages.length} টি পেজ JPG হিসেবে ডাউনলোড হয়েছে!`, '🗂️');
                     break;
+                case 'tool-collage':
+                    if (!activeDoc || activeDoc.pages.length === 0) { alert('কোলাজ তৈরির জন্য প্রথমে ডকুমেন্ট বা ছবি স্ক্যান করুন!'); return; }
+                    createDocumentCollagePdf(activeDoc);
+                    break;
+                case 'tool-count':
+                    openObjectCounterModal(activeDoc);
+                    break;
                 case 'tool-pdfsplit':
                 case 'tool-reorder':
                     if (!activeDoc) { alert('প্রথমে একটি ডকুমেন্ট স্ক্যান করুন!'); return; }
@@ -3402,18 +3406,30 @@ function setupToolsHub() {
                         alert('প্রথমে এক বা একাধিক ডকুমেন্ট স্ক্যান করুন!');
                         return;
                     }
-                    const allPages = [];
-                    csEngine.documents.forEach(d => {
-                        d.pages.forEach(p => {
-                            const c = document.createElement('canvas');
-                            const im = new Image();
-                            im.src = p;
-                            c.width = 800; c.height = 1100;
-                            c.getContext('2d').drawImage(im, 0, 0);
-                            allPages.push(c);
-                        });
-                    });
-                    PDFExporter.exportPagesToPDF(allPages, 'Merged_camlab_Docs.pdf', 'a4');
+                    (async () => {
+                        const allPages = [];
+                        for (const d of csEngine.documents) {
+                            for (const p of d.pages) {
+                                const im = await new Promise((resolve) => {
+                                    const img = new Image();
+                                    img.onload = () => resolve(img);
+                                    img.onerror = () => resolve(null);
+                                    img.src = p;
+                                });
+                                if (im) {
+                                    const c = document.createElement('canvas');
+                                    c.width = im.naturalWidth || 800;
+                                    c.height = im.naturalHeight || 1100;
+                                    c.getContext('2d').drawImage(im, 0, 0);
+                                    allPages.push(c);
+                                }
+                            }
+                        }
+                        if (allPages.length > 0) {
+                            PDFExporter.exportPagesToPDF(allPages, 'Merged_camlab_Docs.pdf', 'a4');
+                            showComfortToast(`${allPages.length} পেজ মার্জ করে PDF তৈরি হয়েছে!`, '🧩');
+                        }
+                    })();
                     break;
                 case 'tool-trash':
                     activeDocFilterCategory = 'Trash';
@@ -3689,49 +3705,176 @@ function triggerAppDownload(type) {
 }
 
 /**
- * Draw crisp QR matrix on #cs-app-qr-canvas for scanning with mobile phone
+ * Draw crisp scannable QR matrix on #cs-app-qr-canvas for scanning with mobile phone
  */
 function drawAppQRCode(text) {
     const canvas = document.getElementById('cs-app-qr-canvas');
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    const size = 21;
-    const cell = canvas.width / size;
+    if (window.CamLabQR) {
+        window.CamLabQR.drawToCanvas(canvas, text || 'https://menajpal-design.github.io/camlap/', '#0F172A', '#FFFFFF');
+    }
+}
 
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+/**
+ * Create a 2-in-1 or 4-in-1 A4 Collage PDF from document pages
+ */
+async function createDocumentCollagePdf(doc) {
+    const pages = doc.pages || [];
+    if (!pages.length) return;
+    const cols = pages.length <= 2 ? 1 : 2;
+    const rows = pages.length === 1 ? 1 : 2;
+    const perSheet = cols * rows;
+    const sheets = [];
 
-    const drawFinder = (r, c) => {
-        ctx.fillStyle = '#0F172A';
-        ctx.fillRect(c * cell, r * cell, 7 * cell, 7 * cell);
+    for (let s = 0; s < pages.length; s += perSheet) {
+        const sheet = document.createElement('canvas');
+        sheet.width = 1240;
+        sheet.height = 1754;
+        const ctx = sheet.getContext('2d');
         ctx.fillStyle = '#FFFFFF';
-        ctx.fillRect((c + 1) * cell, (r + 1) * cell, 5 * cell, 5 * cell);
-        ctx.fillStyle = '#00A884';
-        ctx.fillRect((c + 2) * cell, (r + 2) * cell, 3 * cell, 3 * cell);
+        ctx.fillRect(0, 0, sheet.width, sheet.height);
+
+        const pad = 40;
+        const cellW = (sheet.width - pad * (cols + 1)) / cols;
+        const cellH = (sheet.height - pad * (rows + 1)) / rows;
+
+        for (let k = 0; k < perSheet && s + k < pages.length; k++) {
+            const img = await new Promise(res => {
+                const i = new Image();
+                i.onload = () => res(i);
+                i.onerror = () => res(null);
+                i.src = pages[s + k];
+            });
+            if (!img) continue;
+            const col = k % cols;
+            const row = Math.floor(k / cols);
+            const rx = pad + col * (cellW + pad);
+            const ry = pad + row * (cellH + pad);
+            const sc = Math.min(cellW / img.width, cellH / img.height);
+            const dw = img.width * sc, dh = img.height * sc;
+            ctx.drawImage(img, rx + (cellW - dw) / 2, ry + (cellH - dh) / 2, dw, dh);
+            ctx.strokeStyle = '#CBD5E1';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(rx, ry, cellW, cellH);
+        }
+        sheets.push(sheet);
+    }
+    await PDFExporter.exportPagesToPDF(sheets, `${doc.title}_Collage_A4.pdf`, 'a4');
+    showComfortToast('কোলাজ A4 PDF ডাউনলোড সম্পন্ন!', '🧩');
+}
+
+/**
+ * Interactive & Auto Object Counter Modal (CamScanner Count Tool)
+ */
+let _countImg = null;
+let _countPts = [];
+function openObjectCounterModal(activeDoc) {
+    const modal = document.getElementById('cs-count-modal');
+    const canvas = document.getElementById('count-canvas');
+    const badge = document.getElementById('count-total-badge');
+    if (!modal || !canvas) return;
+    modal.style.display = 'flex';
+    _countPts = [];
+
+    const renderCountCanvas = () => {
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#0F172A';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        if (_countImg) {
+            const sc = Math.min(canvas.width / _countImg.width, canvas.height / _countImg.height);
+            const dw = _countImg.width * sc, dh = _countImg.height * sc;
+            const ox = (canvas.width - dw) / 2, oy = (canvas.height - dh) / 2;
+            ctx.drawImage(_countImg, ox, oy, dw, dh);
+        }
+        _countPts.forEach((pt, idx) => {
+            ctx.beginPath();
+            ctx.arc(pt.x, pt.y, 13, 0, Math.PI * 2);
+            ctx.fillStyle = '#00A884';
+            ctx.fill();
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#FFFFFF';
+            ctx.stroke();
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(String(idx + 1), pt.x, pt.y);
+        });
+        if (badge) badge.textContent = `মোট: ${_countPts.length} টি`;
     };
 
-    drawFinder(0, 0);
-    drawFinder(0, size - 7);
-    drawFinder(size - 7, 0);
-
-    let hash = 2166136261;
-    for (let i = 0; i < text.length; i++) {
-        hash ^= text.charCodeAt(i);
-        hash = Math.imul(hash, 16777619);
+    if (activeDoc && activeDoc.pages?.length) {
+        const im = new Image();
+        im.onload = () => { _countImg = im; renderCountCanvas(); };
+        im.src = activeDoc.pages[0];
+    } else {
+        renderCountCanvas();
     }
 
-    ctx.fillStyle = '#0F172A';
-    for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-            const inTL = r < 8 && c < 8;
-            const inTR = r < 8 && c >= size - 8;
-            const inBL = r >= size - 8 && c < 8;
-            if (inTL || inTR || inBL) continue;
-
-            const bit = ((r * 31 + c * 17 + Math.abs(hash)) % 7) < 3;
-            if (bit) {
-                ctx.fillRect(c * cell, r * cell, Math.ceil(cell), Math.ceil(cell));
+    if (!canvas.dataset.bound) {
+        canvas.dataset.bound = '1';
+        canvas.addEventListener('click', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const sx = canvas.width / rect.width;
+            const sy = canvas.height / rect.height;
+            _countPts.push({ x: (e.clientX - rect.left) * sx, y: (e.clientY - rect.top) * sy });
+            renderCountCanvas();
+        });
+        document.getElementById('count-upload-input')?.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (!file) return;
+            const im = new Image();
+            im.onload = () => { _countImg = im; _countPts = []; renderCountCanvas(); };
+            im.src = URL.createObjectURL(file);
+            e.target.value = '';
+        });
+        document.getElementById('btn-count-undo')?.addEventListener('click', () => { _countPts.pop(); renderCountCanvas(); });
+        document.getElementById('btn-count-clear')?.addEventListener('click', () => { _countPts = []; renderCountCanvas(); });
+        document.getElementById('btn-close-count-modal')?.addEventListener('click', () => { modal.style.display = 'none'; });
+        document.getElementById('btn-count-auto')?.addEventListener('click', () => {
+            if (!_countImg) { alert('আগে একটি ছবি লোড করুন!'); return; }
+            // Connected-component foreground blob counter
+            const w = 140, h = 90;
+            const off = document.createElement('canvas');
+            off.width = w; off.height = h;
+            const octx = off.getContext('2d');
+            octx.drawImage(_countImg, 0, 0, w, h);
+            const data = octx.getImageData(0, 0, w, h).data;
+            const bgR = data[0], bgG = data[1], bgB = data[2];
+            const fg = new Uint8Array(w * h);
+            for (let i = 0; i < w * h; i++) {
+                const idx = i * 4;
+                const d = Math.abs(data[idx] - bgR) + Math.abs(data[idx + 1] - bgG) + Math.abs(data[idx + 2] - bgB);
+                if (d > 65) fg[i] = 1;
             }
-        }
+            const visited = new Uint8Array(w * h);
+            _countPts = [];
+            for (let y = 1; y < h - 1; y++) {
+                for (let x = 1; x < w - 1; x++) {
+                    const p = y * w + x;
+                    if (!fg[p] || visited[p]) continue;
+                    const q = [p];
+                    visited[p] = 1;
+                    let sx = 0, sy = 0, cnt = 0;
+                    while (q.length) {
+                        const cur = q.pop();
+                        const cx = cur % w, cy = Math.floor(cur / w);
+                        sx += cx; sy += cy; cnt++;
+                        const nbs = [cur - 1, cur + 1, cur - w, cur + w];
+                        for (const n of nbs) {
+                            if (n >= 0 && n < w * h && fg[n] && !visited[n]) {
+                                visited[n] = 1;
+                                q.push(n);
+                            }
+                        }
+                    }
+                    if (cnt >= 14 && cnt <= 3500) {
+                        _countPts.push({ x: (sx / cnt) * (canvas.width / w), y: (sy / cnt) * (canvas.height / h) });
+                    }
+                }
+            }
+            renderCountCanvas();
+            showComfortToast(`অটো কাউন্ট: ${_countPts.length} টি অবজেক্ট শনাক্ত!`, '🔢');
+        });
     }
 }

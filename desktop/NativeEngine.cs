@@ -818,46 +818,41 @@ public static class NativeEngine
     public static Bitmap GenerateQrBitmap(string text, int sizePx = 600)
     {
         if (string.IsNullOrWhiteSpace(text)) text = "https://camlab.app";
-        int modules = 25;
-        bool[,] grid = new bool[modules, modules];
-        void DrawFinder(int ox, int oy)
-        {
-            for (int r = 0; r < 7; r++)
-                for (int c = 0; c < 7; c++)
-                    grid[oy + r, ox + c] = (r == 0 || r == 6 || c == 0 || c == 6) || (r >= 2 && r <= 4 && c >= 2 && c <= 4);
-        }
-        DrawFinder(0, 0);
-        DrawFinder(modules - 7, 0);
-        DrawFinder(0, modules - 7);
-        for (int i = 8; i < modules - 8; i++) { grid[6, i] = (i % 2 == 0); grid[i, 6] = (i % 2 == 0); }
+        using var gen = new QRCoder.QRCodeGenerator();
+        using var data = gen.CreateQrCode(text, QRCoder.QRCodeGenerator.ECCLevel.M);
+        var qr = new QRCoder.QRCode(data);
+        return qr.GetGraphic(Math.Max(8, sizePx / 33), Color.FromArgb(15, 23, 42), Color.White, true);
+    }
 
-        byte[] bytes = System.Text.Encoding.UTF8.GetBytes(text);
-        int bitIdx = 0;
-        for (int r = 0; r < modules; r++)
-        {
-            for (int c = 0; c < modules; c++)
-            {
-                bool inFinder = (r < 8 && c < 8) || (r < 8 && c >= modules - 8) || (r >= modules - 8 && c < 8) || r == 6 || c == 6;
-                if (inFinder) continue;
-                int b = bytes[(bitIdx / 8) % bytes.Length];
-                bool bit = ((b >> (7 - (bitIdx % 8))) & 1) == 1;
-                bool mask = ((r * c) % 2 + (r * c) % 3) % 2 == 0;
-                grid[r, c] = bit ^ mask;
-                bitIdx++;
-            }
-        }
-
-        var bmp = new Bitmap(sizePx, sizePx, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bmp);
+    public static Bitmap ComposeCollageSheet(IReadOnlyList<Bitmap> pages)
+    {
+        int w = 1240, h = 1754;
+        var outBmp = new Bitmap(w, h, PixelFormat.Format32bppArgb);
+        using var g = Graphics.FromImage(outBmp);
+        g.InterpolationMode = InterpolationMode.HighQualityBicubic;
         g.Clear(Color.White);
-        using var dark = new SolidBrush(Color.FromArgb(15, 23, 42));
-        float margin = sizePx * 0.08f;
-        float cell = (sizePx - margin * 2f) / modules;
-        for (int r = 0; r < modules; r++)
-            for (int c = 0; c < modules; c++)
-                if (grid[r, c])
-                    g.FillRectangle(dark, margin + c * cell, margin + r * cell, cell + 0.6f, cell + 0.6f);
-        return bmp;
+
+        int count = Math.Min(4, pages.Count);
+        int cols = count <= 2 ? 1 : 2;
+        int rows = count == 1 ? 1 : 2;
+        float pad = 40f;
+        float cellW = (w - pad * (cols + 1)) / cols;
+        float cellH = (h - pad * (rows + 1)) / rows;
+        using var border = new Pen(Color.FromArgb(203, 213, 225), 2f);
+
+        for (int i = 0; i < count; i++)
+        {
+            var b = pages[i];
+            int col = i % cols;
+            int row = i / cols;
+            float rx = pad + col * (cellW + pad);
+            float ry = pad + row * (cellH + pad);
+            float sc = Math.Min(cellW / b.Width, cellH / b.Height);
+            float dw = b.Width * sc, dh = b.Height * sc;
+            g.DrawImage(b, rx + (cellW - dw) / 2f, ry + (cellH - dh) / 2f, dw, dh);
+            g.DrawRectangle(border, rx, ry, cellW, cellH);
+        }
+        return outBmp;
     }
 
     /// <summary>

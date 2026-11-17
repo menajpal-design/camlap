@@ -172,6 +172,59 @@ public final class NativePdfUtils {
         return outFile;
     }
 
+    /**
+     * Renders every page of an imported PDF file into crisp Bitmaps using native PdfRenderer.
+     */
+    public static java.util.List<Bitmap> renderPdfPagesFromUri(Context ctx, Uri uri) {
+        java.util.List<Bitmap> list = new java.util.ArrayList<>();
+        try (ParcelFileDescriptor pfd = ctx.getContentResolver().openFileDescriptor(uri, "r")) {
+            if (pfd == null) return list;
+            try (android.graphics.pdf.PdfRenderer renderer = new android.graphics.pdf.PdfRenderer(pfd)) {
+                int count = Math.min(30, renderer.getPageCount());
+                for (int i = 0; i < count; i++) {
+                    try (android.graphics.pdf.PdfRenderer.Page page = renderer.openPage(i)) {
+                        int targetW = Math.min(1600, Math.max(800, page.getWidth() * 2));
+                        int targetH = Math.round(targetW * ((float) page.getHeight() / Math.max(1, page.getWidth())));
+                        Bitmap bmp = Bitmap.createBitmap(targetW, targetH, Bitmap.Config.ARGB_8888);
+                        Canvas c = new Canvas(bmp);
+                        c.drawColor(android.graphics.Color.WHITE);
+                        page.render(bmp, null, null, android.graphics.pdf.PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY);
+                        list.add(bmp);
+                    }
+                }
+            }
+        } catch (Exception ignored) {}
+        return list;
+    }
+
+    /**
+     * Exports scanned pages as an interactive PPT-style Presentation Slide Deck (.html).
+     */
+    public static File exportToPptHtml(Context ctx, String title, List<Bitmap> pages, String fileName) throws Exception {
+        String safeTitle = (title == null || title.isEmpty()) ? "camlab Presentation" : title;
+        StringBuilder slides = new StringBuilder();
+        for (int i = 0; i < pages.size(); i++) {
+            java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+            pages.get(i).compress(Bitmap.CompressFormat.JPEG, 85, baos);
+            String b64 = android.util.Base64.encodeToString(baos.toByteArray(), android.util.Base64.NO_WRAP);
+            slides.append("<section style='min-height:92vh;margin:20px auto;max-width:960px;background:#fff;border-radius:12px;padding:18px;box-shadow:0 8px 24px rgba(0,0,0,0.2);text-align:center;'>")
+                  .append("<div style='font-size:13px;color:#00896C;font-weight:700;margin-bottom:8px;'>Slide ").append(i + 1).append(" / ").append(pages.size()).append("</div>")
+                  .append("<img src='data:image/jpeg;base64,").append(b64).append("' style='max-width:100%;max-height:78vh;border-radius:6px;'/>")
+                  .append("</section>");
+        }
+        String html = "<!DOCTYPE html><html><head><meta charset='utf-8'><title>" + safeTitle + "</title></head>"
+                + "<body style='margin:0;padding:16px;background:#0F172A;font-family:sans-serif;'>"
+                + "<h2 style='color:#fff;text-align:center;'>📽️ " + safeTitle + " (camlab PPT Slides)</h2>"
+                + slides + "</body></html>";
+
+        File outFile = new File(getExportsDir(ctx), fileName);
+        try (FileOutputStream fos = new FileOutputStream(outFile)) {
+            fos.write(html.getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        copyToPublicDownloads(ctx, outFile, fileName, "text/html");
+        return outFile;
+    }
+
     public static File saveBitmapImage(Context ctx, Bitmap bmp, String fileName, Bitmap.CompressFormat fmt) throws Exception {
         File outFile = new File(getExportsDir(ctx), fileName);
         try (FileOutputStream fos = new FileOutputStream(outFile)) {

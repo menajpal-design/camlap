@@ -93,6 +93,7 @@ public class OcrActivity extends AppCompatActivity {
         btnHighlightSearch.setOnClickListener(v -> searchInResult());
         findViewById(R.id.btn_ocr_translate).setOnClickListener(v -> translateAndFormatText());
         findViewById(R.id.btn_ocr_qr).setOnClickListener(v -> generateQrFromText());
+        findViewById(R.id.btn_ocr_scan_qr).setOnClickListener(v -> scanQrFromPreview());
         findViewById(R.id.btn_ocr_save_doc).setOnClickListener(v -> saveWordDoc());
         findViewById(R.id.btn_ocr_save_csv).setOnClickListener(v -> saveExcelCsv());
         findViewById(R.id.btn_ocr_save_txt).setOnClickListener(v -> saveTxt());
@@ -112,6 +113,30 @@ public class OcrActivity extends AppCompatActivity {
                 + "• স্ট্যাটাস: লাইন ও স্পেসিং অটো-ফরম্যাট সম্পন্ন ✓";
         etOcrResult.setText(summary);
         tvOcrStatus.setText("🌐 অফলাইন ফরম্যাট ও সারাংশ যোগ করা হয়েছে!");
+    }
+
+    private void scanQrFromPreview() {
+        if (rawBitmap == null) {
+            Toast.makeText(this, "আগে QR কোডের ছবি তুলুন বা গ্যালারি থেকে নিন!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        setLoading(true, "QR / বারকোড স্ক্যান হচ্ছে...");
+        final Bitmap bmp = rawBitmap;
+        executor.execute(() -> {
+            String decoded = NativeImageUtils.decodeQrFromBitmap(bmp);
+            runOnUiThread(() -> {
+                setLoading(false, "");
+                if (decoded == null || decoded.trim().isEmpty()) {
+                    tvOcrStatus.setText("❌ ছবিতে কোনো QR বা বারকোড পাওয়া যায়নি");
+                    Toast.makeText(this, "কোনো QR কোড পাওয়া যায়নি", Toast.LENGTH_SHORT).show();
+                } else {
+                    etOcrResult.setText(decoded);
+                    tvWordCount.setText(decoded.split("\\s+").length + " শব্দ");
+                    tvOcrStatus.setText("✅ QR কোড স্ক্যান সম্পন্ন!");
+                    Toast.makeText(this, "✅ QR স্ক্যান সম্পন্ন!", Toast.LENGTH_SHORT).show();
+                }
+            });
+        });
     }
 
     private void generateQrFromText() {

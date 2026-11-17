@@ -1218,6 +1218,40 @@ public sealed class MainForm : Form
         extraToolsRow.Controls.AddRange(new Control[] { btnStitchTool, btnSplitTool });
         flow.Controls.Add(extraToolsRow);
 
+        var extraToolsRow2 = new FlowLayoutPanel { Width = 340, AutoSize = true, Margin = new Padding(0, 6, 0, 0) };
+        var btnCollageTool = CreateOutlineButton("🧩 কোলাজ A4 (২/৪ ছবি)", 164);
+        btnCollageTool.Click += (s, e) =>
+        {
+            if (_pdfToolPages.Count == 0) { MessageBox.Show("প্রথমে ছবি যোগ করুন!"); return; }
+            using var collage = NativeEngine.ComposeCollageSheet(_pdfToolPages);
+            using var sfd = new SaveFileDialog { Filter = "PDF|*.pdf", FileName = $"camlab_Collage_A4_{DateTime.Now:yyyyMMdd_HHmm}.pdf" };
+            if (sfd.ShowDialog() != DialogResult.OK) return;
+            SimplePdfWriter.SaveBitmapsAsPdf(new[] { collage }, sfd.FileName, 210.0, 297.0, 92L);
+            SaveCopyToVault(sfd.FileName);
+            MessageBox.Show("✅ কোলাজ A4 PDF সংরক্ষিত হয়েছে!", "camlab");
+        };
+        var btnPptTool = CreateOutlineButton("📽️ PPT স্লাইড ডেক", 164);
+        btnPptTool.Click += (s, e) =>
+        {
+            if (_pdfToolPages.Count == 0) { MessageBox.Show("প্রথমে ছবি যোগ করুন!"); return; }
+            using var sfd = new SaveFileDialog { Filter = "HTML Slides|*.html", FileName = $"camlab_Slides_{DateTime.Now:yyyyMMdd_HHmm}.html" };
+            if (sfd.ShowDialog() != DialogResult.OK) return;
+            var sb = new StringBuilder("<!DOCTYPE html><html><head><meta charset='utf-8'><title>camlab Slides</title></head><body style='margin:0;padding:16px;background:#0F172A;font-family:Segoe UI,sans-serif;'>");
+            for (int i = 0; i < _pdfToolPages.Count; i++)
+            {
+                using var ms = new MemoryStream();
+                _pdfToolPages[i].Save(ms, ImageFormat.Jpeg);
+                string b64 = Convert.ToBase64String(ms.ToArray());
+                sb.Append($"<section style='margin:18px auto;max-width:920px;background:#fff;border-radius:12px;padding:18px;text-align:center;'><div style='color:#00896C;font-weight:700;margin-bottom:8px;'>Slide {i + 1} / {_pdfToolPages.Count}</div><img src='data:image/jpeg;base64,{b64}' style='max-width:100%;max-height:78vh;'/></section>");
+            }
+            sb.Append("</body></html>");
+            File.WriteAllText(sfd.FileName, sb.ToString(), Encoding.UTF8);
+            SaveCopyToVault(sfd.FileName);
+            MessageBox.Show("✅ PPT স্লাইড ডেক সংরক্ষিত হয়েছে!", "camlab");
+        };
+        extraToolsRow2.Controls.AddRange(new Control[] { btnCollageTool, btnPptTool });
+        flow.Controls.Add(extraToolsRow2);
+
         _lblPdfToolStatus = new Label { Text = "একাধিক ছবি একসাথে একটি PDF-এ মার্জ বা কম্প্রেস করুন।", AutoSize = true, ForeColor = Color.FromArgb(100, 116, 139), Margin = new Padding(0, 14, 0, 0) };
         flow.Controls.Add(_lblPdfToolStatus);
         toolsCard.Controls.Add(flow);

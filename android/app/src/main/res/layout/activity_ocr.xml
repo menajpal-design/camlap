@@ -203,11 +203,23 @@
             android:layout_width="wrap_content"
             android:layout_height="38dp"
             android:paddingHorizontal="10dp"
-            android:text="🏁 QR"
+            android:layout_marginEnd="6dp"
+            android:text="🏁 QR তৈরি"
             android:textAllCaps="false"
             android:textSize="12sp"
             android:textColor="#0F172A"
             android:background="@drawable/bg_btn_outline" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btn_ocr_scan_qr"
+            android:layout_width="wrap_content"
+            android:layout_height="38dp"
+            android:paddingHorizontal="10dp"
+            android:text="📷 QR স্ক্যান"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="#00896C"
+            android:background="@drawable/bg_chip" />
     </LinearLayout>
 
     <!-- Bottom Actions -->

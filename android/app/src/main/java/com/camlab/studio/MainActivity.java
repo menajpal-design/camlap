@@ -76,6 +76,7 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btn_vault_pdf).setOnClickListener(v -> { currentVaultFilter = "pdf"; refreshSavedFilesList(); });
         findViewById(R.id.btn_vault_img).setOnClickListener(v -> { currentVaultFilter = "img"; refreshSavedFilesList(); });
         findViewById(R.id.btn_vault_doc).setOnClickListener(v -> { currentVaultFilter = "doc"; refreshSavedFilesList(); });
+        findViewById(R.id.btn_vault_trash).setOnClickListener(v -> { currentVaultFilter = "trash"; refreshSavedFilesList(); });
     }
 
     @Override
@@ -106,7 +107,11 @@ public class MainActivity extends AppCompatActivity {
     private void refreshSavedFilesList() {
         savedFilesContainer.removeAllViews();
         File exportsDir = NativePdfUtils.getExportsDir(this);
-        File[] files = exportsDir.listFiles();
+        File trashDir = new File(exportsDir, ".trash");
+        if (!trashDir.exists()) trashDir.mkdirs();
+
+        boolean isTrash = "trash".equals(currentVaultFilter);
+        File[] files = (isTrash ? trashDir : exportsDir).listFiles(f -> f.isFile());
 
         if (tvFileCount != null) {
             tvFileCount.setText(files != null ? String.valueOf(files.length) : "0");
@@ -204,10 +209,30 @@ public class MainActivity extends AppCompatActivity {
                 }
             });
             row.setOnLongClickListener(v -> {
+                if (isTrash) {
+                    new androidx.appcompat.app.AlertDialog.Builder(this)
+                            .setTitle("ট্র্যাশ ফাইল ম্যানেজার")
+                            .setMessage(name + " রিস্টোর করতে চান নাকি স্থায়ীভাবে মুছবেন?")
+                            .setPositiveButton("♻️ রিস্টোর করুন", (d, w) -> {
+                                File dest = new File(exportsDir, name);
+                                if (file.renameTo(dest)) {
+                                    refreshSavedFilesList();
+                                    Toast.makeText(this, "✅ ফাইল রিস্টোর হয়েছে!", Toast.LENGTH_SHORT).show();
+                                }
+                            })
+                            .setNeutralButton("🗑️ স্থায়ীভাবে মুছুন", (d, w) -> {
+                                file.delete();
+                                refreshSavedFilesList();
+                                Toast.makeText(this, "✅ স্থায়ীভাবে মুছে গেছে", Toast.LENGTH_SHORT).show();
+                            })
+                            .setNegativeButton("বাতিল", null)
+                            .show();
+                    return true;
+                }
                 android.widget.EditText input = new android.widget.EditText(this);
                 input.setText(name);
                 new androidx.appcompat.app.AlertDialog.Builder(this)
-                        .setTitle("ফাইল ম্যানেজার (রিনেম / মুছুন)")
+                        .setTitle("ফাইল ম্যানেজার (রিনেম / ট্র্যাশ)")
                         .setView(input)
                         .setPositiveButton("✏️ রিনেম", (d, w) -> {
                             String newName = input.getText().toString().trim();
@@ -219,10 +244,12 @@ public class MainActivity extends AppCompatActivity {
                                 }
                             }
                         })
-                        .setNeutralButton("🗑️ মুছুন", (d, w) -> {
-                            file.delete();
-                            refreshSavedFilesList();
-                            Toast.makeText(this, "✅ ফাইল মুছে গেছে", Toast.LENGTH_SHORT).show();
+                        .setNeutralButton("🗑️ ট্র্যাশে পাঠান", (d, w) -> {
+                            File dest = new File(trashDir, name);
+                            if (file.renameTo(dest)) {
+                                refreshSavedFilesList();
+                                Toast.makeText(this, "✅ ট্র্যাশে পাঠানো হয়েছে", Toast.LENGTH_SHORT).show();
+                            }
                         })
                         .setNegativeButton("বাতিল", null)
                         .show();

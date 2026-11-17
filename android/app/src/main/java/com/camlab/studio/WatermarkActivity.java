@@ -136,6 +136,10 @@ public class WatermarkActivity extends AppCompatActivity {
         findViewById(R.id.btn_wm_stamp_conf).setOnClickListener(v -> applyStampToDocument("CONFIDENTIAL"));
         findViewById(R.id.btn_wm_eraser).setOnClickListener(v -> applySmartEraser());
 
+        SignaturePadView sigPad = findViewById(R.id.sig_pad_view);
+        findViewById(R.id.btn_sig_clear).setOnClickListener(v -> sigPad.clear());
+        findViewById(R.id.btn_sig_stamp).setOnClickListener(v -> stampSignatureOnDocument(sigPad));
+
         findViewById(R.id.btn_wm_apply).setOnClickListener(v -> applyWatermark());
         findViewById(R.id.btn_wm_save_jpg).setOnClickListener(v -> saveImage());
         findViewById(R.id.btn_wm_save_pdf).setOnClickListener(v -> savePdf());
@@ -157,6 +161,34 @@ public class WatermarkActivity extends AppCompatActivity {
                 processedBitmap = stamped;
                 ivWatermarkPreview.setImageBitmap(processedBitmap);
                 tvStatus.setText("💮 অফিশিয়াল সিল (" + label + ") যোগ করা হয়েছে!");
+            });
+        });
+    }
+
+    private void stampSignatureOnDocument(SignaturePadView sigPad) {
+        if (rawBitmap == null) {
+            Toast.makeText(this, "আগে একটি ডকুমেন্ট ছবি ইমপোর্ট করুন!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        Bitmap sigBmp = sigPad.exportSignatureBitmap();
+        if (sigBmp == null) {
+            Toast.makeText(this, "প্রথমে সিগনেচার প্যাডে স্বাক্ষর আঁকুন!", Toast.LENGTH_SHORT).show();
+            return;
+        }
+        executor.execute(() -> {
+            Bitmap out = rawBitmap.copy(Bitmap.Config.ARGB_8888, true);
+            Canvas c = new Canvas(out);
+            float sigW = out.getWidth() * 0.30f;
+            float sigH = sigW * ((float) sigBmp.getHeight() / Math.max(1, sigBmp.getWidth()));
+            float dx = out.getWidth() - sigW - out.getWidth() * 0.05f;
+            float dy = out.getHeight() - sigH - out.getHeight() * 0.05f;
+            c.drawBitmap(sigBmp, null, new android.graphics.RectF(dx, dy, dx + sigW, dy + sigH),
+                    new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG));
+            runOnUiThread(() -> {
+                rawBitmap = out;
+                processedBitmap = out;
+                ivWatermarkPreview.setImageBitmap(processedBitmap);
+                tvStatus.setText("✒️ ডিজিটাল সিগনেচার ডকুমেন্টে বসানো হয়েছে!");
             });
         });
     }

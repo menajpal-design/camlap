@@ -729,13 +729,17 @@
 
                     <!-- QR Code Scanner & Generator Box inside OCR/Tools -->
                     <div style="border-top:1px solid var(--cs-border-dark); margin-top:16px; padding-top:14px;">
-                        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:8px;">🏁 QR কোড জেনারেটর ও স্ক্যানার</h4>
-                        <div style="display:flex; gap:6px;">
-                            <input type="text" id="qr-custom-input" placeholder="যেকোনো টেক্সট, নাম বা লিংক লিখুন..." class="cs-input-clean" style="flex:1;">
+                        <h4 style="font-size:0.9rem; font-weight:700; margin-bottom:8px;">🏁 আসল QR কোড জেনারেটর ও স্ক্যানার</h4>
+                        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                            <input type="text" id="qr-custom-input" placeholder="যেকোনো টেক্সট, নাম বা লিংক লিখুন..." class="cs-input-clean" style="flex:1; min-width:160px;">
                             <button type="button" id="btn-generate-qr" class="cs-icon-btn" style="background:var(--cs-teal); color:#fff; border-color:var(--cs-teal); font-weight:700;">QR তৈরি</button>
+                            <label class="cs-icon-btn" style="cursor:pointer;">
+                                📷 QR স্ক্যান
+                                <input type="file" id="qr-scan-upload" accept="image/*" style="display:none;">
+                            </label>
                         </div>
                         <div id="qr-generated-wrap" style="display:none; text-align:center; margin-top:10px; padding:10px; background:var(--cs-bg-dark); border-radius:8px;">
-                            <canvas id="qr-custom-canvas" width="140" height="140" style="background:#fff; padding:6px; border-radius:6px;"></canvas>
+                            <canvas id="qr-custom-canvas" width="160" height="160" style="background:#fff; padding:6px; border-radius:6px;"></canvas>
                             <div style="margin-top:6px;">
                                 <button type="button" id="btn-save-qr-img" class="cs-icon-btn" style="margin:0 auto; font-size:0.78rem;">💾 QR কোড ডাউনলোড (.PNG)</button>
                             </div>
@@ -861,6 +865,16 @@
                         <div class="cs-tool-item" data-action="tool-pdf-to-jpg">
                             <div class="cs-tool-icon">🗂️</div>
                             <span class="cs-tool-name">ডকুমেন্ট → সব পেজ JPG</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-collage">
+                            <div class="cs-tool-icon">🧩</div>
+                            <span class="cs-tool-name">কোলাজ (২/৪ ছবি ১ পেজে)</span>
+                            <span class="cs-tool-badge">NEW</span>
+                        </div>
+                        <div class="cs-tool-item" data-action="tool-count">
+                            <div class="cs-tool-icon">🔢</div>
+                            <span class="cs-tool-name">অবজেক্ট কাউন্টার (Count)</span>
+                            <span class="cs-tool-badge">NEW</span>
                         </div>
                         <div class="cs-tool-item" data-action="tool-ocr">
                             <div class="cs-tool-icon">🔤</div>
@@ -1492,7 +1506,32 @@
         <span id="cs-comfort-toast-msg">সফলভাবে সম্পন্ন হয়েছে</span>
     </div>
 
+    <!-- Object Counter Modal (CamScanner Count Tool) -->
+    <div id="cs-count-modal" class="cs-modal-overlay" style="display:none;">
+        <div class="cs-modal-card" style="max-width:640px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <h3 style="margin:0; font-size:1.05rem;">🔢 অবজেক্ট কাউন্টার (Object Count)</h3>
+                <button type="button" id="btn-close-count-modal" class="cs-icon-btn">✕</button>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:10px; align-items:center;">
+                <label class="cs-icon-btn" style="cursor:pointer; background:var(--cs-teal); color:#fff; border-color:var(--cs-teal);">
+                    📁 ছবি লোড করুন
+                    <input type="file" id="count-upload-input" accept="image/*" style="display:none;">
+                </label>
+                <button type="button" id="btn-count-auto" class="cs-icon-btn">✨ অটো কাউন্ট</button>
+                <button type="button" id="btn-count-undo" class="cs-icon-btn">↩️ আনডু</button>
+                <button type="button" id="btn-count-clear" class="cs-icon-btn">🗑️ ক্লিয়ার</button>
+                <span id="count-total-badge" class="cs-vip-badge" style="margin-left:auto;">মোট: 0 টি</span>
+            </div>
+            <p style="font-size:0.78rem; color:var(--cs-text-dim); margin-bottom:8px;">ছবির যেকোনো বস্তুতে ক্লিক/ট্যাপ করলে নম্বরসহ চিহ্নিত হবে অথবা "✨ অটো কাউন্ট" চাপুন।</p>
+            <div style="background:#0f172a; border-radius:8px; overflow:hidden; text-align:center; max-height:380px;">
+                <canvas id="count-canvas" width="560" height="360" style="max-width:100%; max-height:360px; cursor:crosshair;"></canvas>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
+    <script src="js/qr_real.js"></script>
     <script src="js/suits.js"></script>
     <script src="js/image_processor.js"></script>
     <script src="js/camlab_engine.js"></script>

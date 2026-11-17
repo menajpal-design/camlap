@@ -933,64 +933,104 @@ public final class NativeImageUtils {
     }
 
     /**
-     * Generates a high-contrast QR Code Bitmap offline for any text or URL.
+     * Generates a real, 100% scannable ISO/IEC 18004 QR Code Bitmap offline using ZXing.
      */
     public static Bitmap generateQrBitmap(String text, int sizePx) {
         if (text == null || text.trim().isEmpty()) text = "https://camlab.app";
-        int modules = 25;
-        boolean[][] grid = new boolean[modules][modules];
-        drawFinderPattern(grid, 0, 0);
-        drawFinderPattern(grid, modules - 7, 0);
-        drawFinderPattern(grid, 0, modules - 7);
-
-        for (int i = 8; i < modules - 8; i++) {
-            grid[6][i] = (i % 2 == 0);
-            grid[i][6] = (i % 2 == 0);
-        }
-
-        byte[] bytes = text.getBytes(java.nio.charset.StandardCharsets.UTF_8);
-        int bitIdx = 0;
-        for (int r = 0; r < modules; r++) {
-            for (int c = 0; c < modules; c++) {
-                boolean inFinder = (r < 8 && c < 8) || (r < 8 && c >= modules - 8) || (r >= modules - 8 && c < 8) || r == 6 || c == 6;
-                if (inFinder) continue;
-                int b = bytes[(bitIdx / 8) % bytes.length] & 0xFF;
-                boolean bit = ((b >> (7 - (bitIdx % 8))) & 1) == 1;
-                boolean mask = ((r * c) % 2 + (r * c) % 3) % 2 == 0;
-                grid[r][c] = bit ^ mask;
-                bitIdx++;
-            }
-        }
-
-        Bitmap bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
-        Canvas canvas = new Canvas(bmp);
-        canvas.drawColor(Color.WHITE);
-        Paint dark = new Paint();
-        dark.setColor(Color.parseColor("#0F172A"));
-        dark.setStyle(Paint.Style.FILL);
-
-        float margin = sizePx * 0.08f;
-        float cell = (sizePx - margin * 2f) / modules;
-        for (int r = 0; r < modules; r++) {
-            for (int c = 0; c < modules; c++) {
-                if (grid[r][c]) {
-                    float left = margin + c * cell;
-                    float top = margin + r * cell;
-                    canvas.drawRect(left, top, left + cell + 0.6f, top + cell + 0.6f, dark);
+        try {
+            com.google.zxing.qrcode.QRCodeWriter writer = new com.google.zxing.qrcode.QRCodeWriter();
+            java.util.Map<com.google.zxing.EncodeHintType, Object> hints = new java.util.EnumMap<>(com.google.zxing.EncodeHintType.class);
+            hints.put(com.google.zxing.EncodeHintType.CHARACTER_SET, "UTF-8");
+            hints.put(com.google.zxing.EncodeHintType.MARGIN, 2);
+            com.google.zxing.common.BitMatrix matrix = writer.encode(text, com.google.zxing.BarcodeFormat.QR_CODE, sizePx, sizePx, hints);
+            Bitmap bmp = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
+            for (int y = 0; y < sizePx; y++) {
+                for (int x = 0; x < sizePx; x++) {
+                    bmp.setPixel(x, y, matrix.get(x, y) ? Color.parseColor("#0F172A") : Color.WHITE);
                 }
             }
+            return bmp;
+        } catch (Exception e) {
+            Bitmap fallback = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888);
+            fallback.eraseColor(Color.WHITE);
+            return fallback;
         }
-        return bmp;
     }
 
-    private static void drawFinderPattern(boolean[][] grid, int ox, int oy) {
-        for (int r = 0; r < 7; r++) {
-            for (int c = 0; c < 7; c++) {
-                boolean border = (r == 0 || r == 6 || c == 0 || c == 6);
-                boolean core = (r >= 2 && r <= 4 && c >= 2 && c <= 4);
-                grid[oy + r][ox + c] = border || core;
+    /**
+     * Offline QR Code & Barcode Decoder using Google ML Kit + ZXing fallback.
+     */
+    public static String decodeQrFromBitmap(Bitmap src) {
+        if (src == null) return "";
+        try {
+            com.google.mlkit.vision.barcode.BarcodeScanner scanner =
+                    com.google.mlkit.vision.barcode.BarcodeScanning.getClient();
+            List<com.google.mlkit.vision.barcode.common.Barcode> codes =
+                    Tasks.await(scanner.process(InputImage.fromBitmap(src, 0)));
+            scanner.close();
+            if (codes != null && !codes.isEmpty()) {
+                StringBuilder sb = new StringBuilder();
+                for (com.google.mlkit.vision.barcode.common.Barcode b : codes) {
+                    if (b.getRawValue() != null) {
+                        if (sb.length() > 0) sb.append("\n");
+                        sb.append(b.getRawValue());
+                    }
+                }
+                if (sb.length() > 0) return sb.toString();
             }
+        } catch (Exception ignored) {}
+
+        // ZXing fallback
+        try {
+            int w = src.getWidth(), h = src.getHeight();
+            int[] px = new int[w * h];
+            src.getPixels(px, 0, w, 0, 0, w, h);
+            com.google.zxing.RGBLuminanceSource source = new com.google.zxing.RGBLuminanceSource(w, h, px);
+            com.google.zxing.BinaryBitmap bmap = new com.google.zxing.BinaryBitmap(new com.google.zxing.common.HybridBinarizer(source));
+            com.google.zxing.Result res = new com.google.zxing.MultiFormatReader().decode(bmap);
+            return res != null && res.getText() != null ? res.getText() : "";
+        } catch (Exception ignored) {
+            return "";
         }
+    }
+
+    /**
+     * Composes 2 or 4 pages onto a single A4 Collage Sheet (1240x1754 px).
+     */
+    public static Bitmap composeCollageSheet(List<Bitmap> pages) {
+        if (pages == null || pages.isEmpty()) return null;
+        int w = 1240, h = 1754;
+        Bitmap out = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
+        Canvas c = new Canvas(out);
+        c.drawColor(Color.WHITE);
+
+        int count = Math.min(4, pages.size());
+        int cols = count <= 2 ? 1 : 2;
+        int rows = count == 1 ? 1 : 2;
+        float pad = 40f;
+        float cellW = (w - pad * (cols + 1)) / cols;
+        float cellH = (h - pad * (rows + 1)) / rows;
+
+        Paint border = new Paint();
+        border.setColor(Color.parseColor("#CBD5E1"));
+        border.setStyle(Paint.Style.STROKE);
+        border.setStrokeWidth(2f);
+        Paint imgPaint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+
+        for (int i = 0; i < count; i++) {
+            Bitmap b = pages.get(i);
+            int col = i % cols;
+            int row = i / cols;
+            float rx = pad + col * (cellW + pad);
+            float ry = pad + row * (cellH + pad);
+            float sc = Math.min(cellW / b.getWidth(), cellH / b.getHeight());
+            float dw = b.getWidth() * sc, dh = b.getHeight() * sc;
+            float dx = rx + (cellW - dw) * 0.5f;
+            float dy = ry + (cellH - dh) * 0.5f;
+            c.drawBitmap(b, null, new RectF(dx, dy, dx + dw, dy + dh), imgPaint);
+            c.drawRect(rx, ry, rx + cellW, ry + cellH, border);
+        }
+        return out;
     }
 
     /**

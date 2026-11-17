@@ -403,10 +403,22 @@
                     android:layout_width="0dp"
                     android:layout_height="34dp"
                     android:layout_weight="1.15"
+                    android:layout_marginEnd="4dp"
                     android:background="@drawable/bg_btn_outline"
                     android:text="📝 Word/CSV"
                     android:textAllCaps="false"
                     android:textColor="#0F172A"
+                    android:textSize="11sp" />
+
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btn_vault_trash"
+                    android:layout_width="0dp"
+                    android:layout_height="34dp"
+                    android:layout_weight="0.95"
+                    android:background="@drawable/bg_btn_outline"
+                    android:text="🗑️ ট্র্যাশ"
+                    android:textAllCaps="false"
+                    android:textColor="#EF4444"
                     android:textSize="11sp" />
             </LinearLayout>
 
